@@ -1,15 +1,15 @@
 import { dispatchGlobalSearchOverlayInteractive } from '@/app/runtime/globalSearchOverlayInteractive';
 
-export type ObserveGlobalSearchOverlayInteractiveInput = {
+type ObserveGlobalSearchOverlayInteractiveInput = {
     onInteractive: () => void;
     isDone: () => boolean;
 };
 
 /** طبقة مفتوحة فقط — لا تُحسب keepWarm المخفية تفاعلاً */
 export const GLOBAL_SEARCH_OPEN_OVERLAY_SELECTOR =
-    '[data-search-open="true"] [data-testid="global-search-overlay"], [data-testid="global-search-overlay"][data-search-open="true"], [data-search-instant-shell="true"]';
+    '[data-search-open="true"] [data-testid="global-search-overlay"], [data-testid="global-search-overlay"][data-search-open="true"]';
 export const GLOBAL_SEARCH_OPEN_INPUT_SELECTOR =
-    '[data-search-open="true"] [data-testid="global-search-input"], [data-search-instant-shell="true"] [data-testid="global-search-input"]';
+    '[data-search-open="true"] [data-testid="global-search-input"]';
 const SHELL_ROOT = '[data-hami-global-search-shell]';
 
 /** مراقبة محدودة لطبقة البحث — بلا document.body (أداء موبايل). */

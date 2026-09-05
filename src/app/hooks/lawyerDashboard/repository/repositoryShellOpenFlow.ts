@@ -12,12 +12,14 @@ import {
     markRepositoryPerfPhase,
 } from '@/app/services/repository/repositoryPerfMetrics';
 import {
-    applyRepositoryOpaqueChrome,
+    applyRepositoryOpenTheme,
     concealRepositoryWarmShell,
     paintRepositoryInstantChrome,
     REPOSITORY_INSTANT_DISMISS_EVENT,
 } from '@/app/runtime/repositoryInstantPaint';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 import {
+    isRepositoryHubModuleResolved,
     loadRepositoryHubModule,
     prefetchRepositoryHubModule,
 } from '@/app/runtime/repositoryHubLoader';
@@ -53,6 +55,7 @@ export type CommitRepositoryCloseParams = {
 };
 
 const REPOSITORY_MODAL_SELECTOR = '[data-testid="smart-repository-modal"]';
+const REPOSITORY_OVERLAY_ENTRY_FAILSAFE_MS = 3_000;
 
 let repositoryOpenLoadSeq = 0;
 let repositoryOpenInFlight = false;
@@ -81,6 +84,45 @@ function bindRepositoryInstantDismissCancel(): void {
     });
 }
 
+function armRepositoryOpenPendingDismiss(cancelled: { current: boolean }): () => void {
+    if (typeof window === 'undefined') {
+        return () => undefined;
+    }
+
+    let disarmed = false;
+    const finish = () => {
+        cancelled.current = true;
+        repositoryOpenInFlight = false;
+        repositoryOpenLoadSeq += 1;
+        concealRepositoryWarmShell();
+        disarm();
+    };
+
+    const onKey = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        finish();
+    };
+
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, finish);
+    const unregisterNativeBack = registerNativeBackHandler(() => {
+        finish();
+        return true;
+    });
+
+    const disarm = () => {
+        if (disarmed) return;
+        disarmed = true;
+        window.removeEventListener('keydown', onKey, true);
+        window.removeEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, finish);
+        unregisterNativeBack();
+    };
+
+    return disarm;
+}
+
 function applyRepositoryOpenState(
     opts: OpenRepositoryShellOptions | undefined,
     setters: Pick<
@@ -106,8 +148,9 @@ function applyRepositoryOpenState(
 }
 
 /**
- * فتح المستودع في نفس النقرة: قشرة فورية + Host.
- * المقطع يُحمَّل بالتوازي — لا ننتظر تسخين الإقلاع.
+ * فتح المستودع: إن كان Host/المقطع جاهزاً يُكشف الحي في نفس النقرة بلا قشرة انتظار.
+ * إن لم يكتمل المقطع: ثيم + قشرة إلغاء فقط حتى يصل الحي — لا flushSync فوق Suspense.
+ * أثناء الانتظار: Escape/Cap/إغلاق القشرة يلغي الفتح.
  */
 export function commitRepositoryOpen({
     userId,
@@ -145,36 +188,84 @@ export function commitRepositoryOpen({
 
     dismissTransientOverlays('repository');
     prefetchRepositoryHubModule();
-    applyRepositoryOpaqueChrome();
+    applyRepositoryOpenTheme();
+
+    const reveal = () => {
+        repositoryOpenInFlight = false;
+
+        flushSync(() => {
+            applyRepositoryOpenState(opts, {
+                armRepositoryHost,
+                setRepositoryTab,
+                setNotepadMode,
+                setFocusNoteId,
+                setVaultOpenScanner,
+                setRepositoryOpenEpoch,
+                setIsRepositoryOpen,
+            });
+            persistRepositorySessionOpen(true, opts?.tab ?? 'notepad');
+        });
+        paintRepositoryInstantChrome();
+        markRepositoryPerfPhase('interactive');
+
+        void loadRepositoryHubModule()
+            .then(() => {
+                void loadRepositoryIntentWarm()
+                    .then((m) => {
+                        void m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad');
+                        void m.warmRepositoryDataCache(userId);
+                    })
+                    .catch(() => undefined);
+            })
+            .catch(() => {
+                onChunkFailed?.();
+            });
+    };
+
+    const hostInDom =
+        typeof document !== 'undefined' && Boolean(document.querySelector(REPOSITORY_MODAL_SELECTOR));
+    const canRevealLive =
+        hostAlreadyMounted || hostInDom || isRepositoryHubModuleResolved();
+
+    if (canRevealLive) {
+        reveal();
+        return;
+    }
+
     paintRepositoryInstantChrome();
+
+    repositoryOpenInFlight = true;
+    const seq = ++repositoryOpenLoadSeq;
+    const cancelled = { current: false };
+    const disarmPending = armRepositoryOpenPendingDismiss(cancelled);
+    let failSafeId = 0;
+    let settled = false;
+    const finishPending = (next: () => void) => {
+        if (failSafeId) {
+            window.clearTimeout(failSafeId);
+            failSafeId = 0;
+        }
+        disarmPending();
+        next();
+    };
+    const revealOnce = () => {
+        if (settled || cancelled.current || seq !== repositoryOpenLoadSeq) return;
+        settled = true;
+        reveal();
+    };
+
+    failSafeId = window.setTimeout(() => {
+        failSafeId = 0;
+        finishPending(revealOnce);
+    }, REPOSITORY_OVERLAY_ENTRY_FAILSAFE_MS);
 
     void loadRepositoryHubModule()
         .then(() => {
-            void loadRepositoryIntentWarm()
-                .then((m) => {
-                    void m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad');
-                    void m.warmRepositoryDataCache(userId);
-                })
-                .catch(() => undefined);
+            finishPending(revealOnce);
         })
         .catch(() => {
-            onChunkFailed?.();
+            finishPending(revealOnce);
         });
-
-    flushSync(() => {
-        applyRepositoryOpenState(opts, {
-            armRepositoryHost,
-            setRepositoryTab,
-            setNotepadMode,
-            setFocusNoteId,
-            setVaultOpenScanner,
-            setRepositoryOpenEpoch,
-            setIsRepositoryOpen,
-        });
-        persistRepositorySessionOpen(true, opts?.tab ?? 'notepad');
-    });
-    paintRepositoryInstantChrome();
-    markRepositoryPerfPhase('interactive');
 }
 
 /** إغلاق المستودع: إخفاء فوري + commit متزامن */

@@ -87,4 +87,29 @@ describe('notificationInstantPaint', () => {
         vi.advanceTimersByTime(NOTIFICATION_DISMISS_UNLOCK_FALLBACK_MS);
         expect(isNotificationDismissLocked()).toBe(false);
     });
+
+    it('يزيل جسر الطلاء بعد استنفاد محاولات التسليم', () => {
+        const pending: FrameRequestCallback[] = [];
+        const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+            pending.push(cb);
+            return pending.length;
+        });
+        const caf = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
+            pending.length = 0;
+        });
+
+        expect(paintNotificationInstantChrome()).toBe(true);
+        expect(document.getElementById('hami-notifications-instant-bridge')).toBeTruthy();
+
+        let guard = 0;
+        while (pending.length > 0 && guard < 200) {
+            guard += 1;
+            const cb = pending.shift();
+            cb?.(guard);
+        }
+
+        expect(document.getElementById('hami-notifications-instant-bridge')).toBeNull();
+        raf.mockRestore();
+        caf.mockRestore();
+    });
 });

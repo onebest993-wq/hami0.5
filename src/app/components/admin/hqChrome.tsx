@@ -44,6 +44,14 @@ export function HqStateBlock({
     detail?: string;
     action?: React.ReactNode;
 }) {
+    if (kind === 'loading') {
+        return (
+            <div className="hq-state" role="status" aria-busy="true" aria-label={title}>
+                <div className="hq-state-bone" aria-hidden />
+                <div className="hq-state-bone" aria-hidden />
+            </div>
+        );
+    }
     return (
         <div className={cn('hq-state', kind === 'error' && 'hq-state-error')} role={kind === 'error' ? 'alert' : undefined}>
             <p className="hq-state-title">{title}</p>

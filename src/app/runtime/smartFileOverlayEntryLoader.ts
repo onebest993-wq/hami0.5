@@ -16,12 +16,6 @@ export function isSmartFileOverlayEntryResolved(): boolean {
     return entryResolved;
 }
 
-/** للاختبارات */
-export function resetSmartFileOverlayEntryCacheForTests(): void {
-    entryPromise = null;
-    entryResolved = false;
-}
-
 function ensureEntryPromise(): Promise<SmartFileOverlayEntryModule> {
     if (!entryPromise) {
         entryPromise = import(
@@ -40,11 +34,19 @@ export const LazySmartFileOverlayEntry = createPreloadableLazyComponent(() =>
     })),
 );
 
+/** للاختبارات */
+export function resetSmartFileOverlayEntryCacheForTests(): void {
+    entryPromise = null;
+    entryResolved = false;
+    LazySmartFileOverlayEntry.resetForTests();
+}
+
 export function prefetchSmartFileOverlayEntry(): void {
     if (typeof window === 'undefined') return;
     void LazySmartFileOverlayEntry.preload();
 }
 
 export function loadSmartFileOverlayEntry(): Promise<SmartFileOverlayEntryModule> {
+    void LazySmartFileOverlayEntry.preload();
     return ensureEntryPromise();
 }

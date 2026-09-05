@@ -47,11 +47,14 @@ describe('execution Phase 3 warm-thin honesty', () => {
         const firstPaint = firstPaintBody(loader);
 
         expect(firstPaint).toContain('prefetchExecutionDashboardPhoneBody');
-        expect(firstPaint).toContain('executionDashboardCoreScopeSourcesBaseLazy');
+        expect(firstPaint).toContain('executionDashboardBaseScopeCache');
+        expect(firstPaint).toContain('loadAndCacheExecutionDashboardBaseScopeBuilder');
+        expect(firstPaint).not.toContain('executionDashboardCoreScopeSourcesBaseLazy');
         expect(firstPaint).toContain('prefetchExecutionDashboardPortal');
         expect(firstPaint).toContain('preloadExecutionDashboardFirstViewportSections');
         expect(firstPaint).toContain('executionDashboardLazyRegistryShell');
         expect(firstPaint).not.toContain('prefetchFollowupMemoPanels');
+        expect(firstPaint).not.toContain('executionDashboardFollowupTabLazy');
         expect(firstPaint).not.toContain('prefetchLawReferencePanel');
         expect(firstPaint).not.toContain('prefetchExecutionFinancialHubPortal');
     });
@@ -68,7 +71,10 @@ describe('execution Phase 3 warm-thin honesty', () => {
         const overlay = read(
             'src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts',
         );
-        expect(overlay).toContain('prefetchFollowupMemoPanels');
+        const followupRuntime = read(
+            'src/app/components/lawyer/ExecutionDashboard/executionFollowupOverlayPrefetchRuntime.ts',
+        );
+        expect(followupRuntime).toContain('prefetchFollowupMemoPanels');
         expect(overlay).toContain("case 'finance':");
         expect(overlay).toContain('prefetchExecutionFinancialHubPortal');
         expect(overlay).toContain("case 'law':");

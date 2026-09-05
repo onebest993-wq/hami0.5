@@ -276,7 +276,7 @@ self.addEventListener('push', (event) => {
                 tag: data.tag,
                 data: data.data,
                 silent: !soundOn,
-                vibrate: soundOn && prefs?.vibrateMaster !== false ? [200, 100, 200] : undefined,
+                vibrate: soundOn && prefs?.vibrateMaster !== false ? [180, 90, 180, 90, 320] : undefined,
                 requireInteraction: false,
                 actions: [
                     { action: 'open', title: 'فتح' },

@@ -12,6 +12,7 @@ import {
 } from '@/app/components/admin/hqLiveOverview';
 import { peekPrimedHeadquartersStatus } from '@/app/services/admin/hqDevSessionPrime';
 import { isHqAbortError } from '@/app/domain/admin/hqSafeText';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 
 export type { HeadquartersLiveStatus };
 
@@ -114,29 +115,22 @@ export function useHeadquartersStatus(opts?: { skipFetch?: boolean }): Headquart
         } else {
             void refresh('poll');
         }
-        const timer = window.setInterval(() => {
-            if (document.visibilityState === 'hidden') return;
-            if (sessionDeniedRef.current) return;
-            void refresh('poll');
-        }, POLL_MS);
-        const onVis = () => {
-            if (sessionDeniedRef.current) return;
-            if (document.visibilityState === 'visible') void refresh('poll');
-        };
         const onMutate = () => {
             void refresh('fresh');
         };
-        document.addEventListener('visibilitychange', onVis);
         window.addEventListener(HQ_STATUS_REFRESH_EVENT, onMutate);
         return () => {
             abortRef.current?.abort();
             abortRef.current = null;
             inflightRef.current = false;
-            window.clearInterval(timer);
-            document.removeEventListener('visibilitychange', onVis);
             window.removeEventListener(HQ_STATUS_REFRESH_EVENT, onMutate);
         };
     }, [refresh, skipFetch]);
+
+    useVisibilityAwareInterval(() => {
+        if (sessionDeniedRef.current) return;
+        void refresh('poll');
+    }, POLL_MS, !skipFetch);
 
     return status;
 }

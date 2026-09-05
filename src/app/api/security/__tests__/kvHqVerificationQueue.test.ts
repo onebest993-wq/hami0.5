@@ -1,28 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { rangeMock } = vi.hoisted(() => ({
+const { rangeMock, boundsMock } = vi.hoisted(() => ({
     rangeMock: vi.fn(),
+    boundsMock: vi.fn(),
 }));
 
-vi.mock('../supabaseAdminClient.ts', () => ({
-    getSupabaseAdminClient: () => ({
-        from: () => ({
-            select: () => ({
-                like: () => ({
-                    order: () => ({
-                        range: (...args: unknown[]) => rangeMock(...args),
-                    }),
-                }),
-            }),
+/*
+ * القناع يحاكي سلسلة Supabase الفعلية: المسح يجري بمدى `gte/lt` على المفتاح
+ * لا بـ `like`، حتى لا يصبح `%` أو `_` داخل المعرّف حرفاً عامّاً.
+ */
+vi.mock('../supabaseAdminClient.ts', () => {
+    const builder = {
+        gte: (column: string, value: string) => {
+            boundsMock('gte', column, value);
+            return builder;
+        },
+        lt: (column: string, value: string) => {
+            boundsMock('lt', column, value);
+            return builder;
+        },
+        order: () => ({
+            range: (...args: unknown[]) => rangeMock(...args),
         }),
-    }),
-}));
+    };
+    return {
+        getSupabaseAdminClient: () => ({
+            from: () => ({ select: () => builder }),
+        }),
+    };
+});
 
 import { kvReadHqVerificationQueueByPrefix } from '../kvStoreAdmin.ts';
 
 describe('kvReadHqVerificationQueueByPrefix', () => {
     beforeEach(() => {
         rangeMock.mockReset();
+        boundsMock.mockReset();
     });
 
     it('يستخرج userId من المفتاح ويتجاهل صفوفاً بلا هوية مفتاح', async () => {
@@ -72,5 +85,14 @@ describe('kvReadHqVerificationQueueByPrefix', () => {
         });
         const { rows } = await kvReadHqVerificationQueueByPrefix('lawyer-verification:');
         expect(rows.map((row) => row.userId.slice(-1))).toEqual(['1', '2', '3']);
+    });
+
+    it('يمسح البادئة بمدى على المفتاح لا بـ LIKE', async () => {
+        rangeMock.mockResolvedValue({ data: [], error: null });
+        await kvReadHqVerificationQueueByPrefix('lawyer-verification:');
+        expect(boundsMock.mock.calls).toEqual([
+            ['gte', 'key', 'lawyer-verification:'],
+            ['lt', 'key', 'lawyer-verification:\uffff'],
+        ]);
     });
 });

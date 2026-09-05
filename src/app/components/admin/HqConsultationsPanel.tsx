@@ -161,7 +161,7 @@ export function HqConsultationsPanel({
 
             <div className="space-y-3">
                 {loading ? (
-                    <HqStateBlock kind="loading" title="جاري التحميل..." />
+                    <HqStateBlock kind="loading" title="المنشورات" />
                 ) : loadError || failed ? (
                     <HqStateBlock
                         kind="error"

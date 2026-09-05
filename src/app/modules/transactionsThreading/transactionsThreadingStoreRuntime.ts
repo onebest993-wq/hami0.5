@@ -3,13 +3,17 @@ import { PersistentTransactionsThreadingRepository } from './persistentRepositor
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 import { TransactionsThreadingService } from './service';
 import { peekTransactionsThreadingState } from '@/app/services/transactions/transactionsThreadingMirror';
+import {
+    registerTransactionsThreadingDumpListener,
+    type ThreadingLiveDump,
+} from '@/app/services/transactions/transactionsThreadingDumpBridge';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     groupThreadingSeedForStore,
     type ThreadingRepositorySeed,
 } from './transactionsThreadingStoreSeed';
 
-export type TransactionsThreadingStoreSlice = {
+type TransactionsThreadingStoreSlice = {
     userId: string | null;
     transactions: Transaction[];
     tasksByTransactionId: Record<string, TransactionTask[]>;
@@ -19,7 +23,6 @@ export type TransactionsThreadingStoreSlice = {
 export let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRepository({
     transactions: [],
     tasks: [],
-    financeRecords: [],
     documents: [],
 });
 export let service = new TransactionsThreadingService(repo);
@@ -55,7 +58,6 @@ function reseedStoreFromMirrorIfEmpty(userId: string): void {
     const seed: ThreadingRepositorySeed = {
         transactions: mirrored.transactions as Transaction[],
         tasks: mirrored.tasks as TransactionTask[],
-        financeRecords: [],
         documents: mirrored.documents as TransactionDocument[],
     };
     repo = new PersistentTransactionsThreadingRepository(userId, seed);
@@ -81,7 +83,6 @@ export function bindTransactionsUser(next: string): void {
         ? {
               transactions: mirrored.transactions as Transaction[],
               tasks: mirrored.tasks as TransactionTask[],
-              financeRecords: [],
               documents: mirrored.documents as TransactionDocument[],
           }
         : undefined;
@@ -119,3 +120,31 @@ export function syncThreadingToCalendar(): void {
         .then((m) => m.bumpThreadingCalendarSync(lawyerId))
         .catch(() => undefined);
 }
+
+function asSeed(dump: ThreadingLiveDump): ThreadingRepositorySeed {
+    return {
+        transactions: dump.transactions as Transaction[],
+        tasks: dump.tasks as TransactionTask[],
+        documents: dump.documents as TransactionDocument[],
+    };
+}
+
+function applyLiveThreadingDump(userId: string, dump: ThreadingLiveDump): void {
+    if (boundUserId !== userId) return;
+    const seed = asSeed(dump);
+    if (repo instanceof PersistentTransactionsThreadingRepository) {
+        repo.applyDump(seed);
+    } else {
+        repo = new PersistentTransactionsThreadingRepository(userId, seed);
+        service = new TransactionsThreadingService(repo);
+    }
+    const grouped = groupThreadingSeedForStore(seed);
+    patchStore?.({
+        userId,
+        transactions: grouped.transactions,
+        tasksByTransactionId: grouped.tasksByTransactionId,
+        documentsByTransactionId: grouped.documentsByTransactionId,
+    });
+}
+
+registerTransactionsThreadingDumpListener(applyLiveThreadingDump);

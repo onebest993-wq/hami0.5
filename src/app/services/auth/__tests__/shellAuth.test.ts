@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
-import { clearExplicitDevUnlock, markExplicitDevUnlock } from '@/app/services/auth/devUnlockSession';
+import { clearExplicitDevUnlock, markExplicitDevUnlock, DEV_UNLOCK_LAWYER_ID } from '@/app/services/auth/devUnlockSession';
 import {
     hasLocalAppSession,
     isRealSignedIn,
@@ -56,11 +56,21 @@ describe('shellAuth', () => {
         expect(isShellAuthBypassed()).toBe(false);
     });
 
-    it('isShellAuthBypassed stays closed when flag unset (dev and prod)', () => {
+    it('isShellAuthBypassed opens in local Vite development when flag unset', () => {
         vi.stubEnv('MODE', 'development');
         vi.stubEnv('PROD', 'false');
         vi.stubEnv('DEV', 'true');
         vi.stubEnv('VITE_SHELL_AUTH_OPEN', '');
+        expect(isShellAuthBypassed()).toBe(true);
+        expect(isRealSignedIn(null)).toBe(true);
+        expect(resolveShellAuthUserId(null, null)).toBe(DEV_UNLOCK_LAWYER_ID);
+    });
+
+    it('isShellAuthBypassed stays closed in development when flag is false', () => {
+        vi.stubEnv('MODE', 'development');
+        vi.stubEnv('PROD', 'false');
+        vi.stubEnv('DEV', 'true');
+        vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'false');
         expect(isShellAuthBypassed()).toBe(false);
         expect(isRealSignedIn(null)).toBe(false);
         expect(resolveShellAuthUserId(null, null)).toBeNull();

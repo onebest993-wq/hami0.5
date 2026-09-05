@@ -18,14 +18,21 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(overlay).toContain('SecureStoreService');
     });
 
-    it('التقويم يحفظ محلياً ثم KV + شواهد الحذف', () => {
+    it('التقويم محلي مشفّر — بلا KV وبلا شواهد سحابية', () => {
         const calendar = read('src/app/services/cloud/lawyerCalendarCloud.ts');
-        expect(calendar).toContain('lawyerCloudKv');
-        expect(calendar).toContain('calendar:${event.userId}:${event.id}');
         expect(calendar).toContain('calendarTombstones');
-        expect(calendar).toContain('isLawyerWorkCloudLive');
+        expect(calendar).toContain('setItemSync(CALENDAR_LOCAL_KEY');
+        expect(calendar).not.toContain('lawyerCloudKv');
+        expect(calendar).not.toContain('isLawyerWorkCloudLive');
+        expect(calendar).not.toContain('fetchPrefixOnceInTick');
+        expect(calendar).not.toContain('/api/');
         expect(calendar).not.toContain('/api/forum/');
         expect(calendar).not.toContain('/api/comms-dispatcher');
+        const tomb = read('src/app/services/calendarTombstones.ts');
+        expect(tomb).not.toContain('SecureAPIClient');
+        expect(tomb).not.toContain('/api/calendar/tombstones');
+        expect(tomb).not.toContain('isLawyerWorkCloudLive');
+        expect(tomb).toContain('CALENDAR_TOMBSTONES_STORAGE_KEY');
     });
 
     it('المعاملات تحفظ عبر kv-proxy لا المنتدى', () => {
@@ -49,19 +56,38 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(svc).not.toContain('/api/forum/');
     });
 
-    it('الإعدادات ترفع اللقطة عبر cloud-sync', () => {
+    it('الإعدادات محلية — الشبكة لمزامنة الإضابير فقط لا لقطة التفضيلات', () => {
+        const hydration = read('src/app/context/lawyerSettings/useLawyerSettingsHydration.ts');
+        expect(hydration).not.toContain('loadFromCloud');
+        expect(hydration).not.toContain('applyAppData');
+        expect(hydration).not.toContain('saveToCloud');
+        expect(hydration).not.toContain('migrateLegacyDevUserCloudData');
+        expect(hydration).not.toContain('syncService');
+        expect(hydration).toContain('loadInitialSettingsAsync');
+        const provider = read('src/app/context/lawyerSettings/LawyerSettingsProvider.tsx');
+        expect(provider).not.toContain('useLawyerSettingsCloudSync');
+        expect(provider).toContain('useAutoSave(');
+        expect(provider).toContain("'lawyer_settings'");
+        const toggle = read('src/app/components/lawyer/HamiSettings/data/dataCloudSyncToggle.ts');
+        expect(toggle).not.toContain('saveToCloud');
+        expect(toggle).not.toContain('loadFromCloud');
+        expect(toggle).not.toContain('applyAppData');
+        expect(toggle).not.toContain('collectAppData');
+        expect(toggle).toContain('runCloudSyncAllNow');
+        expect(toggle).toContain('restoreLastWorkCloudCheckpoint');
         const sync = read('src/lib/syncService.js');
         expect(sync).toContain('/api/settings/cloud-sync');
-        const hook = read('src/app/context/lawyerSettings/useLawyerSettingsCloudSync.ts');
-        expect(hook).toContain('saveToCloud');
-        expect(hook).toContain('isLocalOnlyModeEnabled');
     });
 
-    it('المهام الميدانية تُحفظ محلياً؛ طلب العون شبكة منفصلة', () => {
+    it('المهام الميدانية تُحفظ محلياً؛ طلب العون شبكة تعاون لا مزامنة إضابير', () => {
         const persist = read('src/app/services/calendar/bridgePersistence/shared.ts');
         expect(persist).toContain('QUANTUM_TASKS_STORAGE_KEY');
+        expect(persist).toContain('persistQuantumTasksSync');
         const help = read('src/app/services/taskHelp/taskHelpApiService.ts');
         expect(help).toContain('/api/task-help/');
+        expect(help).toContain('canReachTaskHelpNetwork');
+        expect(help).toContain('canReachCollaborationNetwork');
+        expect(help).not.toContain('isLawyerWorkCloudLive');
         const inbox = read(
             'src/app/components/lawyer/dashboard/tasksManager/TaskHelpInboxPanel.tsx',
         );
@@ -72,8 +98,10 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         const kv = read('src/app/services/cloud/lawyerCloudKv.ts');
         expect(kv).toContain('isWorkLocalKvMaterial');
         expect(kv).toContain('isLawyerWorkCloudLive');
+        expect(kv).toContain('isCalendarNeverCloudKvMaterial');
         const gate = read('src/app/services/settings/lawyerWorkCloudGate.ts');
         expect(gate).toContain('calendar:');
+        expect(gate).toContain('isCalendarNeverCloudKvMaterial');
         expect(gate).toContain('transactions:');
         expect(gate).toContain('vault:docs:');
         expect(gate).toContain('repository:docs:');
@@ -91,7 +119,9 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(lawyerDb).toContain('deadlines');
         expect(lawyerDb).not.toContain(': any');
         const repoSync = read('src/app/components/lawyer/CommunityScreen/legalRepositoryCloudSync.ts');
-        expect(repoSync).toContain('isLawyerWorkCloudLive');
+        expect(repoSync).not.toContain('isLawyerWorkCloudLive');
+        expect(repoSync).toContain('uploadSmartFile');
+        expect(repoSync).toContain("'repository'");
         const storage = read('src/app/services/storage/lawyerStorageRuntime.ts');
         expect(storage).toContain('WORK_LOCAL_UPLOAD_CATEGORIES');
         expect(storage).toContain("'vault'");
@@ -105,13 +135,15 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         const csrf = read('src/app/security/ensureCsrfSessionReady.ts');
         expect(csrf).toContain('wasCsrfServerSessionEstablished');
         const tomb = read('src/app/services/calendarTombstones.ts');
-        expect(tomb).toContain('isLawyerWorkCloudLive');
+        expect(tomb).not.toContain('isLawyerWorkCloudLive');
+        expect(tomb).not.toContain('SecureAPIClient');
         const vault = read('src/app/services/vault/smartVaultRuntime.ts');
         expect(vault).toContain('isLawyerWorkCloudLive');
-        const repo = read('src/app/services/lawyer-cloud.ts');
+        const repo = read('src/app/services/cloud/lawyerRepositoryCloud.ts');
         expect(repo).toContain('isLawyerWorkCloudLive');
         expect(repo).toContain('repository:docs:${uid}:');
         expect(repo).toContain('repositoryCloudDocKey');
+        expect(repo).toContain('sealWorkCloudKvValue');
         expect(repo).not.toContain("getByPrefix('repository:docs:')");
         const init = read('src/app/security/SecurityInitializer.tsx');
         expect(init).not.toContain('void ensureCsrfSessionReady();');
@@ -141,6 +173,9 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(checkpoint).toContain('isLawyerWorkCloudLive');
         expect(checkpoint).toContain('TextEncoder');
         expect(checkpoint).toContain('cancelScheduledWorkCloudCheckpoint');
+        expect(checkpoint).toContain('collectCalendarCheckpointSlice');
+        expect(checkpoint).toContain('calendarTombstones');
+        expect(checkpoint).toContain('hasLocalWorkDossiers');
         expect(checkpoint).not.toMatch(/json\.length\s*>\s*MAX_PLAINTEXT/);
         const checkpointRoute = read('src/app/api/work-checkpoints/route.ts');
         expect(checkpointRoute).toContain('requireWifeCloudWrite');
@@ -152,8 +187,16 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         );
         const runAll = read('src/app/services/cloudSync/runCloudSyncAllNow.ts');
         expect(runAll).toContain('pushWorkCloudCheckpointNow');
+        expect(runAll).toContain('await pushWorkCloudCheckpointNow()');
+        expect(runAll).toContain('WorkCloudCheckpointPushResult');
+        expect(runAll).toContain('checkpoint.failed');
+        expect(runAll).not.toContain('checkpointFailed');
+        expect(runAll).toContain('pushCalendarCheckpointWhenBucketsEmpty');
+        const toggle = read('src/app/components/lawyer/HamiSettings/data/dataCloudSyncToggle.ts');
+        expect(toggle).toContain('await restoreLastWorkCloudCheckpoint');
         const wipeCloud = read('src/app/api/settings/wipe/wipeAuthenticatedUserCloud.ts');
         expect(wipeCloud).toContain('lawyer_work_checkpoints');
+        expect(wipeCloud).toContain('forum_repository_docs');
         expect(wipeCloud).not.toContain('from?.(');
         const wipeFn = wipeCloud.slice(wipeCloud.indexOf('export async function wipeAuthenticatedUserCloud'));
         const wipeErrReturn = wipeFn.indexOf("code: 'WIPE_DATABASE_FAILED'");
@@ -284,7 +327,7 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
 
         const calendar = read('src/app/services/cloud/lawyerCalendarCloud.ts');
         expect(calendar).not.toContain('ensurePersistedReady');
-        expect(calendar).toContain('isLawyerWorkCloudLive()');
+        expect(calendar).not.toContain('isLawyerWorkCloudLive');
         expect(calendar).toContain('setItemSync(CALENDAR_LOCAL_KEY');
 
         const recovery = read('src/app/domain/lawsuit/lawsuitWorkspaceRecovery.ts');

@@ -1,4 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     consumeNativeBackForTests,
     registerNativeBackHandler,
@@ -38,5 +40,17 @@ describe('registerNativeBackHandler LIFO stack', () => {
         unregister();
         expect(consumeNativeBackForTests()).toBe(false);
         expect(handler).not.toHaveBeenCalled();
+    });
+});
+
+describe('wireCapacitorAppLifecycle', () => {
+    it('يرفض الربط المزدوج في المصدر — الإقلاع ينادي الغلاف مرتين', () => {
+        const src = fs.readFileSync(
+            path.join(process.cwd(), 'src/app/runtime/capacitorAppLifecycle.ts'),
+            'utf8',
+        );
+        expect(src).toContain('if (wired) return');
+        expect(src).toContain('wired = true');
+        expect(src).toContain('resetCapacitorAppLifecycleForTests');
     });
 });

@@ -5,6 +5,7 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { ShareScope, TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { clampTaskText, MAX_HELP_NOTE_LENGTH } from '@/app/services/tasks/taskInputGuard';
+import { canReachCollaborationNetwork } from '@/app/services/settings/collaborationNetworkGate';
 
 export type RequestTaskHelpParams = {
     taskId: string;
@@ -66,7 +67,7 @@ export async function executeRequestTaskHelp(
         note: safeNote || undefined,
     });
 
-    if (params.scope === 'PUBLIC_FORUM') {
+    if (params.scope === 'PUBLIC_FORUM' && canReachCollaborationNetwork()) {
         try {
             const { ForumApiService } = await import('@/app/services/forumApiService');
             const nowIso = new Date().toISOString();

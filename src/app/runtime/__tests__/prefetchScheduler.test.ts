@@ -15,6 +15,16 @@ describe('PrefetchScheduler intent-only', () => {
         vi.resetModules();
     });
 
+    it('prefetchOnIntent يشغّل loader حتى في بيئة الاختبار (DEV)', async () => {
+        const loader = vi.fn(() => Promise.resolve());
+        const { PrefetchScheduler } = await import('../prefetchScheduler');
+        PrefetchScheduler.reset();
+        PrefetchScheduler.prefetchOnIntent({ id: 'dev-intent-warm', loader });
+        await vi.waitFor(() => {
+            expect(loader).toHaveBeenCalledTimes(1);
+        });
+    });
+
     it('enqueueWave لا يشغّل loaders', async () => {
         const loader = vi.fn(() => Promise.resolve());
         const { PrefetchScheduler } = await import('../prefetchScheduler');

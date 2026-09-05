@@ -23,7 +23,7 @@ import { sentryCaptureException } from '@/app/observability/sentryClient';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
-    fallback?: ReactNode;
+    fallback?: ReactNode | ((helpers: { resetErrorBoundary: () => void; error: Error | null }) => ReactNode);
     onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
@@ -96,6 +96,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         if (this.state.hasError) {
             // Custom fallback UI
             if (this.props.fallback) {
+                if (typeof this.props.fallback === 'function') {
+                    return this.props.fallback({
+                        resetErrorBoundary: this.handleReset,
+                        error: this.state.error,
+                    });
+                }
                 return this.props.fallback;
             }
 

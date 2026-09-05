@@ -29,6 +29,13 @@ export function unreadCountOf(list: NotificationModel[]): number {
     return unread;
 }
 
+export function applyKeptReadFlags(
+    latest: NotificationModel[],
+    keepRead: (n: NotificationModel) => boolean,
+): NotificationModel[] {
+    return latest.map((n) => (keepRead(n) && !n.isRead ? { ...n, isRead: true } : n));
+}
+
 export function applyUpsertsToList(
     current: NotificationModel[],
     incoming: NotificationModel[],

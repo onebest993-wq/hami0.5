@@ -14,6 +14,12 @@ vi.mock('@/app/services/calendar/calendarCloudLoader', () => ({
 
 vi.mock('@/app/services/calendar/calendarEventsWarm', () => ({
     warmCalendarEventsCache: (...args: unknown[]) => warmCalendarEventsCache(...args),
+    primeCalendarEventsCacheFromPeek: vi.fn(() => false),
+    drainCalendarLegacyMirrorsWhenIdle: vi.fn(),
+}));
+
+vi.mock('@/app/components/lawyer/dashboard/schedule/prefetchRadarEventForm', () => ({
+    prefetchRadarEventForm: vi.fn(),
 }));
 
 describe('scheduleWarmCore', () => {

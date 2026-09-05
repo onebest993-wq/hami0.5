@@ -3,6 +3,7 @@
  */
 import { canPersistExecutorRequestKind } from './executionDomainIsolationGates';
 import {
+    isAdminRequestsTabGate,
     isCommunicationJournalTitle,
     type ExecutionDomainContext,
     type ExecutorRequestKind,
@@ -65,10 +66,12 @@ export function isDecisionVisibleInDomainContext(
     if (requestKind) {
         if (requestKind === 'special_followup') {
             const title = String(row.title || '').trim();
+            const payloadJson = String(row.payloadJson || '').trim();
             if (
                 isCommunicationJournalTitle(title) ||
                 /تحرك\s*الطرف\s*الآخر/i.test(title) ||
-                String(row.appealRequestOrigin || '').trim() === 'debtor_side'
+                String(row.appealRequestOrigin || '').trim() === 'debtor_side' ||
+                isAdminRequestsTabGate({ decisionTitle: title, payloadJson })
             ) {
                 return isDecisionAllowedForPerspective(ctx, row);
             }

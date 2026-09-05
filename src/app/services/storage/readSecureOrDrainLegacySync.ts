@@ -31,7 +31,8 @@ export function writeSecureAndClearLegacySync(key: string, payload: string): voi
     try {
         SecureStoreService.setItemSync(key, payload);
     } catch {
-        /* الحارس قد يرفض — الأصل يبقى */
+        /* الحارس أو التشفير رفض — لا تُمحى مرآة leftover فوق فشل الكتابة */
+        return;
     }
     clearLegacyPlaintextMirror(key);
 }

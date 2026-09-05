@@ -166,5 +166,9 @@ describe('رؤية سقوط التشفير بسبب الحجم', () => {
         expect(fallsBackToPlaintextBySize('hami:auth:lawyer-verification:v1', over)).toBe(false);
         expect(shouldEncryptValue('hami:home-hub-radar-dismissed:v1:lawyer-1', over)).toBe(true);
         expect([...PROTECTED_WARM_KEYS]).not.toContain('hami:auth:lawyer-verification:v1');
+        expect(isWarmEncryptAlwaysKey('hami_task_help_requests_v1')).toBe(true);
+        expect(fallsBackToPlaintextBySize('hami_task_help_requests_v1', over)).toBe(false);
+        expect(shouldEncryptValue('hami_task_help_requests_v1', over)).toBe(true);
+        expect([...PROTECTED_WARM_KEYS]).not.toContain('hami_task_help_requests_v1');
     });
 });

@@ -230,4 +230,25 @@ describe('useLawyerDashboardGlobalSearch', () => {
         expect(result.current.showGlobalSearch).toBe(false);
         expect(result.current.searchHostMounted).toBe(false);
     });
+
+    it('يغلق البحث عند تبديل حساب وهو مفتوح', async () => {
+        const { result, rerender } = renderHook(
+            ({ userId }: { userId: string }) => useLawyerDashboardGlobalSearch({ userId }),
+            { initialProps: { userId: 'lawyer-1' } },
+        );
+
+        await act(async () => {
+            result.current.openGlobalSearch();
+            await Promise.resolve();
+        });
+        expect(result.current.showGlobalSearch).toBe(true);
+
+        await act(async () => {
+            rerender({ userId: 'lawyer-2' });
+        });
+
+        expect(result.current.showGlobalSearch).toBe(false);
+        expect(result.current.searchHostMounted).toBe(false);
+        expect(result.current.globalSearchInitialQuery).toBe('');
+    });
 });

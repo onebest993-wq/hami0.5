@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { sanitizeTransactionsThreadingSaveInput } from '@/app/services/transactions/sanitizeTransactionsThreadingPersist';
-import { TransactionStatus, TransactionTaskStatus, FinanceRecordType } from '@/app/modules/transactionsThreading/types';
+import { TransactionStatus, TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 
 describe('sanitizeTransactionsThreadingSaveInput', () => {
-    it('يعقّم الحقول النصية ويفرغ المالية المهجورة قبل Persist', () => {
+    it('يعقّم الحقول النصية ولا يكتب حقولاً مالية مهجورة', () => {
         const state = sanitizeTransactionsThreadingSaveInput('u1', {
             transactions: [
                 {
@@ -12,7 +12,6 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
                     clientName: '  موكل  ',
                     targetDepartment: '  دائرة  ',
                     status: TransactionStatus.Active,
-                    agreedFees: 5000,
                     createdAt: '2026-01-01T00:00:00.000Z',
                     updatedAt: '2026-01-01T00:00:00.000Z',
                 },
@@ -31,16 +30,6 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
                     completedAt: null,
                 },
             ],
-            financeRecords: [
-                {
-                    id: 'f1',
-                    transactionId: 'tx-1',
-                    type: FinanceRecordType.Expense,
-                    amount: 10.456,
-                    description: '  وصف\u0000  ',
-                    date: '2026-01-01T00:00:00.000Z',
-                },
-            ],
             documents: [
                 {
                     id: 'd1',
@@ -55,10 +44,10 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
 
         expect(state.userId).toBe('u1');
         expect(state.transactions[0]?.title).toBe('عنوان');
-        expect(state.transactions[0]?.agreedFees).toBe(0);
+        expect(state.transactions[0]).not.toHaveProperty('agreedFees');
         expect(state.tasks[0]?.title).toBe('مهمة');
         expect(state.tasks[0]?.officialReference).toBe('رف');
-        expect(state.financeRecords).toEqual([]);
+        expect(state).not.toHaveProperty('financeRecords');
         expect(state.documents[0]?.title).toBe('مستمسك');
         expect(state.documents[0]?.type).toBe('نوع');
     });
@@ -79,7 +68,6 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
                 } as never,
             ],
             tasks: [],
-            financeRecords: [],
             documents: [
                 {
                     id: 'd1',
@@ -92,8 +80,8 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
             ],
         });
         expect(state.transactions[0]).not.toHaveProperty('secret');
-        expect(state.transactions[0]?.agreedFees).toBe(0);
+        expect(state.transactions[0]).not.toHaveProperty('agreedFees');
         expect(state.documents[0]?.ownerTag).toBe('أخرى');
-        expect(state.financeRecords).toEqual([]);
+        expect(state).not.toHaveProperty('financeRecords');
     });
 });

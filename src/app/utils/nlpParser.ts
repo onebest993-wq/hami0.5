@@ -1,6 +1,9 @@
 /**
  * Phase 29–31 — محرك NLP للمهام القانونية: قواعد تطابق عربية صريحة (بدون بيانات وهمية).
  */
+import { addDays, startOfLocalDay } from '@/app/utils/localDay';
+
+export { addDays, startOfLocalDay };
 
 export const IRAQI_LEGAL_LOCATIONS = [
     'محكمة الكرخ',
@@ -18,19 +21,6 @@ export type ParsedTaskInput = {
     isFatalDeadline: boolean;
     linkedCaseId: string | null;
 };
-
-export function addDays(base: Date, days: number): Date {
-    const d = new Date(base);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + days);
-    return d;
-}
-
-export function startOfLocalDay(d: Date = new Date()): Date {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-}
 
 export function isSameLocalDay(a: Date, b: Date): boolean {
     return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime();

@@ -39,8 +39,9 @@ describe('home boot layout stability', () => {
         expect(gate).toContain('idempotent');
         const announce = readFileSync(join(root, 'src/app/bootstrap/homeMainGridPaintAnnounce.ts'), 'utf8');
         expect(announce).toContain('isHomeGridRevealReady');
-        expect(announce).toContain('isLiveHubPaintWorthy');
         expect(announce).toContain('isHubChromePaintWorthy');
+        expect(announce).toContain('isLiveHubPaintWorthy');
+        expect(announce).toContain('if (!isHubChromePaintWorthy(grid))');
         expect(announce).toContain("from '@/app/bootstrap/bootWorthySurface'");
         expect(announce).not.toContain('if (!live && !skeleton) return true');
         expect(announce).toContain('bindHomeIdentityChromeReady');
@@ -116,8 +117,9 @@ describe('home boot layout stability', () => {
         expect(chrome).not.toContain('await kickHomeHubRadarWarm');
         expect(chrome).not.toContain('kickHomeHubCardModule');
         expect(chrome).toMatch(
-            /Promise\.all\(\[\s*loadHomeTabContent\(\)\.catch\(\(\) => undefined\),\s*loadCommandHubTiles\(\)\.catch\(\(\) => undefined\),\s*loadLawyerHomeHubCardModule/,
+            /Promise\.all\(\[\s*loadHomeTabContent\(\)\.catch\(\(\) => undefined\),\s*loadCommandHubTiles\(\)\.catch\(\(\) => undefined\),\s*\]\)/,
         );
+        expect(chrome).toContain('void loadLawyerHomeHubCardModule()');
         expect(chrome).toContain("import('@/app/services/profile/resolveProfileAvatarDisplaySrc')");
         expect(chrome).not.toContain('await avatarMod.resolveProfileAvatarDisplaySrc');
         expect(chromePrepare).toContain('Promise.all([');

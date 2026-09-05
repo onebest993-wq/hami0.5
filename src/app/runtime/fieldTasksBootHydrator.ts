@@ -11,30 +11,49 @@ let bootHydratorArmed = false;
 let hydrateInflight: Promise<boolean> | null = null;
 let coldBootPrefetchStarted = false;
 
-function fieldTasksPrefetchAllowed(): boolean {
+function fieldTasksBackgroundPrefetchAllowed(): boolean {
     return isSectionBackgroundPrefetchAllowed();
 }
 
+/** كِسرة الستارة بعد أول إطار — lite محلي؛ الشبكة البطيئة تُحجب. */
+function fieldTasksLiteSheetPrefetchAllowed(): boolean {
+    return isSectionBackgroundPrefetchAllowed({ allowOnLite: true, allowOnLocalOnly: true });
+}
+
 function hydrateDelayMs(): number {
-    if (!fieldTasksPrefetchAllowed()) return -1;
+    if (!fieldTasksBackgroundPrefetchAllowed()) return -1;
     return 0;
+}
+
+function scheduleCurtainPeekAfterFirstPaint(): void {
+    void import('@/app/utils/quantumTasksCurtainPeek')
+        .then((m) => {
+            m.publishFieldTasksCurtainPeekFromDiskSync();
+            m.scheduleFieldTasksCurtainPeekFromSecureStore();
+        })
+        .catch(() => undefined);
 }
 
 function warmFieldTasksBootPrefetch(): void {
     void import('@/app/utils/quantumTasksStorage')
         .then((m) => m.warmQuantumTasksDiskRead())
         .catch(() => undefined);
-    prefetchFieldTasksSheetModule();
-    void hydrateFieldTasksShellForInstantOpen(false);
+    if (fieldTasksLiteSheetPrefetchAllowed()) {
+        prefetchFieldTasksSheetModule();
+    }
+    if (fieldTasksBackgroundPrefetchAllowed()) {
+        void hydrateFieldTasksShellForInstantOpen(false);
+    }
 }
 
 /**
- * تسخين فوري بعد boot-reveal — قبل نقرة «مهام».
+ * بعد boot-reveal — ليس أول إطار للمنزل.
+ * فكّ مفتاح المهام محلياً؛ كِسرة الستارة إن سُمح؛ hydrate فقط خارج lite.
  */
 export function prefetchFieldTasksAfterBootReveal(): void {
     if (typeof window === 'undefined' || coldBootPrefetchStarted) return;
-    if (!fieldTasksPrefetchAllowed()) return;
     coldBootPrefetchStarted = true;
+    scheduleCurtainPeekAfterFirstPaint();
     warmFieldTasksBootPrefetch();
 }
 
@@ -43,7 +62,7 @@ export function prefetchFieldTasksAfterBootReveal(): void {
  * @param force يتجاوز تعطيل prefetch عند فتح المستخدم.
  */
 export function hydrateFieldTasksShellForInstantOpen(force = false): Promise<boolean> {
-    if (!force && !fieldTasksPrefetchAllowed()) return Promise.resolve(false);
+    if (!force && !fieldTasksBackgroundPrefetchAllowed()) return Promise.resolve(false);
     if (isFieldTasksSheetModuleResolved()) {
         return Promise.resolve(true);
     }

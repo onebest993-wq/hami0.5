@@ -17,6 +17,8 @@ export const LAWYER_FIELD_TASKS_SURFACE_KEY = 'hami:lawyer-field-tasks-surface';
 /** فتح صندوق طلبات المساعدة بعد فتح مدير المهام (من تنبيه تعارض التقويم) */
 export const LAWYER_TASKS_HELP_INBOX_KEY = 'hami:lawyer-tasks-help-inbox';
 export const HAMI_OPEN_TASKS_HELP_INBOX_EVENT = 'hami:open-tasks-help-inbox';
+/** فتح مدير المهام (اختياري: تركيز مهمة) من خارج قشرة الميدان */
+export const HAMI_OPEN_TASKS_MANAGER_EVENT = 'hami:open-tasks-manager';
 /** استعادة لوحة الإشعارات بعد إعادة التحميل — لمراجعة أول فتح بارد */
 export const LAWYER_NOTIFICATIONS_OPEN_KEY = 'hami:lawyer-notifications-open';
 /** استعادة البحث الشامل بعد إعادة التحميل — لمراجعة أول فتح بارد */
@@ -301,4 +303,15 @@ export function requestOpenTasksHelpInbox(): void {
     if (typeof window === 'undefined') return;
     persistTasksHelpInboxIntent(true);
     window.dispatchEvent(new CustomEvent(HAMI_OPEN_TASKS_HELP_INBOX_EVENT));
+}
+
+/** من التنفيذ/الحجز: افتح مدير المهام مع تركيز اختياري */
+export function requestOpenTasksManager(focusTaskId?: string): void {
+    if (typeof window === 'undefined') return;
+    const id = String(focusTaskId ?? '').trim();
+    window.dispatchEvent(
+        new CustomEvent(HAMI_OPEN_TASKS_MANAGER_EVENT, {
+            detail: id ? { focusTaskId: id } : {},
+        }),
+    );
 }

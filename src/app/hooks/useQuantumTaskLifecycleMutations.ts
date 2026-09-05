@@ -3,14 +3,16 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     applyReopenTask,
     buildPostponeTaskPatch,
-    prepareAgendaTasks,
     releaseExpiredFieldCurtainPins,
-} from '@/app/components/lawyer/dashboard/tasksManager/utils';
-import { removeTaskVoiceAttachment } from '@/app/services/tasks/taskVoiceAttachment';
+} from '@/app/services/tasks/taskAgendaLifecycleLite';
 import { clampTaskText, MAX_TASK_LOCATION_LENGTH, sanitizeTaskPatch } from '@/app/services/tasks/taskInputGuard';
-import { startOfLocalDay } from '@/app/utils/nlpParser';
+import { startOfLocalDay } from '@/app/utils/localDay';
 
 type SetTasks = (updater: SetStateAction<LegalTask[]>) => void;
+
+function loadTaskVoiceAttachment() {
+    return import('@/app/services/tasks/taskVoiceAttachment');
+}
 
 /** إكمال / إعادة فتح / ترحيل / تثبيت / موقع — منفصل عن الإنشاء والمساعدة */
 export function useQuantumTaskLifecycleMutations(setTasks: SetTasks) {
@@ -38,7 +40,9 @@ export function useQuantumTaskLifecycleMutations(setTasks: SetTasks) {
         setTasks((prev) => {
             const target = prev.find((t) => t.id === id);
             if (target?.voiceRef) {
-                void removeTaskVoiceAttachment(target.voiceRef);
+                void loadTaskVoiceAttachment()
+                    .then((m) => m.removeTaskVoiceAttachment(target.voiceRef!))
+                    .catch(() => undefined);
             }
             return prev.filter((t) => t.id !== id);
         });
@@ -67,33 +71,41 @@ export function useQuantumTaskLifecycleMutations(setTasks: SetTasks) {
             if (!target) return prev;
             const next = applyReopenTask(target, new Date());
             if (!next) return prev;
-            return prepareAgendaTasks(prev.map((t) => (t.id === id ? next : t)));
+            return prev.map((t) => (t.id === id ? next : t));
         });
     }, [setTasks]);
 
     const postponeTask = useCallback((id: string, targetDate: Date) => {
         const patch = buildPostponeTaskPatch(targetDate);
         setTasks((prev) =>
-            prepareAgendaTasks(
-                prev.map((t) =>
-                    t.id === id
-                        ? {
-                              ...t,
-                              ...patch,
-                              completedAt: null,
-                              status: 'pending' as const,
-                          }
-                        : t,
-                ),
+            prev.map((t) =>
+                t.id === id
+                    ? {
+                          ...t,
+                          ...patch,
+                          completedAt: null,
+                          status: 'pending' as const,
+                      }
+                    : t,
             ),
         );
     }, [setTasks]);
 
     const toggleTaskFatalDeadline = useCallback((id: string) => {
         setTasks((prev) =>
-            prev.map((t) =>
-                t.id === id ? { ...t, isFatalDeadline: !t.isFatalDeadline } : t,
-            ),
+            prev.map((t) => {
+                if (t.id !== id) return t;
+                const nextFatal = !t.isFatalDeadline;
+                if (nextFatal && t.pinnedToFieldCurtain) {
+                    return {
+                        ...t,
+                        isFatalDeadline: true,
+                        pinnedToFieldCurtain: false,
+                        fieldCurtainPinnedAt: null,
+                    };
+                }
+                return { ...t, isFatalDeadline: nextFatal };
+            }),
         );
     }, [setTasks]);
 

@@ -15,26 +15,15 @@ export const NOTIFICATION_LEGACY_PURGE_VERSION = 'v1';
 
 const PURGE_FLAG_PREFIX = 'hami:notifications:legacy-purged:';
 
-/** أنواع legacy — للفلترة فقط (لا تُنشَر من المنتج). */
-export const LEGACY_ACTIVITY_NOTIFICATION_TYPES = [
-    'audit_log_civil',
-    'audit_log_criminal',
-    'audit_log_execution',
-    'audit_log_task',
-    'deadline',
-] as const;
-
-export type LegacyActivityNotificationType = (typeof LEGACY_ACTIVITY_NOTIFICATION_TYPES)[number];
-
 function purgeFlagKey(userId: string): string {
     return `${PURGE_FLAG_PREFIX}${userId}:${NOTIFICATION_LEGACY_PURGE_VERSION}`;
 }
 
-export function stripLegacyActivityNotifications(list: NotificationModel[]): NotificationModel[] {
+function stripLegacyActivityNotifications(list: NotificationModel[]): NotificationModel[] {
     return list.filter((n) => !isActivityLogNotification(n));
 }
 
-export function stripNonIncomingNotifications(list: NotificationModel[]): NotificationModel[] {
+function stripNonIncomingNotifications(list: NotificationModel[]): NotificationModel[] {
     return list.filter(
         (n) => isIncomingNotification(n) && !isNavigationNoiseNotification(n),
     );

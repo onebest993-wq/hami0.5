@@ -38,8 +38,12 @@ vi.mock('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports', () => ({
 
 vi.mock('@/app/runtime/fieldTasksHubLoader', () => ({
     prefetchFieldTasksSheetModule: vi.fn(),
+    prefetchFieldTasksCurtainCardSurfaces: vi.fn(),
     loadFieldTasksSheetModule: vi.fn(() => Promise.resolve()),
     prefetchTasksManagerModule: vi.fn(),
+    loadTasksManagerModule: vi.fn(() => Promise.resolve()),
+    prefetchTasksManagerSecondarySurfaces: vi.fn(),
+    warmTasksManagerAgendaDevTransforms: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/tasksManagerInstantPaint', () => ({
@@ -47,6 +51,8 @@ vi.mock('@/app/runtime/tasksManagerInstantPaint', () => ({
 }));
 
 vi.mock('@/app/services/fieldTasks/fieldTasksShellSnap', () => ({
+    FIELD_TASKS_INSTANT_CHROME_ID: 'hami-field-tasks-instant-chrome',
+    TASKS_MANAGER_INSTANT_CHROME_ID: 'hami-tasks-manager-instant-chrome',
     snapFieldTasksShellOpen: vi.fn(),
     snapFieldTasksShellClose: vi.fn(),
     snapTasksManagerShellOpen: vi.fn(),
@@ -64,10 +70,12 @@ describe('fieldTasksShellOpenFlow', () => {
         );
         const setFieldTasksSheetOpen = vi.fn();
         const setActiveTab = vi.fn();
+        const setFieldTasksManagerHostMounted = vi.fn();
 
         commitFieldTasksSheetOpen({
             instantPaint: { revealFieldTasksWarmSheet: mocks.revealMock } as never,
             setFieldTasksHostMounted: vi.fn(),
+            setFieldTasksManagerHostMounted,
             setTasksManagerFocusTaskId: vi.fn(),
             setShowTasksManager: vi.fn(),
             setFieldTasksSheetOpen,
@@ -77,10 +85,16 @@ describe('fieldTasksShellOpenFlow', () => {
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.markPerfMock).toHaveBeenCalledWith('open-request');
         expect(mocks.revealMock).toHaveBeenCalled();
-        expect(mocks.warmDiskMock).toHaveBeenCalled();
         expect(mocks.warmOnOpenMock).toHaveBeenCalled();
         expect(setFieldTasksSheetOpen).toHaveBeenCalledWith(true);
+        expect(setFieldTasksManagerHostMounted).toHaveBeenCalledWith(false);
         expect(mocks.persistMock).toHaveBeenCalledWith(true, 'sheet');
+
+        const { loadTasksManagerModule } = await import('@/app/runtime/fieldTasksHubLoader');
+        expect(loadTasksManagerModule).toHaveBeenCalled();
+
+        const { isFieldTasksCloseSuppressed } = await import('@/app/runtime/fieldTasksInstantPaint');
+        expect(isFieldTasksCloseSuppressed()).toBe(true);
 
         await new Promise<void>((resolve) => queueMicrotask(resolve));
         expect(mocks.dismissMock).toHaveBeenCalledWith('field-tasks');
@@ -97,6 +111,7 @@ describe('fieldTasksShellOpenFlow', () => {
         commitFieldTasksSheetOpen({
             instantPaint: { revealFieldTasksWarmSheet: mocks.revealMock } as never,
             setFieldTasksHostMounted: vi.fn(),
+            setFieldTasksManagerHostMounted: vi.fn(),
             setTasksManagerFocusTaskId: vi.fn(),
             setShowTasksManager: vi.fn(),
             setFieldTasksSheetOpen,

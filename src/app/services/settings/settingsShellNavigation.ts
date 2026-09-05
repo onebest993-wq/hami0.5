@@ -1,7 +1,7 @@
 /** فتح الإعدادات من هيدر لوحة المحامي */
 export const SETTINGS_SHELL_FEATURE = 'الإعدادات';
 
-export type OpenSettingsShellInput = {
+type OpenSettingsShellInput = {
     signedIn: boolean;
     onOpen: () => void;
     onSignedOut?: () => void;

@@ -41,15 +41,23 @@ export interface ArchivePortalProps {
     /** قائمة executionFiles ما زالت تُحمَّل من التخزين — تجنّب «لا توجد إضابير» الكاذبة */
     executionFilesHydrating?: boolean;
     /** الدعاوى المدنية: نقل إلى سلة المهملات */
-    onMoveLawsuitToTrash?: (fileId: string | number) => void;
+    onMoveLawsuitToTrash?: (
+        fileId: string | number,
+    ) => void | boolean | Promise<void | boolean>;
     /** استرجاع دعوى من السلة */
-    onRestoreLawsuitFromTrash?: (fileId: string | number) => void;
+    onRestoreLawsuitFromTrash?: (
+        fileId: string | number,
+    ) => void | boolean | Promise<void | boolean>;
     /** أرشفة دعوى (مخزن الأرشيف) */
-    onArchiveLawsuit?: (fileId: string | number) => void;
+    onArchiveLawsuit?: (fileId: string | number) => void | boolean | Promise<void | boolean>;
     /** إعادة دعوى مؤرشفة إلى النشطة */
-    onRestoreArchivedLawsuit?: (fileId: string | number) => void;
+    onRestoreArchivedLawsuit?: (
+        fileId: string | number,
+    ) => void | boolean | Promise<void | boolean>;
     /** حذف نهائي لدعاوى من السلة */
-    onPermanentlyDeleteLawsuits?: (fileIds: Array<string | number>) => void;
+    onPermanentlyDeleteLawsuits?: (
+        fileIds: Array<string | number>,
+    ) => void | boolean | Promise<void | boolean>;
     /** عدّادات O(1) من فهرس الدعاوى — بلا مسح المصفوفة الكاملة */
     lawsuitLifecycleCounts?: { active: number; archived: number; trash: number };
     /** مقاطع مخزن/مهملات — تُحمَّل عند الطلب */

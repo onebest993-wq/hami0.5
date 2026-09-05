@@ -8,7 +8,7 @@ export type { HomeLayoutSettings };
 export const SETTINGS_SCHEMA_VERSION = 3 as const;
 
 export type ViewMode = 'list' | 'grid';
-export type AutoLockMinutes = 0 | 1 | 5 | 15 | 30 | 60;
+type AutoLockMinutes = 0 | 1 | 5 | 15 | 30 | 60;
 
 export interface AppearanceSettings {
     themeMode: ThemeMode;
@@ -85,6 +85,5 @@ export type SettingsSectionId = 'appearance' | 'security' | 'data' | 'account';
 export interface SettingsNavItem {
     id: SettingsSectionId;
     label: string;
-    labelEn: string;
     keywords: string[];
 }

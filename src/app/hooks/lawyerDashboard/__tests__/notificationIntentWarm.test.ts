@@ -42,17 +42,18 @@ describe('notificationIntentWarm', () => {
         vi.clearAllMocks();
     });
 
-    it('warmNotificationsOnHover يحمّل الشِل واللوحة مسبقاً', () => {
+    it('warmNotificationsOnHover يحمّل الشِل مسبقاً دون تكرار اللوحة', () => {
         warmNotificationsOnHover();
-        expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
         expect(prefetchNotificationShellModule).toHaveBeenCalledTimes(1);
+        expect(prefetchNotificationPanel).not.toHaveBeenCalled();
         expect(prefetchNotificationAlertControls).not.toHaveBeenCalled();
     });
 
     it('warmNotificationsOnOpen يجلب الإشعارات ويحمّل chunk للمستخدم المسجّل', async () => {
         warmNotificationsOnOpen('lawyer-1');
         expect(hydrateFromLocalPeek).toHaveBeenCalledWith('lawyer-1');
-        expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
+        expect(prefetchNotificationShellModule).toHaveBeenCalledTimes(1);
+        expect(prefetchNotificationPanel).not.toHaveBeenCalled();
         expect(loadNotificationPanelModule).toHaveBeenCalled();
         await vi.waitFor(() => {
             expect(refreshNotificationShellBadge).toHaveBeenCalledWith('lawyer-1');

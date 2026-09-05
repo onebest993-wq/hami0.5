@@ -65,7 +65,11 @@ describe('QuantumTasksProvider persistence', () => {
             expect(result.current.data.storageHydrated).toBe(true);
         });
 
-        act(() => {
+        await act(async () => {
+            const { loadQuantumTaskCreateBundle } = await import(
+                '@/app/services/tasks/quantumTaskCreateLoad'
+            );
+            await loadQuantumTaskCreateBundle();
             result.current.actions.addWeeklyLocationBundle(new Date(2026, 5, 21), 'بغداد', 'جلسة');
         });
 

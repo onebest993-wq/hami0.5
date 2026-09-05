@@ -55,9 +55,6 @@ type SignupBody = {
     verification?: unknown;
 };
 
-const ID_FRONT_PREVIEW_RE =
-    /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=\s]{64,}$/i;
-
 type SignupVerificationPayload = {
     hasIdFront: true;
     hasIdBack: true;

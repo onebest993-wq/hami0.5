@@ -13,6 +13,7 @@ describe('world-class settings close honesty', () => {
         expect(hook).toContain('setShowSettings(false)');
         expect(hook).toContain('executeSettingsOverlayClose');
         expect(hook).toContain('beginSettingsShellExit');
+        expect(hook).toContain('dismissSettingsSmartDialogs');
         expect(hook).not.toContain('scheduleSettingsShellReactSync');
         const css = [
             'settingsChrome.css',
@@ -29,6 +30,7 @@ describe('world-class settings close honesty', () => {
         expect(css).toContain("html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) .hami-settings-overlay-host");
         expect(css).toContain("html[data-hami-overlay-unfreeze='1'][data-hami-settings-open='1']");
         expect(css).toContain("html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard]");
+        expect(css).toContain("html[data-hami-settings-closing='1'] [data-hami-lawyer-dashboard]");
     });
 
     it('S5: settingsHostMounted يبدأ من initialSession.open لا true على cold', () => {

@@ -16,15 +16,16 @@ describe('execution Phase 6 types debt honesty', () => {
         expect(src).not.toMatch(/^\/\/ @ts-nocheck/m);
     });
 
-    it('SalarySeizureLogDetailCard بلا @ts-nocheck', () => {
+    it('salarySeizureDetailsPatch بلا @ts-nocheck', () => {
         const src = fs.readFileSync(
             path.join(
                 root,
-                'src/app/components/lawyer/ExecutionDashboard/components/SalarySeizureLogDetailCard.tsx',
+                'src/app/components/lawyer/ExecutionDashboard/types/salarySeizureDetailsPatch.ts',
             ),
             'utf8',
         );
         expect(src).not.toMatch(/^\/\/ @ts-nocheck/m);
+        expect(src).toContain('SalarySeizureDetailsPatch');
     });
 
     it('applyDossierSpecialFollowupOutcome يقلّل any ويستخدم helpers مُنَوَّعة', () => {

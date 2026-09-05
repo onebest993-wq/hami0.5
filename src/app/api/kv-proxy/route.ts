@@ -1,5 +1,9 @@
 import { requireWifeCloudWrite, unwrapWifeUser } from '../security/bffAuth.ts';
-import { isKeyOwnedBy, isPrefixOwnedBy } from '@/app/security/kvProxyKeyOwnership.ts';
+import {
+    isCalendarNeverCloudKvMaterial,
+    isKeyOwnedBy,
+    isPrefixOwnedBy,
+} from '@/app/security/kvProxyKeyOwnership.ts';
 import { kvDel, kvDelByPrefix, kvGet, kvGetByPrefix, kvKeysByPrefix, kvSet } from '../security/kvStoreAdmin.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
 import {
@@ -11,6 +15,11 @@ import { applyCanonicalDisplayNameToProfileValue } from '../security/displayName
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
+}
+
+function rejectCalendarCloudKv(material: unknown): Response | null {
+  if (typeof material !== 'string' || !isCalendarNeverCloudKvMaterial(material)) return null;
+  return wifeJsonResponse(403, { ok: false, error: 'Forbidden: calendar is local-only' });
 }
 
 /**
@@ -31,6 +40,8 @@ export async function POST(request: Request): Promise<Response> {
     const action = payload.action;
 
     if (action === 'set') {
+      const calendarDenied = rejectCalendarCloudKv(payload.key);
+      if (calendarDenied) return calendarDenied;
       if (typeof payload.key !== 'string' || !isKeyOwnedBy(payload.key, userId, 'write')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: key not owned by current user' });
       }
@@ -48,6 +59,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'get') {
+      const calendarDenied = rejectCalendarCloudKv(payload.key);
+      if (calendarDenied) return calendarDenied;
       if (typeof payload.key !== 'string' || !isKeyOwnedBy(payload.key, userId, 'read')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: key not readable by current user' });
       }
@@ -73,6 +86,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'getByPrefix') {
+      const calendarDenied = rejectCalendarCloudKv(payload.prefix);
+      if (calendarDenied) return calendarDenied;
       if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId, 'read')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: prefix not scoped to current user' });
       }
@@ -81,6 +96,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'del') {
+      const calendarDenied = rejectCalendarCloudKv(payload.key);
+      if (calendarDenied) return calendarDenied;
       if (typeof payload.key !== 'string' || !isKeyOwnedBy(payload.key, userId, 'write')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: key not owned by current user' });
       }
@@ -89,6 +106,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'delByPrefix') {
+      const calendarDenied = rejectCalendarCloudKv(payload.prefix);
+      if (calendarDenied) return calendarDenied;
       if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId, 'write')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: prefix not scoped to current user' });
       }
@@ -97,6 +116,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'listKeysByPrefix') {
+      const calendarDenied = rejectCalendarCloudKv(payload.prefix);
+      if (calendarDenied) return calendarDenied;
       if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId, 'read')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: prefix not scoped to current user' });
       }

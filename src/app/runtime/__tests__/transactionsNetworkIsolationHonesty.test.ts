@@ -67,6 +67,7 @@ describe('transactions network isolation (encryption kept)', () => {
         expect(guard).toContain('isTransactionsThreadingStateKey');
         expect(guard).toContain('isTransactionsTaskTemplatesKey');
         expect(guard).toContain("return 'transactions'");
+        expect(guard).toContain("return 'transactionsThreading'");
     });
 
     it('المنتدى فقط من مشاركة الدليل الصريحة — لا في المخزن/الخدمة/المرآة', () => {

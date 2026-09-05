@@ -11,6 +11,7 @@ import {
     createDevUnlockLawyerSession,
     isExplicitDevUnlock,
 } from '@/app/services/auth/devUnlockSession';
+import { tryActivateLocalDevWorkLawyerSession } from '@/app/services/auth/localDevWorkLawyer';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { isShellAuthBypassed, isShellDemoUserId } from '@/app/services/auth/shellAuth';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
@@ -84,8 +85,13 @@ function devMockBootState(): AuthBootState | null {
 function explicitDevUnlockBootState(): AuthBootState | null {
     if (!isExplicitDevUnlock()) return null;
     const persistedDev = devMockBootState();
-    if (persistedDev) return persistedDev;
+    if (persistedDev?.user && !isShellDemoUserId(persistedDev.user.id)) return persistedDev;
     return createDevUnlockLawyerSession();
+}
+
+function seededNonGuestMock(seeded: AuthBootState | null): AuthBootState | null {
+    if (seeded?.user && !isShellDemoUserId(seeded.user.id)) return seeded;
+    return null;
 }
 
 /** حالة المصادقة الأولية — بدون ضيف تلقائي إلا بتجاوز صريح أو دخول بدون تسجيل */
@@ -99,8 +105,10 @@ export function resolveInitialAuthState(): AuthBootState {
              * إرجاع ضيف ثابت هنا كان يغلق المنتدى دائماً (canUseForumNetworkFeatures
              * يرفض GUEST / demo حتى مع فتح الشِل).
              */
-            const seeded = devMockBootState();
+            const seeded = seededNonGuestMock(devMockBootState());
             if (seeded) return seeded;
+            const localWork = tryActivateLocalDevWorkLawyerSession();
+            if (localWork) return localWork;
             return getDevMockLawyerSession();
         }
         const localGuest = explicitLocalGuestBootState();
@@ -123,6 +131,9 @@ export function resolveInitialAuthState(): AuthBootState {
 
     const unlocked = explicitDevUnlockBootState();
     if (unlocked) return unlocked;
+
+    const localWork = tryActivateLocalDevWorkLawyerSession();
+    if (localWork) return localWork;
 
     const devMock = devMockBootState();
     if (devMock) return devMock;
@@ -147,9 +158,9 @@ export function shouldKeepStoredNonGuestDevMock(): boolean {
     return Boolean(user?.id && !isShellDemoUserId(user.id) && readDevMockAccessToken());
 }
 
-/** بعد تسجيل الخروج — أبقِ الضيف فقط عند VITE_SHELL_AUTH_OPEN، لا عند «دخول كمطور» */
+/** بعد تسجيل الخروج — أبقِ الضيف عند فتح الشِل، لا عند «دخول كمطور» */
 export function shouldApplyGuestFallbackSession(): boolean {
-    return import.meta.env.VITE_SHELL_AUTH_OPEN === 'true';
+    return isShellAuthBypassed() && !isExplicitDevUnlock();
 }
 
 /**

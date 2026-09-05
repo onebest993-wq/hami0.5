@@ -3,7 +3,6 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import { countFieldDaySheetTasksLite } from '@/app/services/tasks/fieldCurtainDayCountLite';
 import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
 import { scheduleProtectedBackupFromRaw } from '@/app/services/dossierPersistence/protectedBackupService';
-import { prepareAgendaTasks } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import {
     readSecureOrDrainLegacySync,
     writeSecureAndClearLegacySync,
@@ -14,6 +13,7 @@ import {
     serializeQuantumTasks,
     QUANTUM_TASKS_STORAGE_KEY,
 } from '@/app/utils/quantumTasksStorageDeserialize';
+import { publishQuantumTasksMetrics } from '@/app/utils/quantumTasksMetrics';
 
 export {
     deserializeQuantumTasks,
@@ -21,6 +21,10 @@ export {
     serializeQuantumTasks,
     QUANTUM_TASKS_STORAGE_KEY,
 } from '@/app/utils/quantumTasksStorageDeserialize';
+
+function pendingOf(tasks: LegalTask[]): LegalTask[] {
+    return tasks.filter((t) => t.status === 'pending' || t.status === 'delegated');
+}
 
 function shouldRejectQuantumTasksWipe(incomingSerialized: string): boolean {
     const existing = readSecureOrDrainLegacySync(QUANTUM_TASKS_STORAGE_KEY);
@@ -42,18 +46,18 @@ export function warmQuantumTasksDiskRead(now = new Date()): LegalTask[] {
     return warmDiskTasks;
 }
 
-function readQuantumTasksFromDiskSyncUncached(now = new Date()): LegalTask[] {
+function readQuantumTasksFromDiskSyncUncached(_now = new Date()): LegalTask[] {
     const raw = readQuantumTasksRawFromDiskSync();
     if (!raw?.trim()) return [];
     try {
         const blob: unknown = JSON.parse(raw);
-        return prepareAgendaTasks(deserializeQuantumTasks(blob), now, { skipRetentionPurge: true });
+        return deserializeQuantumTasks(blob);
     } catch {
         return [];
     }
 }
 
-/** قراءة فورية عند الإقلاع — localStorage أولاً (يبقى بعد F5) */
+/** قراءة فورية عند الإقلاع — leftover localStorage بلا SecureStore على المسار البارد */
 export function readQuantumTasksFromDiskSync(now = new Date()): LegalTask[] {
     if (warmDiskTasks) return warmDiskTasks;
     return warmQuantumTasksDiskRead(now);
@@ -64,7 +68,7 @@ export function countPendingFieldTasks(pendingTasks: LegalTask[]): number {
     return countFieldDaySheetTasksLite(pendingTasks);
 }
 
-/** حفظ متزامن — SecureStore فوري ثم محو مرآة localStorage (قراءة الستارة تبقى leftover) */
+/** حفظ متزامن — SecureStore فوري ثم محو مرآة leftover؛ الكاش الدافئ يبقى لنفس الجلسة */
 export function persistQuantumTasksSync(tasks: LegalTask[]): boolean {
     const blob = serializeQuantumTasks(tasks);
     const serialized = JSON.stringify(blob);
@@ -72,7 +76,8 @@ export function persistQuantumTasksSync(tasks: LegalTask[]): boolean {
 
     persistenceRepository.primeEntry(QUANTUM_TASKS_STORAGE_KEY, serialized, blob);
     writeSecureAndClearLegacySync(QUANTUM_TASKS_STORAGE_KEY, serialized);
-    invalidateQuantumTasksDiskWarmCache();
+    warmDiskTasks = tasks;
+    publishQuantumTasksMetrics(tasks, pendingOf(tasks));
     return true;
 }
 
@@ -88,10 +93,4 @@ export async function persistQuantumTasksBackground(tasks: LegalTask[]): Promise
     scheduleProtectedBackupFromRaw(QUANTUM_TASKS_STORAGE_KEY, serialized);
     const { default: SecureStoreService } = await import('@/app/services/SecureStoreService');
     await SecureStoreService.setItem(QUANTUM_TASKS_STORAGE_KEY, serialized);
-}
-
-/** حفظ كامل — sync فوري + IndexedDB + نسخة احتياطية */
-export async function persistQuantumTasksImmediate(tasks: LegalTask[]): Promise<void> {
-    if (!persistQuantumTasksSync(tasks)) return;
-    await persistQuantumTasksBackground(tasks);
 }

@@ -55,4 +55,11 @@ describe('useVisibilityAwareInterval', () => {
         vi.advanceTimersByTime(4000);
         expect(tick).toHaveBeenCalledTimes(3);
     });
+
+    it('ينبض عند عودة Capacitor حتى لو المؤقّت ما زال مسجّلاً', () => {
+        const tick = vi.fn();
+        renderHook(() => useVisibilityAwareInterval(tick, 1000, true));
+        window.dispatchEvent(new CustomEvent('hami-native-app-state', { detail: { isActive: true } }));
+        expect(tick).toHaveBeenCalledTimes(1);
+    });
 });

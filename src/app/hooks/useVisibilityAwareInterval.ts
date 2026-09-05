@@ -38,9 +38,9 @@ export function useVisibilityAwareInterval(
                 stop();
                 return;
             }
-            if (intervalId !== null) return;
+            /** حتى لو المؤقّت لم يُفرَّغ — Capacitor قد يجمّد JS دون document.hidden */
             tickRef.current();
-            start();
+            if (intervalId === null) start();
         };
 
         const onVisibilityChange = () => {

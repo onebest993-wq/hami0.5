@@ -87,9 +87,9 @@ export function prefetchLawyerHomeHubCard(): void {
 
 export function prefetchNotificationPanel(): void {
     if (typeof window === 'undefined') return;
-    void loadLazyComponents().then((m) => {
-        m.prefetchNotificationPanel();
-    });
+    void import('@/app/runtime/notificationShellLoader')
+        .then((m) => m.prefetchNotificationShellModule())
+        .catch(() => undefined);
 }
 
 export function prefetchVoiceRecorderModal(): void {

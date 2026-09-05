@@ -2,8 +2,14 @@ import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClien
 import type { ShareScope, TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { TaskHelpRepository } from './taskHelpRepository';
 import { assertRecipientInNetwork } from '@/app/services/caseShare/caseShareNetworkGuard';
+import { canReachCollaborationNetwork } from '@/app/services/settings/collaborationNetworkGate';
 
 type ApiOk<T> = { ok: true } & T;
+
+/** طلب العون شبكة تعاون صريحة — لا يُستدعى عند قطع الاتصال، ولا ينتظر مزامنة الإضابير */
+export function canReachTaskHelpNetwork(): boolean {
+    return canReachCollaborationNetwork();
+}
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
     return SecureAPIClient.fetchSecure<T>(path, {
@@ -30,14 +36,16 @@ function rethrowAuthoritativeApiError(err: unknown): never | void {
 
 export class TaskHelpApiService {
     static async list(userId: string): Promise<TaskHelpRequest[]> {
-        try {
-            const res = await SecureAPIClient.fetchSecure<ApiOk<{ requests: TaskHelpRequest[] }>>(
-                '/api/task-help/list',
-                { method: 'GET' },
-            );
-            if (Array.isArray(res.requests)) return res.requests;
-        } catch {
-            /* local fallback */
+        if (canReachTaskHelpNetwork()) {
+            try {
+                const res = await SecureAPIClient.fetchSecure<ApiOk<{ requests: TaskHelpRequest[] }>>(
+                    '/api/task-help/list',
+                    { method: 'GET' },
+                );
+                if (Array.isArray(res.requests)) return res.requests;
+            } catch {
+                /* local fallback */
+            }
         }
         return TaskHelpRepository.listForUser(userId);
     }
@@ -57,20 +65,26 @@ export class TaskHelpApiService {
         forumPostId?: string | null;
         note?: string;
     }): Promise<TaskHelpRequest> {
-        if (params.shareScope === 'PRIVATE_DIRECT' && params.targetColleagueId) {
+        if (
+            canReachTaskHelpNetwork() &&
+            params.shareScope === 'PRIVATE_DIRECT' &&
+            params.targetColleagueId
+        ) {
             const inNetwork = await assertRecipientInNetwork(
                 params.requesterId,
                 params.targetColleagueId,
             );
             if (!inNetwork) throw new Error('RECIPIENT_NOT_IN_NETWORK');
         }
-        try {
-            const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/create', {
-                ...params,
-            });
-            if (res.request) return res.request;
-        } catch (err) {
-            rethrowAuthoritativeApiError(err);
+        if (canReachTaskHelpNetwork()) {
+            try {
+                const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/create', {
+                    ...params,
+                });
+                if (res.request) return res.request;
+            } catch (err) {
+                rethrowAuthoritativeApiError(err);
+            }
         }
         return TaskHelpRepository.create(params);
     }
@@ -80,22 +94,24 @@ export class TaskHelpApiService {
         colleagueId: string,
         colleagueName?: string,
     ): Promise<TaskHelpRequest> {
-        try {
-            const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/accept', {
-                helpRequestId,
-                colleagueName,
-            });
-            if (res.request) return res.request;
-            throw new Error('ACCEPT_FAILED');
-        } catch (err) {
-            rethrowAuthoritativeApiError(err);
-            const local = await TaskHelpRepository.accept(helpRequestId, colleagueId, colleagueName);
-            if (local.ok === false) {
-                const { code } = local;
-                throw Object.assign(new Error(code), { code });
+        if (canReachTaskHelpNetwork()) {
+            try {
+                const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/accept', {
+                    helpRequestId,
+                    colleagueName,
+                });
+                if (res.request) return res.request;
+                throw new Error('ACCEPT_FAILED');
+            } catch (err) {
+                rethrowAuthoritativeApiError(err);
             }
-            return local.request;
         }
+        const local = await TaskHelpRepository.accept(helpRequestId, colleagueId, colleagueName);
+        if (local.ok === false) {
+            const { code } = local;
+            throw Object.assign(new Error(code), { code });
+        }
+        return local.request;
     }
 
     static async addNote(
@@ -104,15 +120,17 @@ export class TaskHelpApiService {
         text: string,
         authorName?: string,
     ): Promise<TaskHelpRequest> {
-        try {
-            const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/note', {
-                helpRequestId,
-                text,
-                authorName,
-            });
-            if (res.request) return res.request;
-        } catch (err) {
-            rethrowAuthoritativeApiError(err);
+        if (canReachTaskHelpNetwork()) {
+            try {
+                const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/note', {
+                    helpRequestId,
+                    text,
+                    authorName,
+                });
+                if (res.request) return res.request;
+            } catch (err) {
+                rethrowAuthoritativeApiError(err);
+            }
         }
         const updated = await TaskHelpRepository.addNote(helpRequestId, authorId, text, authorName);
         if (!updated) throw new Error('NOTE_FAILED');
@@ -132,14 +150,16 @@ export class TaskHelpApiService {
         actorId: string,
         mode: 'helper_done' | 'owner_confirm',
     ): Promise<TaskHelpRequest> {
-        try {
-            const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>(
-                '/api/task-help/complete',
-                { helpRequestId, mode },
-            );
-            if (res.request) return res.request;
-        } catch (err) {
-            rethrowAuthoritativeApiError(err);
+        if (canReachTaskHelpNetwork()) {
+            try {
+                const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>(
+                    '/api/task-help/complete',
+                    { helpRequestId, mode },
+                );
+                if (res.request) return res.request;
+            } catch (err) {
+                rethrowAuthoritativeApiError(err);
+            }
         }
         const result = await TaskHelpRepository.complete(helpRequestId, actorId, mode);
         if (result.ok === false) {

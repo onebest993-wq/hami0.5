@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
+    FIELD_TASKS_INSTANT_CHROME_ID,
     isFieldTasksShellSnappedOpen,
     isTasksManagerShellSnappedOpen,
     snapFieldTasksShellClose,
@@ -30,6 +31,16 @@ describe('fieldTasksShellSnap', () => {
         expect(isTasksManagerShellSnappedOpen()).toBe(false);
         snapFieldTasksShellClose();
         expect(isFieldTasksShellSnappedOpen()).toBe(false);
+    });
+
+    it('يغلق الستارة ويزيل قشرة الطلاء الفوري', () => {
+        const chrome = document.createElement('div');
+        chrome.id = FIELD_TASKS_INSTANT_CHROME_ID;
+        document.body.appendChild(chrome);
+        snapFieldTasksShellOpen();
+        snapFieldTasksShellClose();
+        expect(isFieldTasksShellSnappedOpen()).toBe(false);
+        expect(document.getElementById(FIELD_TASKS_INSTANT_CHROME_ID)).toBeNull();
     });
 
     it('يضع علم الأجندة ويزيل علم الستارة', () => {

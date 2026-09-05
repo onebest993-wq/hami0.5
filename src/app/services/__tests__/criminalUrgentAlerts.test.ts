@@ -16,7 +16,6 @@ vi.mock('@/app/services/lawyer-cloud', () => ({
         getState: vi.fn().mockResolvedValue({
             transactions: [],
             tasks: [],
-            financeRecords: [],
             documents: [],
         }),
     },

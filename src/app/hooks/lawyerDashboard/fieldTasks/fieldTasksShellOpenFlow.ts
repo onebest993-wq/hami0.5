@@ -2,24 +2,27 @@ import { flushSync } from 'react-dom';
 
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { persistFieldTasksSessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import {
+    paintFieldTasksInstantChrome,
+    suppressFieldTasksClose,
+} from '@/app/runtime/fieldTasksInstantPaint';
 import { warmFieldTasksOnOpen, warmFieldTasksManagerOnOpen } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
 import {
     clearFieldTasksPerfMarks,
     markFieldTasksPerfPhase,
 } from '@/app/services/fieldTasks/fieldTasksPerfMetrics';
-import { warmQuantumTasksDiskRead } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
-import { prefetchFieldTasksSheetModule, loadFieldTasksSheetModule, prefetchTasksManagerModule } from '@/app/runtime/fieldTasksHubLoader';
+import { loadFieldTasksSheetModule, loadTasksManagerModule, warmTasksManagerAgendaDevTransforms } from '@/app/runtime/fieldTasksHubLoader';
 import type { FieldTasksInstantPaintModule } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
 import {
-    snapFieldTasksShellOpen,
     snapTasksManagerShellClose,
     snapFieldTasksShellClose,
 } from '@/app/services/fieldTasks/fieldTasksShellSnap';
 import { paintTasksManagerInstantChrome } from '@/app/runtime/tasksManagerInstantPaint';
 
-export type CommitFieldTasksSheetOpenParams = {
+type CommitFieldTasksSheetOpenParams = {
     instantPaint: FieldTasksInstantPaintModule | null;
     setFieldTasksHostMounted: (mounted: boolean) => void;
+    setFieldTasksManagerHostMounted: (mounted: boolean) => void;
     setTasksManagerFocusTaskId: (id: string | undefined) => void;
     setShowTasksManager: (open: boolean) => void;
     setFieldTasksSheetOpen: (open: boolean) => void;
@@ -31,6 +34,7 @@ export type CommitFieldTasksSheetOpenParams = {
 export function commitFieldTasksSheetOpen({
     instantPaint,
     setFieldTasksHostMounted,
+    setFieldTasksManagerHostMounted,
     setTasksManagerFocusTaskId,
     setShowTasksManager,
     setFieldTasksSheetOpen,
@@ -39,40 +43,35 @@ export function commitFieldTasksSheetOpen({
 }: CommitFieldTasksSheetOpenParams): void {
     clearFieldTasksPerfMarks();
     markFieldTasksPerfPhase('open-request');
-
-    warmQuantumTasksDiskRead();
-    prefetchFieldTasksSheetModule();
+    /** قبل flushSync — وإلا click الشبح بعد pointerup يغلق الستارة فوراً */
+    suppressFieldTasksClose();
+    snapTasksManagerShellClose();
+    paintFieldTasksInstantChrome();
+    void loadFieldTasksSheetModule().catch(() => undefined);
+    void loadTasksManagerModule().catch(() => undefined);
+    warmTasksManagerAgendaDevTransforms();
     warmFieldTasksOnOpen();
-
-    const revealed = (() => {
-        snapTasksManagerShellClose();
-        snapFieldTasksShellOpen();
-        return instantPaint?.revealFieldTasksWarmSheet() ?? false;
-    })();
 
     flushSync(() => {
         setFieldTasksHostMounted(true);
+        setFieldTasksManagerHostMounted(false);
         setTasksManagerFocusTaskId(undefined);
         setShowTasksManager(false);
         setFieldTasksSheetOpen(true);
         persistFieldTasksSessionOpen(true, 'sheet');
     });
 
-    if (!revealed) {
-        instantPaint?.revealFieldTasksWarmSheet();
-    }
+    paintFieldTasksInstantChrome();
+    instantPaint?.revealFieldTasksWarmSheet();
 
     queueMicrotask(() => {
         dismissTransientOverlays('field-tasks');
         closeCommunity?.();
         setActiveTab('home');
-        void loadFieldTasksSheetModule()
-            .then(() => prefetchTasksManagerModule())
-            .catch(() => undefined);
     });
 }
 
-export type CommitTasksManagerOpenParams = {
+type CommitTasksManagerOpenParams = {
     focusTaskId?: string;
     armFieldTasksManagerHost: () => void;
     revealTasksManager: (focusTaskId?: string) => void;
@@ -87,7 +86,9 @@ export function commitTasksManagerOpen({
 }: CommitTasksManagerOpenParams): void {
     clearFieldTasksPerfMarks();
     markFieldTasksPerfPhase('open-request');
+    void loadTasksManagerModule().catch(() => undefined);
     warmFieldTasksManagerOnOpen();
+    warmTasksManagerAgendaDevTransforms();
     snapFieldTasksShellClose();
     paintTasksManagerInstantChrome();
     flushSync(() => {

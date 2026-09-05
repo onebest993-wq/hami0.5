@@ -251,24 +251,29 @@ export function handleExecutorApproval(
     decisionType: ExecutorApprovalDecisionType,
     dossierId: string,
     decisionId: string,
-    actions: ExecutorApprovalActions,
+    actions: ExecutorApprovalActions | null | undefined,
     meta: { requestTitle: string }
 ): void {
+    if (!actions || typeof actions !== 'object') {
+        return;
+    }
+
     switch (decisionType) {
         case 'Field Visit Date':
+            if (typeof actions.openScheduledDateModal !== 'function') break;
             actions.openScheduledDateModal({
                 decisionId,
                 requestTitle: meta.requestTitle,
                 onSaved: (payload) => {
                     const now = new Date().toISOString();
-                    actions.pushCalendarAppointment({
+                    actions.pushCalendarAppointment?.({
                         dossierId,
                         decisionId,
                         purpose: meta.requestTitle,
                         eventIso: payload.eventIso,
                         recordedAt: now,
                     });
-                    actions.patchDecision(decisionId, {
+                    actions.patchDecision?.(decisionId, {
                         executorScheduleLabel: `مجدول: ${payload.displayAr}`,
                     });
                     try {
@@ -281,25 +286,35 @@ export function handleExecutorApproval(
                     } catch {
                         /* ignore */
                     }
-                    actions.showToast('تم اعتماد الموعد وربطه بالمواعيد والسجل', 'success');
+                    actions.showToast?.('تم اعتماد الموعد وربطه بالمواعيد والسجل', 'success');
                 },
             });
             break;
 
         case 'Grace Period':
-            actions.showToast('تمت الموافقة على المهلة — افتح بطاقة القرار لإكمال حفظ المهلة.', 'success');
+            try {
+                void import('@/app/utils/openEvictionResidentialGrace').then((m) => {
+                    m.dispatchOpenEvictionResidentialGrace({
+                        decisionId,
+                        closeDecisions: true,
+                    });
+                });
+            } catch {
+                /* ignore */
+            }
+            actions.showToast?.('تمت الموافقة — حدّد مدة المهلة.', 'success');
             void dossierId;
             break;
 
         case 'Police Assistance Request':
-            if (actions.openPoliceAssistanceModal) {
+            if (typeof actions.openPoliceAssistanceModal === 'function') {
                 actions.openPoliceAssistanceModal({
                     decisionId,
                     requestTitle: meta.requestTitle,
                 });
                 return;
             }
-            actions.showToast(
+            actions.showToast?.(
                 'تم قبول طلب القوة الجبرية — افتح بطاقة القرار لإكمال الجهة المرافقة والحفظ.',
                 'success'
             );
@@ -307,11 +322,12 @@ export function handleExecutorApproval(
             break;
 
         case 'Lock Breaking & Inventory':
+            if (typeof actions.openBreakInventoryFurnitureModal !== 'function') break;
             openBreakInventoryCompletion(decisionId, actions, meta.requestTitle);
             break;
 
         case 'Marital Furniture Delivery':
-            if (actions.openBreakInventoryFurnitureModal) {
+            if (typeof actions.openBreakInventoryFurnitureModal === 'function') {
                 actions.openBreakInventoryFurnitureModal({
                     decisionId,
                     requestTitle: meta.requestTitle,
@@ -320,24 +336,29 @@ export function handleExecutorApproval(
                 });
                 return;
             }
-            actions.openScheduledDateModal({
-                decisionId,
-                requestTitle: meta.requestTitle,
-                onSaved: () => {},
-            });
+            if (typeof actions.openScheduledDateModal === 'function') {
+                actions.openScheduledDateModal({
+                    decisionId,
+                    requestTitle: meta.requestTitle,
+                    onSaved: () => {},
+                });
+            }
             break;
 
         case 'Judicial Custodian':
-            actions.showToast('تم قبول الطلب — أكمل بيانات الحارس من بطاقة القرار.', 'success');
+            actions.showToast?.('تم قبول الطلب — أكمل بيانات الحارس من بطاقة القرار.', 'success');
             break;
 
         case 'Eviction':
             // الانتقال لمحضر الجرد/التخلية يتم في ExecutorWorkflowPortalModals عند التأكيد
-            actions.promptOpenExecutionReport(() => {});
+            actions.promptOpenExecutionReport?.(() => {});
             break;
 
         case 'Residential Grace Early End':
-            actions.showToast('تمت موافقة المنفذ على إنهاء المهلة السكنية وإعادة دورة المهلة في الملف.', 'success');
+            actions.showToast?.(
+                'تمت موافقة المنفذ على إنهاء المهلة السكنية وإعادة دورة المهلة في الملف.',
+                'success'
+            );
             break;
 
         case 'other':

@@ -197,8 +197,16 @@ async function readForumOpenDebug(page: Page): Promise<string> {
         .catch((err) => `debug-failed:${err instanceof Error ? err.message : String(err)}`);
 }
 
+async function assertForumAccessLoadingSilent(page: Page): Promise<void> {
+    const loading = page.getByTestId('forum-access-loading');
+    if (await loading.isVisible().catch(() => false)) {
+        await expect(loading).not.toContainText('جاري');
+    }
+}
+
 async function expectForumOpenedFromHome(page: Page): Promise<Locator> {
     await dismissForumBlockers(page);
+    await assertForumAccessLoadingSilent(page);
     if (await page.getByTestId('forum-access-denied').isVisible().catch(() => false)) {
         throw new Error('المنتدى بقي على بوابة الضيف — جلسة E2E غير معتمدة');
     }

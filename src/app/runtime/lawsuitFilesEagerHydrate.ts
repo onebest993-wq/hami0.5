@@ -15,11 +15,17 @@ let inFlight: Promise<FileData[]> | null = null;
 let lastResult: FileData[] | null = null;
 /** اكتمل مسار async بنجاح أو فشل نهائي — لا نعتمد نتيجة مهلة فارغة كحقيقة */
 let hydrateSettled = false;
+let hydrateGeneration = 0;
 
-export function resetLawsuitFilesEagerHydrateForTests(): void {
+export function invalidateLawsuitFilesEagerHydrateCache(): void {
+    hydrateGeneration += 1;
     inFlight = null;
     lastResult = null;
     hydrateSettled = false;
+}
+
+export function resetLawsuitFilesEagerHydrateForTests(): void {
+    invalidateLawsuitFilesEagerHydrateCache();
 }
 
 export function getLawsuitFilesEagerHydrateIfReady(): FileData[] | null {
@@ -58,13 +64,16 @@ export function startLawsuitFilesEagerHydrate(): void {
     if (typeof window === 'undefined') return;
     if (inFlight) return;
 
+    const generation = hydrateGeneration;
     inFlight = loadInitialLawsuitFilesAsync()
         .then((rows) => {
+            if (generation !== hydrateGeneration) return lastResult ?? [];
             const adopted = adoptResult(rows, true);
             inFlight = null;
             return adopted;
         })
         .catch(() => {
+            if (generation !== hydrateGeneration) return lastResult ?? [];
             const syncFallback = loadInitialLawsuitFiles();
             const adopted = adoptResult(syncFallback, true);
             inFlight = null;

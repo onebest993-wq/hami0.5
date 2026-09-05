@@ -1,6 +1,6 @@
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
-    isSectionBackgroundPrefetchAllowed,
+    isRepositoryHubJsWarmAllowed,
     sectionBackgroundHydrateDelayMs,
 } from '@/app/runtime/sectionPrefetchPolicy';
 import {
@@ -25,7 +25,7 @@ function warmRepositoryDataCache(userId?: string | null): Promise<unknown> {
 }
 
 function repositoryPrefetchAllowed(): boolean {
-    return isSectionBackgroundPrefetchAllowed();
+    return isRepositoryHubJsWarmAllowed();
 }
 
 function hydrateDelayMs(): number {
@@ -93,8 +93,10 @@ export function bindRepositoryBootHydrator(userId?: string | null): () => void {
     if (typeof window === 'undefined' || bootHydratorArmed) return () => undefined;
     bootHydratorArmed = true;
 
-    let cancelIdle: (() => void) | undefined;
     const uid = userId?.trim() || undefined;
+    prefetchRepositoryAfterBootReveal(uid);
+
+    let cancelIdle: (() => void) | undefined;
 
     const onBootRevealDone = () => {
         prefetchRepositoryAfterBootReveal(uid);

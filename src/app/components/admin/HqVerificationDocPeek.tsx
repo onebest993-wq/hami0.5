@@ -232,7 +232,14 @@ export function HqVerificationDocPeek({
                         تعذّر جلب الوثائق. يمكن مراجعتها من إضبارة الحساب.
                     </p>
                 ) : slots == null ? (
-                    <p className="hq-verify-peek-msg">جاري فتح المعاينة…</p>
+                    <div
+                        className="hq-verify-peek-msg space-y-2"
+                        aria-busy="true"
+                        aria-label="المعاينة"
+                    >
+                        <div className="h-3 w-28 rounded-md bg-white/10" aria-hidden />
+                        <div className="min-h-[72px] rounded-xl bg-white/[0.06]" aria-hidden />
+                    </div>
                 ) : (
                     <>
                         <div

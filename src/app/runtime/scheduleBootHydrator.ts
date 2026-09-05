@@ -5,7 +5,7 @@ import {
 } from '@/app/runtime/sectionPrefetchPolicy';
 import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
 import { requestCalendarDossierSyncNow } from '@/app/services/calendar/requestCalendarDossierSyncNow';
-import { warmCalendarEventsCache } from '@/app/services/calendar/calendarEventsWarm';
+import { warmCalendarEventsCache, primeCalendarEventsCacheFromPeek } from '@/app/services/calendar/calendarEventsWarm';
 import {
     hydrateScheduleShellForInstantOpen,
     isScheduleShellModuleResolved,
@@ -52,7 +52,8 @@ export function prefetchScheduleAfterBootReveal(userId?: string | null): void {
     void ensureDeferredFeatureStylesLoaded();
     prefetchScheduleHubModule();
     prefetchCalendarCloudModule();
-    requestCalendarDossierSyncNow();
+    primeCalendarEventsCacheFromPeek(userId);
+    scheduleIdleWork(() => requestCalendarDossierSyncNow(), { minDelayMs: 0, timeoutMs: 2_200 });
     void hydrateScheduleShellForInstantOpenWithData(userId, false).catch(() => undefined);
 }
 
@@ -68,6 +69,7 @@ export function hydrateScheduleShellForInstantOpenWithData(
     prefetchScheduleHubModule();
     if (isScheduleShellModuleResolved()) {
         prefetchCalendarCloudModule();
+        primeCalendarEventsCacheFromPeek(userId);
         void warmCalendarEventsCache(userId).catch(() => undefined);
         dispatchHydratedOnce();
         return Promise.resolve(true);
@@ -78,6 +80,7 @@ export function hydrateScheduleShellForInstantOpenWithData(
         .then((ok) => {
             if (ok) {
                 prefetchCalendarCloudModule();
+                primeCalendarEventsCacheFromPeek(userId);
                 void warmCalendarEventsCache(userId).catch(() => undefined);
                 dispatchHydratedOnce();
             }

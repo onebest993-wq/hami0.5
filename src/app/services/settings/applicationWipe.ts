@@ -125,7 +125,7 @@ async function runLocalPurgeStage(
     }
 }
 
-export type LocalApplicationPurgeOptions = {
+type LocalApplicationPurgeOptions = {
     /** موافقة الشروط على الجهاز — تُحفظ عند الخروج، وتُمسح عند مسح الحساب/البيانات */
     preserveLegalTerms?: boolean;
 };
@@ -197,7 +197,7 @@ export async function purgeLocalApplicationData(
     };
 }
 
-export type ApplicationWipeResult = {
+type ApplicationWipeResult = {
     cloudAttempted: boolean;
     cloudCompleted: boolean;
     localCompleted: boolean;

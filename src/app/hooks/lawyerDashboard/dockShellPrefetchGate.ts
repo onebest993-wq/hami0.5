@@ -1,5 +1,8 @@
 import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
 import type { DockWidgetPrefetchPhase } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
+import { dispatchFieldTasksPrimeHost } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksPrimeHost';
+import { loadFieldTasksSheetModule, loadTasksManagerModule } from '@/app/runtime/fieldTasksHubLoader';
+import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
 
 const DOCK_PREFETCH_COOLDOWN_MS = 300;
 const DOCK_IDLE_STAGGER_MS = 120;
@@ -171,9 +174,21 @@ export function bindDockWidgetPointerHandlers(widgetId: HomeWidgetId): {
     const onPointerDown = () => {
         if (HEAVY_IDLE_PREFETCH_WIDGETS.has(widgetId)) armHeavyDockWidgetsIdlePrefetch();
         if (widgetId === 'dockTasks') {
-            void import('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksPrimeHost')
-                .then((m) => m.dispatchFieldTasksPrimeHost())
+            loadFieldTasksSheetModule().catch(() => undefined);
+            loadTasksManagerModule().catch(() => undefined);
+            void import('@/app/utils/quantumTasksCurtainPeek')
+                .then((m) => m.scheduleFieldTasksCurtainPeekFromSecureStore())
                 .catch(() => undefined);
+            void import('@/app/runtime/fieldTasksHubLoader')
+                .then((m) => {
+                    m.prefetchFieldTasksCurtainCardSurfaces();
+                    m.warmTasksManagerAgendaDevTransforms();
+                })
+                .catch(() => undefined);
+            void import(
+                '@/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces'
+            ).catch(() => undefined);
+            dispatchFieldTasksPrimeHost();
             prefetchDockWidgetIntentImmediate('dockTasks', 'hover');
             return;
         }
@@ -191,10 +206,14 @@ export function bindDockWidgetPointerHandlers(widgetId: HomeWidgetId): {
             widgetId === 'dockNotepad' ||
             widgetId === 'dockVault'
         ) {
-            prefetchDockWidgetIntentImmediate('dockRepository', 'hover');
-            void import('@/app/runtime/repositoryBootHydrator')
-                .then((m) => m.dispatchRepositoryPrimeHost())
-                .catch(() => undefined);
+            /* مقطع المستودع فوراً على pointerdown — لا انتظار microtask قبل بدء التحميل */
+            prefetchRepositoryHubModule();
+            queueMicrotask(() => {
+                void import('@/app/runtime/repositoryBootHydrator')
+                    .then((m) => m.dispatchRepositoryPrimeHost())
+                    .catch(() => undefined);
+                prefetchDockWidgetIntentImmediate('dockRepository', 'hover');
+            });
             return;
         }
         runPrefetch();

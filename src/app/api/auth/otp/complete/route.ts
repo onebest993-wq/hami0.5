@@ -5,7 +5,7 @@ import { authOtpJson, readAuthOtpClientIp } from '../authOtpHttp.ts';
 import { lookupAuthOtpAccountByEmail } from '../authOtpLookup.ts';
 import { confirmGoTruePasswordIsLive } from '../authOtpPasswordConfirm.ts';
 import { consumeAuthOtpChallenge } from '../authOtpStore.ts';
-import { AUTH_OTP_INVALID_AR, isAuthOtpPurpose } from '../authOtpTypes.ts';
+import { AUTH_OTP_CODE_LEN, AUTH_OTP_INVALID_AR, isAuthOtpPurpose } from '../authOtpTypes.ts';
 
 const WINDOW_MS = 15 * 60_000;
 const MAX_PER_IP = 20;
@@ -54,7 +54,8 @@ export async function POST(request: Request): Promise<Response> {
         return authOtpJson(400, { ok: false, error: 'Invalid JSON body' });
     }
 
-    if (!email.includes('@') || !isAuthOtpPurpose(purposeRaw) || code.length < 4) {
+    /* الطول المضبوط يمنع صرف ميزانية المحاولات على أرقام أقصر من الرمز المُصدَر. */
+    if (!email.includes('@') || !isAuthOtpPurpose(purposeRaw) || code.length !== AUTH_OTP_CODE_LEN) {
         return genericInvalid();
     }
 

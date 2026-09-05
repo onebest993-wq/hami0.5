@@ -249,6 +249,19 @@ describe('ForumApiService.withFallback', () => {
             );
         });
 
+        it('لا يعيد كتابة IndexedDB إن الدمج مطابق للمحلي', async () => {
+            const same = makePost('p1');
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([same]);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                ok: true,
+                posts: [makePost('p1')],
+                total: 1,
+            });
+            const res = await ForumApiService.listPostsPaginated(20, 0);
+            expect(res.posts.map((p) => p.id)).toEqual(['p1']);
+            expect(lawyerCloudMocks.persistPostsBatch).not.toHaveBeenCalled();
+        });
+
         it('يستخدم fallback عند فشل عام (شبكة/500)', async () => {
             lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('legacy-1')]);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('network'));

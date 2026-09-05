@@ -137,8 +137,9 @@ export function HqStepUpHost() {
                             disabled={busy || otp.replace(/\D/g, '').length !== 6}
                             className={cn('hq-btn hq-verify-approve')}
                             data-testid="hq-stepup-verify"
+                            aria-busy={busy || undefined}
                         >
-                            {busy ? 'جاري التحقق…' : 'تأكيد ثم تنفيذ'}
+                            تأكيد ثم تنفيذ
                         </button>
                         <button
                             type="button"

@@ -152,7 +152,7 @@ export function HqCourtStatsPanel({
         : liveOverview
           ? hqSystemLabel(liveOverview.system)
           : checking
-            ? 'جاري التحقق'
+            ? '…'
             : 'منقطع';
 
     return (
@@ -216,7 +216,7 @@ export function HqCourtStatsPanel({
                     <>
                         <HqPulseCell
                             label="حالة النظام"
-                            value={checking ? 'جاري التحقق' : 'منقطع'}
+                            value={checking ? '…' : 'منقطع'}
                             detail="بانتظار أول نبض من المقر"
                             tone="warn"
                         />
@@ -252,7 +252,7 @@ export function HqCourtStatsPanel({
                     <HqStatsLiveSections live={liveOverview} onJump={onJump} />
                 )
             ) : (
-                <HqStateBlock kind="loading" title="جاري التحميل..." />
+                <HqStateBlock kind="loading" title="المحاكم" />
             )}
 
             {courtsFailed ? (

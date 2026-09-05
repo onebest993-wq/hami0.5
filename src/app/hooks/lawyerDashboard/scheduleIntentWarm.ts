@@ -1,8 +1,10 @@
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 import { runScheduleWarmCore } from '@/app/runtime/scheduleWarmCore';
 import { requestCalendarDossierSyncNow } from '@/app/services/calendar/requestCalendarDossierSyncNow';
 import {
     getRegisteredScheduleWarmUserId,
+    primeCalendarEventsCacheFromPeek,
 } from '@/app/services/calendar/calendarEventsWarm';
 
 /*
@@ -19,10 +21,11 @@ export {
     warmCalendarEventsCache,
 } from '@/app/services/calendar/calendarEventsWarm';
 
-/** مسار تسخين موحّد: chunks + أحداث + جسر إضابير — قبل أول فتح */
+/** مسار تسخين موحّد: chunks + أحداث — جسر الإضابير بعد الإطار لا على النقرة */
 function warmSchedulePipeline(userId: string | null | undefined, forceHydrate: boolean): void {
+    primeCalendarEventsCacheFromPeek(userId);
     runScheduleWarmCore({ userId, prefetchCloud: 'always' });
-    requestCalendarDossierSyncNow();
+    scheduleIdleWork(() => requestCalendarDossierSyncNow(), { minDelayMs: 0, timeoutMs: 2_200 });
     void hydrateScheduleShellForInstantOpenWithData(userId, forceHydrate).catch(() => undefined);
 }
 

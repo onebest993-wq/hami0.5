@@ -3,6 +3,7 @@
  */
 import { debug } from '@/app/utils/debug';
 import { HAMI_NATIVE_NOTIFICATION_RECEIVED_EVENT } from '@/app/services/notifications/notificationOsTapEvents';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 // =====================================================
 // Types
 // =====================================================
@@ -49,7 +50,7 @@ export class PushNotificationService {
   /** يمنع تكرار تحذير/محاولة الاشتراك عندما SW غير متاح */
   private static pushSubscribeBlocked = false;
 
-  private static blockPushSubscribe(reason: 'dev' | 'no-sw' | 'no-vapid'): null {
+  private static blockPushSubscribe(reason: 'dev' | 'no-sw' | 'no-vapid' | 'native-fcm'): null {
     if (this.pushSubscribeBlocked) return null;
     this.pushSubscribeBlocked = true;
     if (reason === 'dev') {
@@ -58,6 +59,10 @@ export class PushNotificationService {
     }
     if (reason === 'no-vapid') {
       debug.log('[PushNotification] Push subscription skipped — VITE_VAPID_PUBLIC_KEY not set');
+      return null;
+    }
+    if (reason === 'native-fcm') {
+      debug.log('[PushNotification] Push subscription skipped — native FCM owns delivery');
       return null;
     }
     debug.log('[PushNotification] Push subscription unavailable — using local notifications only');
@@ -183,6 +188,7 @@ export class PushNotificationService {
         data: options.data || {},
         requireInteraction: options.requireInteraction || false,
         silent: options.silent || false,
+        ...(options.vibrate && options.vibrate.length > 0 ? { vibrate: options.vibrate } : {}),
       });
 
       notification.onclick = () => {
@@ -228,6 +234,9 @@ export class PushNotificationService {
    */
   static async subscribeToPush(): Promise<PushSubscription | null> {
     if (this.pushSubscribeBlocked) return null;
+    if (isCapacitorNativePlatform()) {
+      return this.blockPushSubscribe('native-fcm');
+    }
     if (import.meta.env.DEV) {
       return this.blockPushSubscribe('dev');
     }

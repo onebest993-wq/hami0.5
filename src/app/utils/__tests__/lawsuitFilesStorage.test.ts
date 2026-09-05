@@ -61,4 +61,41 @@ describe('lawsuitFilesStorage', () => {
             rich,
         );
     });
+
+    it('does not resurrect a permanently deleted dossier into the monolith', async () => {
+        const { LAWSUIT_DOSSIER_TOMBSTONES_KEY } = await import(
+            '@/app/utils/lawsuitDossierTombstones'
+        );
+        SecureStoreService.setItemSync(LAWSUIT_DOSSIER_TOMBSTONES_KEY, JSON.stringify(['990001']));
+        saveLawsuitFilesRaw([
+            { id: 990001, status: 'deleted' },
+            { id: 2, status: 'active' },
+        ]);
+        expect(JSON.parse(String(SecureStoreService.getItemSync(LAWSUIT_FILES_STORAGE_KEY)))).toEqual([
+            { id: 2, status: 'active' },
+        ]);
+        saveLawsuitFilesRaw([{ id: 990001, status: 'deleted' }]);
+        expect(JSON.parse(String(SecureStoreService.getItemSync(LAWSUIT_FILES_STORAGE_KEY)))).toEqual(
+            [],
+        );
+    });
+
+    it('does not resurrect leftover lawsuitFiles after lawyer_files was emptied', () => {
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_STORAGE_KEY,
+            JSON.stringify([{ id: 'seed' }]),
+        );
+        SecureStoreService.setItemSync(LAWSUIT_FILES_STORAGE_KEY, '[]', {
+            allowVerifiedEmptyOverwrite: true,
+            allowShrink: true,
+        });
+        SecureStoreService.setItemSync(
+            'lawsuitFiles',
+            JSON.stringify([{ id: 990001, status: 'deleted' }]),
+        );
+        expect(loadLawsuitFilesRaw()).toEqual([]);
+        expect(JSON.parse(String(SecureStoreService.getItemSync(LAWSUIT_FILES_STORAGE_KEY)))).toEqual(
+            [],
+        );
+    });
 });

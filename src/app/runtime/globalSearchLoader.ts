@@ -1,47 +1,20 @@
-import type { ComponentProps, ComponentType } from 'react';
+import { markGlobalSearchOverlayModuleResolved } from '@/app/runtime/globalSearchModuleState';
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
+import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+
+export { isGlobalSearchOverlayModuleResolved } from '@/app/runtime/globalSearchModuleState';
 
 type GlobalSearchOverlayModule = typeof import('@/app/components/lawyer/GlobalSearchOverlay/index');
-type GlobalSearchOverlayProps = ComponentProps<GlobalSearchOverlayModule['GlobalSearchOverlay']>;
-type GlobalSearchOverlayComponent = ComponentType<GlobalSearchOverlayProps>;
-
-import {
-    markGlobalSearchOverlayModuleResolved,
-    resetGlobalSearchOverlayModuleStateForTests,
-} from '@/app/runtime/globalSearchModuleState';
-
-export {
-    isGlobalSearchOverlayModuleResolved,
-    resetGlobalSearchOverlayModuleStateForTests,
-} from '@/app/runtime/globalSearchModuleState';
-
 type GlobalSearchOverlayHostModule =
     typeof import('@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost');
 
 let overlayModulePromise: Promise<GlobalSearchOverlayModule> | null = null;
-let cachedGlobalSearchOverlay: GlobalSearchOverlayComponent | null = null;
-let dashboardEntryPrefetchPromise: Promise<unknown> | null = null;
 let overlayHostPromise: Promise<GlobalSearchOverlayHostModule> | null = null;
-
-export function getCachedGlobalSearchOverlay(): GlobalSearchOverlayComponent | null {
-    return cachedGlobalSearchOverlay;
-}
-
-/** للاختبارات */
-export function resetGlobalSearchOverlayModuleCacheForTests(): void {
-    overlayModulePromise = null;
-    cachedGlobalSearchOverlay = null;
-    dashboardEntryPrefetchPromise = null;
-    overlayHostPromise = null;
-    resetGlobalSearchOverlayModuleStateForTests();
-}
 
 function ensureOverlayModulePromise(): Promise<GlobalSearchOverlayModule> {
     if (!overlayModulePromise) {
         overlayModulePromise = import('@/app/components/lawyer/GlobalSearchOverlay/index')
             .then((mod) => {
-                if (mod?.GlobalSearchOverlay) {
-                    cachedGlobalSearchOverlay = mod.GlobalSearchOverlay;
-                }
                 markGlobalSearchOverlayModuleResolved();
                 return mod;
             })
@@ -53,19 +26,21 @@ function ensureOverlayModulePromise(): Promise<GlobalSearchOverlayModule> {
     return overlayModulePromise;
 }
 
+export const LazyGlobalSearchOverlayEntry = createPreloadableLazyComponent(() =>
+    import(
+        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardGlobalSearchOverlayEntry'
+    ).then((m) => ({
+        default: m.LawyerDashboardGlobalSearchOverlayEntry as unknown as LazyComponent,
+    })),
+);
+
 /**
  * chunk Entry في MainView (LazyGlobalSearchOverlayEntry) — غير GlobalSearchOverlay.
  * بدونه أول فتح يدفع Suspense فارغ حتى يكتمل تحميل الـ Entry.
  */
 export function prefetchGlobalSearchDashboardEntryChunk(): void {
     if (typeof window === 'undefined') return;
-    if (!dashboardEntryPrefetchPromise) {
-        dashboardEntryPrefetchPromise = import(
-            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardGlobalSearchOverlayEntry'
-        ).catch(() => {
-            dashboardEntryPrefetchPromise = null;
-        });
-    }
+    void LazyGlobalSearchOverlayEntry.preload();
 }
 
 /** Fuse + worker — ثقيل؛ يُؤجَّل بعد ظهور الـ shell أو idle. Motion يُحمَّل مع الواجهة. */
@@ -85,6 +60,9 @@ export function prefetchGlobalSearchInstantPaintCover(): void {
     void import('@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantPaintCover').catch(
         () => undefined,
     );
+    void import('@/app/components/lawyer/dashboard/overlayInstantChromeLazy')
+        .then((m) => m.LazyGlobalSearchInstantPaintCover.preload())
+        .catch(() => undefined);
 }
 
 function ensureOverlayHostPromise(): Promise<GlobalSearchOverlayHostModule> {
@@ -113,8 +91,7 @@ export function prefetchGlobalSearchOverlayChunk(): void {
     void ensureOverlayModulePromise().catch(() => undefined);
 }
 
-/** chunk فوراً + محرك البحث في microtask — لا يحجب الإقلاع. */
-export function prefetchGlobalSearchOverlay(): void {
+function prefetchGlobalSearchOverlay(): void {
     prefetchGlobalSearchOverlayChunk();
     if (typeof window === 'undefined') return;
     queueMicrotask(() => prefetchGlobalSearchSearchEngine());

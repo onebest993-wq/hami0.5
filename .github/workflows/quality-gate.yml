@@ -196,6 +196,9 @@ jobs:
       - name: Lawyer Inner first-tab closure stays light
         run: npm run guard:lawyer-inner-weight
 
+      - name: First-open section entries do not pull execution pipelines
+        run: npm run guard:first-open-shared-tax
+
       - name: Bundle size budgets hold
         run: npm run health:bundle
 

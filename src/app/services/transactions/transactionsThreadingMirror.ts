@@ -25,7 +25,6 @@ function parseTransactionsThreadingState(
     if (
         !Array.isArray(state.transactions) ||
         !Array.isArray(state.tasks) ||
-        !Array.isArray(state.financeRecords) ||
         !Array.isArray(state.documents)
     ) {
         return null;
@@ -34,7 +33,6 @@ function parseTransactionsThreadingState(
     const sanitized = sanitizeTransactionsThreadingSaveInput(userId, {
         transactions: state.transactions,
         tasks: state.tasks,
-        financeRecords: [],
         documents: state.documents,
     });
     return {
@@ -54,7 +52,7 @@ function itemId(item: unknown): string | null {
 function itemTime(item: unknown): number {
     if (!item || typeof item !== 'object') return 0;
     const row = item as Record<string, unknown>;
-    for (const key of ['updatedAt', 'completedAt', 'uploadedAt', 'createdAt', 'date'] as const) {
+    for (const key of ['updatedAt', 'completedAt', 'uploadedAt', 'createdAt'] as const) {
         const raw = row[key];
         if (typeof raw !== 'string' || !raw.trim()) continue;
         const t = Date.parse(raw);
@@ -111,7 +109,6 @@ export function mergeTransactionsThreadingStates(
         updatedAt: lTime >= rTime ? local.updatedAt : remote.updatedAt,
         transactions: mergeThreadingRecordsById(local.transactions, remote.transactions),
         tasks: mergeThreadingRecordsById(local.tasks, remote.tasks),
-        financeRecords: [],
         documents: mergeThreadingRecordsById(local.documents, remote.documents),
     };
 }

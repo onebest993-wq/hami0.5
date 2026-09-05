@@ -1,0 +1,8 @@
+{
+  "gapSec": 0.07,
+  "tones": [
+    { "freq": 146.83, "duration": 0.16, "gain": 0.46 },
+    { "freq": 220.0, "duration": 0.13, "gain": 0.4 },
+    { "freq": 293.66, "duration": 0.4, "gain": 0.42, "goldFreq": 440.0, "goldGain": 0.2 }
+  ]
+}

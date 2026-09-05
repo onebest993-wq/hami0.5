@@ -91,6 +91,72 @@ describe('repositoryFeedWarmCache', () => {
         expect(after).not.toBe(before);
     });
 
+    it('يتغيّر المفتاح عند نقل بطاقة عامة إلى غرفة', () => {
+        const base = {
+            lawsuitFiles: [],
+            executionFiles: [],
+            vaultDocs: [],
+        };
+        const before = buildRepositoryFeedCacheKey({
+            ...base,
+            globalNotes: [{ id: 'n1', title: 't', body: 'b', isPinned: false, roomId: null }],
+        });
+        const after = buildRepositoryFeedCacheKey({
+            ...base,
+            globalNotes: [{ id: 'n1', title: 't', body: 'b', isPinned: false, roomId: 'room_a' }],
+        });
+        expect(after).not.toBe(before);
+    });
+
+    it('يتغيّر المفتاح عند نقل وثيقة مخزن إلى غرفة دون انتظار updatedAt', () => {
+        const noteBase = { globalNotes: [], lawsuitFiles: [], executionFiles: [] };
+        const doc = {
+            id: 'd1',
+            title: 'عقد',
+            type: 'pdf' as const,
+            tags: [],
+            authorId: 'u1',
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+            fileSize: 1,
+            fileName: 'a.pdf',
+            mimeType: 'application/pdf',
+            storagePath: 'p',
+            roomId: null as string | null,
+        };
+        const before = buildRepositoryFeedCacheKey({ ...noteBase, vaultDocs: [doc] });
+        const after = buildRepositoryFeedCacheKey({
+            ...noteBase,
+            vaultDocs: [{ ...doc, roomId: 'room_a' }],
+        });
+        expect(after).not.toBe(before);
+    });
+
+    it('يتغيّر المفتاح عند تعديل ملاحظة المحامي على وثيقة المخزن', () => {
+        const noteBase = { globalNotes: [], lawsuitFiles: [], executionFiles: [] };
+        const doc = {
+            id: 'd1',
+            title: 'عقد',
+            type: 'pdf' as const,
+            tags: [],
+            authorId: 'u1',
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+            fileSize: 1,
+            fileName: 'a.pdf',
+            mimeType: 'application/pdf',
+            storagePath: 'p',
+            roomId: null as string | null,
+            lawyerNote: 'قبل',
+        };
+        const before = buildRepositoryFeedCacheKey({ ...noteBase, vaultDocs: [doc] });
+        const after = buildRepositoryFeedCacheKey({
+            ...noteBase,
+            vaultDocs: [{ ...doc, lawyerNote: 'بعد' }],
+        });
+        expect(after).not.toBe(before);
+    });
+
     it('peek يعيد العناصر المخزنة', () => {
         const key = 'test-key';
         const items = [{ kind: 'global', note: { id: '1', title: 'x', body: '', isPinned: false } }] as RepositoryFeedItem[];

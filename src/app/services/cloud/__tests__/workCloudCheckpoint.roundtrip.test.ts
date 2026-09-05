@@ -13,6 +13,7 @@ const { requireWifeUserMock, rows } = vi.hoisted(() => ({
         data_signature: string;
         created_at: string;
         security_version: number;
+        keep_anchor: boolean;
     }>,
 }));
 
@@ -34,38 +35,47 @@ vi.mock('@/app/api/security/supabaseAdminClient', () => ({
                     encrypted_data: string;
                     data_signature: string;
                     security_version: number;
+                    keep_anchor?: boolean;
                 }) => {
                     rows.unshift({
                         ...row,
+                        keep_anchor: row.keep_anchor === true,
                         id: `cp-${rows.length + 1}`,
-                        created_at: new Date().toISOString(),
+                        created_at: new Date(Date.now() + rows.length).toISOString(),
                     });
                     return { error: null };
                 },
                 select() {
                     return {
-                        eq(_col: string, userId: string) {
-                            const matched = rows.filter((r) => r.user_id === userId);
-                            const ordered = [...matched].sort((a, b) =>
-                                a.created_at < b.created_at ? 1 : -1,
+                        eq(col: string, value: unknown) {
+                            let matched = rows.filter((r) =>
+                                col === 'user_id' ? r.user_id === value : true,
                             );
-                            const result = {
-                                data: ordered,
-                                error: null,
-                                limit(n: number) {
-                                    return {
-                                        maybeSingle: async () => ({
-                                            data: ordered[0] ?? null,
-                                            error: null,
-                                        }),
-                                    };
+                            const chain = {
+                                eq(col2: string, value2: unknown) {
+                                    if (col2 === 'keep_anchor') {
+                                        matched = matched.filter((r) => r.keep_anchor === value2);
+                                    }
+                                    return chain;
                                 },
-                            };
-                            return {
                                 order() {
+                                    const ordered = [...matched].sort((a, b) =>
+                                        a.created_at < b.created_at ? 1 : -1,
+                                    );
+                                    const result = {
+                                        data: ordered,
+                                        error: null,
+                                        limit(n: number) {
+                                            return Promise.resolve({
+                                                data: ordered.slice(0, n),
+                                                error: null,
+                                            });
+                                        },
+                                    };
                                     return Object.assign(Promise.resolve(result), result);
                                 },
                             };
+                            return chain;
                         },
                     };
                 },
@@ -118,6 +128,33 @@ vi.mock('@/app/domain/lawsuit/lawsuitSegmentStorage', () => ({
     applyLawsuitMonolithicMergeToSegments: (...args: unknown[]) => applyMerge(...args),
 }));
 
+const applyCalendar = vi.fn(async () => 1);
+const calendarSlice = vi.hoisted(() => ({ title: 'جلسة' }));
+vi.mock('@/app/services/cloud/workCloudCheckpointCalendar', () => ({
+    parseCalendarCheckpointSlice: (raw: { calendar?: unknown; calendarTombstones?: unknown }) => ({
+        events: Array.isArray(raw.calendar) ? raw.calendar : [],
+        tombstones:
+            raw.calendarTombstones && typeof raw.calendarTombstones === 'object'
+                ? raw.calendarTombstones
+                : {},
+    }),
+    collectCalendarCheckpointSlice: async () => ({
+        events: [
+            {
+                id: 'cal-roundtrip',
+                userId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+                title: calendarSlice.title,
+                date: '2026-09-01',
+                type: 'hearing',
+                createdAt: '2026-08-01T00:00:00.000Z',
+                updatedAt: '2026-08-01T00:00:00.000Z',
+            },
+        ],
+        tombstones: {},
+    }),
+    applyCalendarCheckpointSlice: (...args: unknown[]) => applyCalendar(...args),
+}));
+
 vi.mock('@/app/infrastructure/persistence/LocalStorageRepository', () => ({
     persistenceRepository: {
         loadAsync: vi.fn(async (key: string) => {
@@ -143,6 +180,7 @@ import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 describe('work checkpoint AES roundtrip through BFF handlers', () => {
     beforeEach(async () => {
         rows.splice(0, rows.length);
+        calendarSlice.title = 'جلسة';
         applyMerge.mockReset();
         requireWifeUserMock.mockReset();
         requireWifeUserMock.mockResolvedValue({
@@ -169,15 +207,19 @@ describe('work checkpoint AES roundtrip through BFF handlers', () => {
 
     it('يشفر ثم يخزّن ثم يسترجع نفس دعاوى/تنفيذ/ملاحظات', async () => {
         const pushed = await pushWorkCloudCheckpointNow();
-        expect(pushed).toBe(true);
+        expect(pushed.pushed).toBe(true);
         expect(rows.length).toBe(1);
         expect(rows[0].encrypted_data.includes(':')).toBe(true);
+        expect(rows[0].encrypted_data.includes('جلسة')).toBe(false);
+        expect(rows[0].encrypted_data.includes('cal-roundtrip')).toBe(false);
 
         const restored = await restoreLastWorkCloudCheckpoint();
         expect(restored.applied).toBe(true);
         expect(restored.lawsuits).toBe(1);
         expect(restored.execution).toBe(1);
         expect(restored.notes).toBe(1);
+        expect(restored.calendar).toBe(1);
+        expect(applyCalendar).toHaveBeenCalled();
         expect(applyMerge).toHaveBeenCalled();
         const merged = applyMerge.mock.calls[0]?.[0] as Array<{ id?: string }>;
         expect(merged.some((row) => row.id === 'ls-roundtrip')).toBe(true);
@@ -191,6 +233,29 @@ describe('work checkpoint AES roundtrip through BFF handlers', () => {
         expect(persistenceRepository.save).toHaveBeenCalledWith(
             STORAGE_KEYS.LAWYER_NOTES,
             expect.arrayContaining([expect.objectContaining({ id: 'n-roundtrip' })]),
+        );
+    });
+
+    it('أربع دفعات فيض لا تمسح الحزمة المكتملة — الاستعادة تجد التقويم', async () => {
+        expect((await pushWorkCloudCheckpointNow()).pushed).toBe(true);
+        expect(rows.some((row) => row.keep_anchor)).toBe(true);
+        calendarSlice.title = 'موعد'.repeat(400_000);
+        for (let i = 0; i < 4; i += 1) {
+            const pushed = await pushWorkCloudCheckpointNow();
+            expect(pushed.pushed).toBe(true);
+        }
+        expect(rows.length).toBeLessThanOrEqual(4);
+        expect(rows.some((row) => row.keep_anchor)).toBe(true);
+        applyCalendar.mockClear();
+        const restored = await restoreLastWorkCloudCheckpoint();
+        expect(restored.applied).toBe(true);
+        expect(restored.calendar).toBe(1);
+        expect(applyCalendar).toHaveBeenCalledWith(
+            expect.objectContaining({
+                events: expect.arrayContaining([
+                    expect.objectContaining({ id: 'cal-roundtrip' }),
+                ]),
+            }),
         );
     });
 });

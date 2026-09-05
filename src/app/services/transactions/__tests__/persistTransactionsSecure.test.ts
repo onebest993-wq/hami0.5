@@ -29,6 +29,11 @@ describe('persistTransactionsSecure', () => {
         await vi.waitFor(() => {
             expect(notifyTransactionsPersistFailure).toHaveBeenCalledWith(error);
         });
+        expect(persistSecurePayloadWhenReady).toHaveBeenCalledWith(
+            'hami:transactions:v1',
+            '[]',
+            { skipIfUnchanged: false },
+        );
     });
 
     it('await: يُبلَّغ ثم يعيد الرمي حتى لا يُحسب الحفظ نجاحاً', async () => {

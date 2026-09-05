@@ -98,8 +98,8 @@ export function isLiveHubPaintWorthy(root: ParentNode): boolean {
 }
 
 /**
- * سطح يستحق رفع الغطاء: بلاطات حية مكتملة + بطاقة مركز حية مستقرة + اسم الهوية.
- * هيكل FirstPaint/الهيكل العظمي لا يُكشف — ذلك يسبب قفزة الحاويات ورعشة الألوان.
+ * سطح يستحق رفع الغطاء: بلاطات حية مكتملة + كروم المركز (هيكل أو بطاقة) + اسم الهوية.
+ * طبقة FirstPaint لا تُكشف — الهيكل داخل الشبكة الحية يملأ نفس الهندسة.
  */
 export function isWorthyBootSurface(root: ParentNode = document): boolean {
     if (hasAuthGateSurface(root)) return true;
@@ -107,7 +107,7 @@ export function isWorthyBootSurface(root: ParentNode = document): boolean {
     if (root.querySelector('[data-testid^="home-widget-slot-skeleton-"]')) return false;
     if (hasIncompleteHomeWidgetSlots(root)) return false;
     if (!hasLiveCommandTiles(root)) return false;
-    if (!isLiveHubPaintWorthy(root)) return false;
+    if (!isHubChromePaintWorthy(root)) return false;
     const profile = root.querySelector('[data-testid="home-dock-forum-profile"]');
     if (profile instanceof HTMLElement && profile.getAttribute('data-identity-settled') !== '1') {
         return false;

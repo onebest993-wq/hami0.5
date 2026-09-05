@@ -2,8 +2,8 @@
  * إعلان طلاء شبكة المنزل — ورقة بلا اعتماد على boot-runtime / homeBootChrome.
  * HomeMainGrid يستورد من هنا فقط؛ إزالة الغطاء ملك boot عبر المستمع في homeMainGridPaintGate.
  *
- * العقد: الغطاء يبقى حتى بلاطات حية + بطاقة مركز حية مستقرة + اسم الهوية.
- * طبقة FirstPaint لا تُكشف. لا انتظار لصورة الأفاتار.
+ * العقد: الغطاء يبقى حتى بلاطات حية + كروم المركز (هيكل أو بطاقة) + اسم الهوية.
+ * طبقة FirstPaint لا تُكشف. لا انتظار لصورة الأفاتار ولا لمقطع البطاقة الحي.
  * على Android الأصلي ننتظر inset شريط الحالة إن أمكن حتى لا يهبط المحتوى بعد الكشف.
  *
  * ممنوع استيراد homeBootChrome من هنا: الورقة داخل boot-paint-leaves؛ الكروم
@@ -27,13 +27,14 @@ export function bindHomeIdentityChromeReady(read: () => boolean): void {
 }
 
 /**
- * أول إطار يراه المستخدم: بلاطات حية + بطاقة مركز حية مستقرة + اسم الهوية.
- * هيكل FirstPaint لا يُكشف. الحرف الذهبي يكفي بلا انتظار img.
+ * أول إطار يراه المستخدم: بلاطات حية + كروم المركز (هيكل مكتمل أو بطاقة) + اسم الهوية.
+ * طبقة FirstPaint تحت الغطاء لا تُكشف. الحرف الذهبي يكفي بلا انتظار img.
+ * البطاقة الحية الثقيلة تملأ الهيكل بعد الكشف — نفس الهندسة، بلا انتظار parse الهاب.
  */
 export function isHomeGridRevealReady(grid: HTMLElement): boolean {
     if (grid.closest('[data-hami-home-first-paint-layer]')) return false;
     if (!readIdentityChromeReady()) return false;
-    if (!isLiveHubPaintWorthy(grid)) return false;
+    if (!isHubChromePaintWorthy(grid)) return false;
     if (!hasLiveCommandTiles(grid)) return false;
     if (grid.querySelector('[data-testid^="home-widget-slot-skeleton-"]')) return false;
     if (hasIncompleteHomeWidgetSlots(grid)) return false;

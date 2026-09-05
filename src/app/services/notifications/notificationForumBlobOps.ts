@@ -7,7 +7,7 @@ import {
 import { capMergedNotificationLists, mergeNotificationRecord } from '@/app/services/notifications/notificationMerge';
 import type { ForumNotification } from '@/app/services/forum/forumTypes';
 
-export const NOTIFICATION_BLOB_KEY_PREFIX = 'notifications_';
+const NOTIFICATION_BLOB_KEY_PREFIX = 'notifications_';
 
 export function notificationBlobKey(userId: string): string {
     return `${NOTIFICATION_BLOB_KEY_PREFIX}${userId}`;

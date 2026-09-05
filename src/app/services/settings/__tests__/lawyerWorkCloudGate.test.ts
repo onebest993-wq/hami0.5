@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LAWYER_SETTINGS_V2_DEFAULTS } from '../defaults';
-import { isLawyerWorkCloudLive, isWorkLocalKvMaterial } from '../lawyerWorkCloudGate';
+import {
+    isCalendarNeverCloudKvMaterial,
+    isLawyerWorkCloudLive,
+    isWorkLocalKvMaterial,
+} from '../lawyerWorkCloudGate';
 
 describe('isWorkLocalKvMaterial', () => {
     it('يصنّف أقسام العمل المحلية دون الملف المهني والمتابعة', () => {
@@ -19,6 +23,18 @@ describe('isWorkLocalKvMaterial', () => {
         expect(isWorkLocalKvMaterial('follow:u1:u2')).toBe(false);
         expect(isWorkLocalKvMaterial('followers:u1:u2')).toBe(false);
         expect(isWorkLocalKvMaterial('notifications:u1')).toBe(false);
+    });
+});
+
+describe('isCalendarNeverCloudKvMaterial', () => {
+    it('يحظر أحداث التقويم وشواهده حتى خلف مزامنة العمل', () => {
+        expect(isCalendarNeverCloudKvMaterial('calendar:u1:e1')).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial('calendar:u1:')).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial('hami:calendar:events:v1')).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial('hami:calendar:tombstones:v1')).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial('transactions:u1:t1')).toBe(false);
+        expect(isCalendarNeverCloudKvMaterial('profile:u1')).toBe(false);
+        expect(isCalendarNeverCloudKvMaterial('')).toBe(false);
     });
 });
 

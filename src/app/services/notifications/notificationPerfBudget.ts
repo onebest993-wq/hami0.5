@@ -11,5 +11,3 @@ export const NOTIFICATION_PERF_BUDGET = {
     fetchFreshWindowMs: 8_000,
     sentryMetric: 'notifications.open_to_interactive_ms',
 } as const;
-
-export type NotificationPerfBudgetKey = keyof typeof NOTIFICATION_PERF_BUDGET.openToInteractiveMs;

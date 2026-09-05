@@ -3,26 +3,32 @@
  *
  * نافذة CSS-uncover (~800ms) بعد content-ready هي رأس مال أول نقرة فورية.
  * الجلوس لا يركّب keep-alive؛ النية/الفتح هما من يسلّحان Host.
- * لا يُستدعى من مسار الـ splash ولا من homeMainGridPaintGate.
+ * على lite / توفير بيانات / 2G: مسار التنفيذ فقط إن كان آخر قسم. لا يُستدعى من splash.
  */
-import { isSectionBackgroundPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
+import {
+    isRecencyBackgroundWarmAllowed,
+    isSectionBackgroundPrefetchAllowed,
+} from '@/app/runtime/sectionPrefetchPolicy';
 
 let prefetchStarted = false;
 
 export function prefetchHubArchivesAfterHomePaint(): void {
     if (typeof window === 'undefined' || prefetchStarted) return;
-    if (!isSectionBackgroundPrefetchAllowed({ allowOnLite: true })) return;
+    const full = isSectionBackgroundPrefetchAllowed();
+    const recencyExecution = isRecencyBackgroundWarmAllowed('execution');
+    if (!full && !recencyExecution) return;
     prefetchStarted = true;
 
-    void import('@/app/runtime/executionArchiveOpenSession')
-        .then((m) => m.prefetchExecutionArchiveOpen())
+    void import('@/app/runtime/yieldToMain')
+        .then(async ({ yieldToMain }) => {
+            const open = await import('@/app/runtime/executionArchiveOpenSession');
+            open.prefetchExecutionArchiveOpen();
+            if (!isSectionBackgroundPrefetchAllowed()) return;
+            await yieldToMain();
+            const hub = await import('@/app/runtime/hubArchiveLoader');
+            hub.prefetchLawsuitArchiveHubModule();
+        })
         .catch(() => undefined);
-
-    if (isSectionBackgroundPrefetchAllowed()) {
-        void import('@/app/runtime/hubArchiveLoader')
-            .then((m) => m.prefetchLawsuitArchiveHubModule())
-            .catch(() => undefined);
-    }
 }
 
 export function resetHubArchiveAfterHomePaintForTests(): void {

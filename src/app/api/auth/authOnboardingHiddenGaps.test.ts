@@ -62,7 +62,7 @@ describe('auth onboarding hidden-gap scenarios', () => {
         expect(state.isLoaded).toBe(true);
     });
 
-    it('تبديل الحساب يصفّر هوية الواجهة العالقة من الحساب السابق', () => {
+    it('تبديل الحساب يصفّر هوية الواجهة العالقة من الحساب السابق', async () => {
         setLiveAuthUserId(null);
         publishUserIdentityUiState({
             userId: 'lawyer-a',
@@ -75,8 +75,10 @@ describe('auth onboarding hidden-gap scenarios', () => {
         expect(getUserIdentityUiState('lawyer-a')?.displayName).toBe('أحمد مهدي');
         setLawyerProfileBootWarmPending(true);
         setLiveAuthUserId('lawyer-b');
-        expect(getUserIdentityUiState('lawyer-a')).toBeNull();
-        expect(isLawyerProfileBootWarmPending()).toBe(false);
+        await vi.waitFor(() => {
+            expect(getUserIdentityUiState('lawyer-a')).toBeNull();
+            expect(isLawyerProfileBootWarmPending()).toBe(false);
+        });
     });
 
     it('بلا صف KV: المنتدى العميل قد يرى اعتماد app_metadata بينما الدليل لا يخفيه كـ بلا طلب', () => {

@@ -48,9 +48,6 @@ let watchdogTimer: number | null = null;
 let uncoverKickTimer: number | null = null;
 let uncoverObserver: MutationObserver | null = null;
 
-/** سقف انتظار CSS بعد شبكة حية — لا قصّ بعد 800ms بلا أنماط (كان فراغاً ذهبياً) */
-const DEFERRED_STYLE_HANG_MS = 8_000;
-
 /** فتيل أمان للتعليق — لا يكشف سطحاً ناقصاً. الكشف السعيد = شبكة حية فوراً. */
 export const BOOT_UNCOVER_WATCHDOG_MS = 8_000;
 
@@ -65,29 +62,15 @@ function uncoverBootShell(): void {
     }
 }
 
-function waitForDeferredStylesThenUncover(): void {
-    void import('@/app/runtime/deferredAppStyles')
-        .then(async (m) => {
-            if (m.isDeferredAppStylesLoaded()) {
-                uncoverBootShell();
-                return;
-            }
-            await Promise.race([
-                m.ensureDeferredAppStylesLoaded(),
-                new Promise<void>((resolve) => {
-                    window.setTimeout(resolve, DEFERRED_STYLE_HANG_MS);
-                }),
-            ]);
-            uncoverBootShell();
-        })
-        .catch(() => uncoverBootShell());
-}
-
-/** إزالة الغطاء idempotent — الحدث مرة واحدة عبر bootSideEffectsDone */
-
+/** إزالة الغطاء idempotent فور الشبكة الحية — تنسيق المنزل في critical-shell، لا انتظار deferred-app */
 function finishBootShellRemoval(): void {
     notifyBootContentReady();
-    waitForDeferredStylesThenUncover();
+    uncoverBootShell();
+    void import('@/app/runtime/deferredAppStyles')
+        .then((m) => {
+            void m.ensureDeferredAppStylesLoaded();
+        })
+        .catch(() => undefined);
 }
 
 function finalizeBootShellRemoval(): void {

@@ -131,13 +131,11 @@ function buildE2eThreadingSeedPayload(now: string) {
                     clientName: E2E_TX_CLIENT,
                     targetDepartment: E2E_TX_DEPARTMENT,
                     status: 'Active',
-                    agreedFees: 0,
                     createdAt: now,
                     updatedAt: now,
                 },
             ],
             tasks: [],
-            financeRecords: [],
             documents: [],
         },
     };

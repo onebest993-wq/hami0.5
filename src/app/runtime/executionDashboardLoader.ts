@@ -56,10 +56,12 @@ function prefetchExecutionFirstPaintChunks(): void {
             m.prefetchExecutionDashboardPortal();
         })
         .catch(() => undefined);
-    // base scope مطلوب لجسم الهاتف — يبدأ بالتوازي مع PhoneBody قبل النقرة عند intent/urgent
+    // base scope في الكاش — الاستيراد العاري للوحدة لا يملأ cachedBuilder فيبقى InstantBody بعد وصول الجسم
     void import(
-        '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourcesBaseLazy'
-    ).catch(() => undefined);
+        '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBaseScopeCache'
+    )
+        .then((m) => m.loadAndCacheExecutionDashboardBaseScopeBuilder())
+        .catch(() => undefined);
 }
 
 /**
@@ -67,7 +69,7 @@ function prefetchExecutionFirstPaintChunks(): void {
  * overlays والمحضر يُحمَّلان عند نية النافذة/البلاط فقط — لا عبر برميل lazyShell
  * (تقييمه يسحب سجل overlays).
  */
-function prefetchExecutionDeepWarmChunks(): void {
+function prefetchExecutionDeepWarmChunks(opts?: { background?: boolean }): void {
     void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardPhoneBodyLazy')
         .then((m) => {
             m.prefetchExecutionDashboardPhoneBody();
@@ -75,24 +77,25 @@ function prefetchExecutionDeepWarmChunks(): void {
         .catch(() => undefined);
     void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryShell')
         .then((shell) => {
-            shell.prefetchUnifiedSeizureLogHost();
             shell.prefetchExecutionDossierDeepSurface();
         })
         .catch(() => undefined);
     void import('@/app/components/lawyer/ExecutionDashboard/executionCoreHandlersPrefetch')
         .then((m) => {
-            m.prefetchExecutionCoreHandlers('light');
-            m.prefetchExecutionCoreHandlers('dossier-support');
+            m.prefetchExecutionCoreHandlers('light', opts);
+            m.prefetchExecutionCoreHandlers('dossier-support', opts);
         })
         .catch(() => undefined);
     // مجموعات جسور المعالجات — أول ما يطلبه ChunkHost بعد جاهزية الجسم
     void import(
         '@/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardHandlerClusterGroups'
     ).catch(() => undefined);
-    // base scope — يُحمَّل بعد أول paint داخل الإضبارة؛ تسخينه هنا يمنع waterfall
+    // base scope في الكاش — يمنع دورة InstantBody بعد تركيب النواة
     void import(
-        '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourcesBaseLazy'
-    ).catch(() => undefined);
+        '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBaseScopeCache'
+    )
+        .then((m) => m.loadAndCacheExecutionDashboardBaseScopeBuilder())
+        .catch(() => undefined);
     // بوابة الإضبارة نفسها — preload يثبّتها للرسم المباشر بلا تعليق Suspense لحظة النقر
     void import('@/app/components/lawyer/dashboard/executionDashboardPortalLazy')
         .then((m) => {
@@ -143,7 +146,7 @@ export function prefetchExecutionDashboardByMode(
                             prefetchExecutionFirstPaintChunks();
                             // deep warm رفيع — بلا PCFP/FinancialHub/Law (نية تبويب فقط)
                             scheduleIdleWork(() => {
-                                prefetchExecutionDeepWarmChunks();
+                                prefetchExecutionDeepWarmChunks({ background: true });
                             }, 600);
                         }, 500),
                     )

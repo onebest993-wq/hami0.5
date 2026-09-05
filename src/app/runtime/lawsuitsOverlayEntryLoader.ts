@@ -32,5 +32,6 @@ export function prefetchLawsuitsOverlayEntry(): void {
 }
 
 export function loadLawsuitsOverlayEntry(): Promise<LawsuitsOverlayEntryModule> {
+    void LazyLawsuitsOverlayEntry.preload();
     return ensureEntryPromise();
 }

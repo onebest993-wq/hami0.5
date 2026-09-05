@@ -15,11 +15,17 @@ import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 import { NOTIFICATION_PERF_BUDGET } from '@/app/services/notifications/notificationPerfBudget';
 import { emitInboxNotificationArrived } from '@/app/runtime/inboxNotificationArrival';
 import {
+    applyKeptReadFlags,
     applyUpsertsToList,
     normalizeNotification,
     stripInvalidNotifications,
     unreadCountOf,
 } from '@/app/stores/notificationStoreList';
+import {
+    commitReadReconcileIfMembershipChanged,
+    isNotificationStoreOwnerMismatch,
+    persistLiveListIfSameUser,
+} from '@/app/stores/notificationStorePersist';
 import {
     applyE2eInboxSeedToStore,
     installNotificationStoreE2eHooks,
@@ -149,6 +155,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
         const { NotificationRepository } = await loadNotificationRepository();
         const raw = await NotificationRepository.fetchNotifications(userId);
+        if (get().currentUserId !== userId) return;
         const list = stripInvalidNotifications(raw);
 
         if (list.length !== raw.length) {
@@ -161,6 +168,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const finalList = notificationListsReferenceEqual(capped, current) ? current : capped;
         const unread = unreadCountOf(finalList);
 
+        if (get().currentUserId !== userId) return;
         set({
             notifications: finalList,
             unreadCount: unread,
@@ -171,19 +179,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 
     markAsRead: async (userId: string, notificationId: string, options?: { skipForumPersist?: boolean }) => {
+        if (isNotificationStoreOwnerMismatch(get().currentUserId, userId)) return;
         const { notifications } = get();
         const target = notifications.find((n) => n.id === notificationId);
         if (!target) return;
 
-        const updatedList = notifications.map((n) =>
-            n.id === notificationId ? { ...n, isRead: true } : n,
-        );
-        const unread = unreadCountOf(updatedList);
-
-        set({ notifications: updatedList, unreadCount: unread });
+        const updatedList = applyKeptReadFlags(notifications, (n) => n.id === notificationId);
+        set({ notifications: updatedList, unreadCount: unreadCountOf(updatedList) });
 
         const { NotificationRepository } = await loadNotificationRepository();
         await NotificationRepository.markAsRead(userId, notificationId, updatedList);
+        if (!isNotificationStoreOwnerMismatch(get().currentUserId, userId)) {
+            commitReadReconcileIfMembershipChanged(
+                set,
+                NotificationRepository.saveNotifications,
+                userId,
+                updatedList,
+                applyKeptReadFlags(get().notifications, (n) => n.id === notificationId),
+            );
+        }
 
         if (!options?.skipForumPersist && deriveNotificationCategory(target) === 'forum') {
             const { syncShellReadToForum } = await import(
@@ -194,15 +208,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 
     markForumNotificationsRead: async (userId: string, options?: { skipForumPersist?: boolean }) => {
+        if (isNotificationStoreOwnerMismatch(get().currentUserId, userId)) return;
         const { notifications } = get();
-        const updatedList = notifications.map((n) =>
-            deriveNotificationCategory(n) === 'forum' ? { ...n, isRead: true } : n,
+        const forumIds = new Set(
+            notifications
+                .filter((n) => deriveNotificationCategory(n) === 'forum')
+                .map((n) => n.id),
         );
-        const unread = unreadCountOf(updatedList);
-
-        set({ notifications: updatedList, unreadCount: unread });
+        const updatedList = applyKeptReadFlags(notifications, (n) => forumIds.has(n.id));
+        set({ notifications: updatedList, unreadCount: unreadCountOf(updatedList) });
         const { NotificationRepository } = await loadNotificationRepository();
         await NotificationRepository.saveNotifications(userId, updatedList);
+        if (!isNotificationStoreOwnerMismatch(get().currentUserId, userId)) {
+            commitReadReconcileIfMembershipChanged(
+                set,
+                NotificationRepository.saveNotifications,
+                userId,
+                updatedList,
+                applyKeptReadFlags(get().notifications, (n) => forumIds.has(n.id)),
+            );
+        }
 
         if (!options?.skipForumPersist) {
             const { syncShellMarkAllReadToForum } = await import(
@@ -213,14 +238,23 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 
     markAllAsRead: async (userId: string, options?: { skipForumPersist?: boolean }) => {
+        if (isNotificationStoreOwnerMismatch(get().currentUserId, userId)) return;
         const { notifications } = get();
-
+        const snapshotIds = new Set(notifications.map((n) => n.id));
         const updatedList = notifications.map((n) => ({ ...n, isRead: true }));
-
         set({ notifications: updatedList, unreadCount: 0 });
 
         const { NotificationRepository } = await loadNotificationRepository();
         await NotificationRepository.markAllAsRead(userId, updatedList);
+        if (!isNotificationStoreOwnerMismatch(get().currentUserId, userId)) {
+            commitReadReconcileIfMembershipChanged(
+                set,
+                NotificationRepository.saveNotifications,
+                userId,
+                updatedList,
+                applyKeptReadFlags(get().notifications, (n) => snapshotIds.has(n.id)),
+            );
+        }
 
         if (!options?.skipForumPersist) {
             const hasForum = notifications.some((n) => deriveNotificationCategory(n) === 'forum');
@@ -245,7 +279,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         if (currentUserId) {
             void loadNotificationRepository().then(({ NotificationRepository }) => {
-                void NotificationRepository.saveNotifications(currentUserId, updated);
+                persistLiveListIfSameUser(
+                    get,
+                    currentUserId,
+                    NotificationRepository.saveNotifications,
+                );
             });
         }
     },
@@ -272,6 +310,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                     (authoritative) => {
                         if (!authoritative) return;
                         const state = get();
+                        if (state.currentUserId !== currentUserId) return;
                         let list = state.notifications;
                         if (authoritative.id !== normalized.id) {
                             list = list.filter((n) => n.id !== normalized.id);
@@ -304,7 +343,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         if (currentUserId) {
             void loadNotificationRepository().then(({ NotificationRepository }) => {
-                void NotificationRepository.saveNotifications(currentUserId, capped);
+                persistLiveListIfSameUser(
+                    get,
+                    currentUserId,
+                    NotificationRepository.saveNotifications,
+                );
             });
         }
     },

@@ -48,7 +48,6 @@ describe('transactions createTransaction optimistic', () => {
             clientName: 'موكل',
             targetDepartment: 'دائرة',
             status: TransactionStatus.Active,
-            agreedFees: 0,
         });
 
         expect(created.title).toBe('معاملة جديدة');

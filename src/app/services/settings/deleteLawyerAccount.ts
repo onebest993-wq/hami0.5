@@ -14,7 +14,7 @@ type AccountDeleteResponse = {
     authDeleted?: boolean;
 };
 
-export type DeleteLawyerAccountResult = {
+type DeleteLawyerAccountResult = {
     authDeleted: boolean;
     localCompleted: boolean;
     failedLocalStages: string[];

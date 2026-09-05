@@ -31,6 +31,12 @@ vi.mock('../caseShareNetworkGuard', () => ({
     assertRecipientInNetwork: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock('@/app/services/settings/collaborationNetworkGate', () => ({
+    canReachCollaborationNetwork: () => true,
+    COLLABORATION_NETWORK_OFF: 'COLLABORATION_NETWORK_OFF',
+    assertCollaborationNetworkReachable: () => undefined,
+}));
+
 import { CaseShareApiService } from '../caseShareApiService';
 
 describe('CaseShareApiService — PROD fail-closed', () => {

@@ -46,7 +46,7 @@ function loadTransactionsIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/transactionsIntentWarm');
 }
 
-export type UseLawyerDashboardTransactionsParams = {
+type UseLawyerDashboardTransactionsParams = {
     userId: string | null;
     setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
     setShowLawsuitsWorkspace: (open: boolean) => void;

@@ -31,6 +31,8 @@ describe('smart-file open-path delay honesty', () => {
         expect(entry).toContain('SmartFileModalBootChrome');
         expect(entry).toContain('LazySmartFileModalPortal');
         expect(entry).toContain('hideVaultAfterPaint');
+        expect(entry).toContain('liveLawsuitFileRef');
+        expect(entry).toContain('isLawsuitVaultCommitHold');
         expect(entry).toContain('setShowLawsuitsWorkspace(false)');
         expect(entry).toContain('surfaceActive');
         expect(entry).toContain('coverWhilePending');
@@ -43,6 +45,8 @@ describe('smart-file open-path delay honesty', () => {
             'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardLawsuitsOverlayEntry.tsx',
         );
         expect(lawsuits).toContain('markLawsuitDossierOpenedFromWorkspace');
+        expect(lawsuits).toContain('useLawsuitVaultCommitHold');
+        expect(lawsuits).toContain('overlays.showLawsuitsWorkspace || vaultCommitHold');
         expect(lawsuits).not.toMatch(
             /onOpenFile[\s\S]{0,280}closeLawsuitsWorkspace\(\)/,
         );

@@ -24,7 +24,7 @@ function readClosedOnServer(): boolean {
     return false;
 }
 
-export type NotificationShellSnapSurface = {
+type NotificationShellSnapSurface = {
     /** الستارة مفتوحة الآن — تفاعل وتركيز وسحب */
     open: boolean;
     /** حاضرة بصرياً: مفتوحة أو تهبط — تركيب وقفل تمرير حتى نهاية الحركة */

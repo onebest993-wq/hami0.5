@@ -4,7 +4,7 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
 const RETRY_MS = 200;
 const MAX_ATTEMPTS = 40;
-export const LOCAL_NOTIFICATIONS_PLUGIN_NAME = 'LocalNotifications';
+const LOCAL_NOTIFICATIONS_PLUGIN_NAME = 'LocalNotifications';
 
 type LocalNotificationsPlugin = typeof import('@capacitor/local-notifications').LocalNotifications;
 

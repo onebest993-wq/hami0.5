@@ -1,8 +1,8 @@
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { lawyerCloudKv as kv } from '@/app/services/cloud/lawyerCloudKv';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
+import { removeRemoteStoragePathsBestEffort } from '@/app/services/storage/removeRemoteStoragePaths';
 import {
     deleteVaultBlobByPath,
     isVaultIdbStoragePath,
@@ -22,43 +22,14 @@ import {
 } from '@/app/services/vault/vaultDocsWarmState';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { assertVaultDocOwner, assertVaultStoragePathOwner } from '@/app/services/vault/vaultOwnership';
-
-function isRemoteStorageObjectPath(path: string): boolean {
-    const p = path.trim();
-    if (!p) return false;
-    if (p.startsWith('idb:') || p.startsWith('local:')) return false;
-    if (isVaultIdbStoragePath(p)) return false;
-    return true;
-}
-
-async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
-    if (!isLawyerWorkCloudLive()) return;
-    const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
-    if (toRemove.length === 0) return;
-    try {
-        await SecureAPIClient.fetchSecure('/api/upload/remove', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths: toRemove }),
-        });
-    } catch {
-        console.warn('[LawyerStorage] فشل حذف ملف(ات) من المخزن:', toRemove.join(', '));
-    }
-}
+import {
+    mergeVaultDocPair,
+    parseVaultDocFromKv,
+    sealVaultDocForKv,
+} from '@/app/services/vault/vaultCloudKvPayload';
 
 async function loadLocalVaultDocs(): Promise<SmartVaultDoc[]> {
     return readVaultLocalIndex();
-}
-
-function vaultDocPayloadForKv(doc: SmartVaultDoc): SmartVaultDoc {
-    const path = doc.storagePath || '';
-    if (isVaultIdbStoragePath(path)) {
-        return { ...doc, signedUrl: null };
-    }
-    if (path.startsWith('local:vault:') && doc.signedUrl?.startsWith('data:')) {
-        return { ...doc, signedUrl: null };
-    }
-    return doc;
 }
 
 function mergeVaultDocs(local: SmartVaultDoc[], remote: SmartVaultDoc[]): SmartVaultDoc[] {
@@ -74,13 +45,14 @@ function mergeVaultDocs(local: SmartVaultDoc[], remote: SmartVaultDoc[]): SmartV
         const nextTime = Number.isFinite(Date.parse(d.updatedAt)) ? Date.parse(d.updatedAt) : 0;
         const winner = nextTime > prevTime ? d : prev;
         const other = nextTime > prevTime ? prev : d;
-        map.set(d.id, {
-            ...winner,
-            signedUrl: winner.signedUrl ?? other.signedUrl ?? null,
-            storagePath: winner.storagePath || other.storagePath,
-        });
+        map.set(d.id, mergeVaultDocPair(winner, other));
     }
     return Array.from(map.values());
+}
+
+async function persistVaultDocToKv(doc: SmartVaultDoc): Promise<void> {
+    const sealed = await sealVaultDocForKv(doc);
+    await kv.set(`vault:docs:${doc.authorId}:${doc.id}`, sealed);
 }
 
 export const SmartVaultDB = {
@@ -93,13 +65,13 @@ export const SmartVaultDB = {
         }
         try {
             const raw = await kv.getByPrefix(`vault:docs:${uid}:`);
-            const remoteDocs = Array.isArray(raw)
-                ? raw.filter((d): d is SmartVaultDoc => {
-                      if (!d || typeof d !== 'object') return false;
-                      const o = d as Record<string, unknown>;
-                      return typeof o.id === 'string' && typeof o.title === 'string' && o.authorId === uid;
-                  })
-                : [];
+            const remoteDocs: SmartVaultDoc[] = [];
+            if (Array.isArray(raw)) {
+                for (const item of raw) {
+                    const doc = await parseVaultDocFromKv(item, uid);
+                    if (doc) remoteDocs.push(doc);
+                }
+            }
             const mergedForUser = filterDeletedVaultDocs(
                 mergeVaultDocs(localDocs, remoteDocs).filter((d) => d.authorId === uid),
             ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -132,8 +104,8 @@ export const SmartVaultDB = {
             upsertVaultLocalIndexDoc(doc);
         }
         if (isKvProxyNetworkEnabled() && isLawyerWorkCloudLive()) {
-            void kv.set(`vault:docs:${doc.authorId}:${doc.id}`, vaultDocPayloadForKv(doc)).catch(() => {
-                /* local-first */
+            void persistVaultDocToKv(doc).catch(() => {
+                /* local-first — لا سقوط لنص صريح على KV */
             });
         }
     },
@@ -144,13 +116,10 @@ export const SmartVaultDB = {
         const localDoc = localDocs.find((d) => d?.id === docId && d.authorId === authorId);
         if (isLawyerWorkCloudLive()) {
             try {
-                const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
-                if (raw && typeof raw === 'object') {
-                    const doc = raw as SmartVaultDoc;
-                    const path = doc.storagePath || '';
-                    if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
-                        await removeStoragePathsBestEffort([path]);
-                    }
+                const doc = await parseVaultDocFromKv(await kv.get(`vault:docs:${authorId}:${docId}`), authorId);
+                const path = doc?.storagePath || '';
+                if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
+                    await removeRemoteStoragePathsBestEffort([path]);
                 }
             } catch {
                 /* continue */
@@ -185,10 +154,7 @@ export const SmartVaultDB = {
             doc = localDocs[localIdx];
         } else if (isLawyerWorkCloudLive()) {
             try {
-                const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
-                if (raw && typeof raw === 'object') {
-                    doc = raw as SmartVaultDoc;
-                }
+                doc = await parseVaultDocFromKv(await kv.get(`vault:docs:${authorId}:${docId}`), authorId);
             } catch {
                 /* ignore */
             }

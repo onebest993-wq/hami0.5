@@ -769,6 +769,20 @@ export function useLawyerExecutionFiles({
         [persistExecutionList, refreshAppAlerts, sessionUserId, setActiveFile, storageHydrated, userId],
     );
 
+    const pendingOpenIdRef = useRef<string | null>(null);
+
+    const commitExecutionDossierOpen = useCallback(
+        (row: ExecutionFile) => {
+            openExecutionDossierWithContract(() => {
+                setActiveFile(coerceExecutionFilePreserveId(row));
+                void import('@/app/utils/lazyComponentsIntent').then((m) =>
+                    m.warmExecutionDossier('urgent'),
+                );
+            });
+        },
+        [setActiveFile],
+    );
+
     const openExecutionArchiveFile = useCallback(
         (f: unknown): boolean => {
             if (!assertExecutionMutationAllowed(sessionUserId)) return false;
@@ -782,19 +796,34 @@ export function useLawyerExecutionFiles({
             ) {
                 return false;
             }
-            const fromPool = executionFiles.find((row) => String(row.id) === String(idRaw));
-            if (!fromPool) return false;
-
-            openExecutionDossierWithContract(() => {
-                setActiveFile(coerceExecutionFilePreserveId(fromPool));
-                void import('@/app/utils/lazyComponentsIntent').then((m) =>
-                    m.warmExecutionDossier('urgent'),
-                );
-            });
+            const id = String(idRaw);
+            const fromPool = executionFiles.find((row) => String(row.id) === id);
+            if (!fromPool) {
+                if (storageHydrated) {
+                    SmartToast.error('تعذّر فتح الإضبارة — تحقق من بيانات الملف');
+                    return false;
+                }
+                pendingOpenIdRef.current = id;
+                return true;
+            }
+            pendingOpenIdRef.current = null;
+            commitExecutionDossierOpen(fromPool);
             return true;
         },
-        [executionFiles, sessionUserId, setActiveFile],
+        [commitExecutionDossierOpen, executionFiles, sessionUserId, storageHydrated],
     );
+
+    useEffect(() => {
+        const pendingId = pendingOpenIdRef.current;
+        if (!pendingId) return;
+        const fromPool = executionFiles.find((row) => String(row.id) === pendingId);
+        if (!fromPool) {
+            if (storageHydrated) pendingOpenIdRef.current = null;
+            return;
+        }
+        pendingOpenIdRef.current = null;
+        commitExecutionDossierOpen(fromPool);
+    }, [commitExecutionDossierOpen, executionFiles, storageHydrated]);
 
     return {
         executionFiles,

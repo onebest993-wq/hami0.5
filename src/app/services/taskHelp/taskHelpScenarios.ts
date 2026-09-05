@@ -7,9 +7,9 @@ import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { sanitizeTaskForPublic } from '@/app/services/tasks/taskSanitizer';
 import { TaskHelpRepository } from '@/app/services/taskHelp/taskHelpRepository';
 
-export type ScenarioActor = { id: string; name: string };
+type ScenarioActor = { id: string; name: string };
 
-export type HelpLifecycleResult = {
+type HelpLifecycleResult = {
     request: TaskHelpRequest;
     publicTitle?: string;
     secondAcceptCode?: string;

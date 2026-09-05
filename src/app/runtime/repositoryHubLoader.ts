@@ -1,3 +1,6 @@
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
+import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+
 type RepositoryOverlayEntryModule =
     typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry');
 
@@ -6,12 +9,6 @@ let overlayEntryResolved = false;
 
 export function isRepositoryHubModuleResolved(): boolean {
     return overlayEntryResolved;
-}
-
-/** للاختبارات */
-export function resetRepositoryHubModuleCacheForTests(): void {
-    overlayEntryPromise = null;
-    overlayEntryResolved = false;
 }
 
 function ensureOverlayEntry(): Promise<RepositoryOverlayEntryModule> {
@@ -32,18 +29,38 @@ function ensureOverlayEntry(): Promise<RepositoryOverlayEntryModule> {
     return overlayEntryPromise;
 }
 
+export const LazyRepositoryOverlayEntry = createPreloadableLazyComponent(() =>
+    ensureOverlayEntry().then((m) => ({
+        default: m.LawyerDashboardRepositoryOverlayEntry as unknown as LazyComponent,
+    })),
+);
+
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        overlayEntryPromise = null;
+        overlayEntryResolved = false;
+        LazyRepositoryOverlayEntry.resetForTests();
+    });
+}
+
+/** للاختبارات */
+export function resetRepositoryHubModuleCacheForTests(): void {
+    overlayEntryPromise = null;
+    overlayEntryResolved = false;
+    LazyRepositoryOverlayEntry.resetForTests();
+}
+
 /** مقطع Entry (Host + Modal ثابتان داخله) */
 export function loadRepositoryHubModule(): Promise<RepositoryOverlayEntryModule> {
+    void LazyRepositoryOverlayEntry.preload();
     return ensureOverlayEntry();
 }
 
 export function prefetchRepositoryHubModule(): void {
     if (typeof window === 'undefined') return;
-    void loadRepositoryHubModule().catch(() => undefined);
+    void LazyRepositoryOverlayEntry.preload();
 }
 
 export function hydrateRepositoryShellForInstantOpen(): Promise<boolean> {
-    return loadRepositoryHubModule()
-        .then(() => overlayEntryResolved)
-        .catch(() => false);
+    return LazyRepositoryOverlayEntry.preload().then(() => overlayEntryResolved);
 }

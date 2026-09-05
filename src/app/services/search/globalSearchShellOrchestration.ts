@@ -1,5 +1,5 @@
 /** إغلاق overlays المتنافسة قبل فتح البحث الشامل */
-export type CloseOverlaysBeforeGlobalSearchInput = {
+type CloseOverlaysBeforeGlobalSearchInput = {
     closeNotifications: () => void;
     closeSettings: () => void;
     closeVault: () => void;

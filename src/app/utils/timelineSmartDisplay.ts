@@ -11,14 +11,62 @@ function startOfLocalDay(d: Date): Date {
     return x;
 }
 
-/** تحليل تاريخ مهلة من السجل (يفضّل YYYY-MM-DD أو ISO) */
+/** تحليل تاريخ مهلة أو لحظة تسجيل من السجل (يفضّل YYYY-MM-DD أو ISO كامل) */
 export function parseTimelineDeadlineDate(raw: string | undefined): Date | null {
     if (!raw) return null;
     const s = String(raw).trim();
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (!s) return null;
+    // تاريخ تقويمي فقط — بدون وقت. لا تقطع ISO ذات الوقت إلى منتصف الليل.
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (dateOnly) {
+        return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+    }
     const d = new Date(s);
     return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * لحظة ترتيب السجل الزمني (تسجيل الإجراء في النظام) — ليست تاريخ المحتوى التقويمي.
+ * `date` يبقى تاريخ العمل (تبليغ/موعد…) ويُعرض في الوصف؛ الترتيب من `timestamp`.
+ */
+export function timelineOccurrenceSortMs(
+    event: Pick<TimelineEvent, 'timestamp' | 'date' | 'id'> & { createdAt?: string },
+): number {
+    const ts = String(event.timestamp ?? '').trim();
+    if (ts) {
+        const d = parseTimelineDeadlineDate(ts);
+        if (d) return d.getTime();
+    }
+    const created = String(event.createdAt ?? '').trim();
+    if (created) {
+        const d = parseTimelineDeadlineDate(created);
+        if (d) return d.getTime();
+    }
+    // أحداث قديمة بلا timestamp — لا ترتّب بتاريخ العمل إن أمكن؛ id رقمي كملجأ أخير
+    const idNum = Number(String(event.id ?? '').replace(/\D/g, ''));
+    if (Number.isFinite(idNum) && idNum > 1e11) return idNum;
+    return 0;
+}
+
+/** ترتيب السجل: الأحدث تسجيلاً أولاً، مع ثبات عند التعادل */
+export function sortTimelineByOccurrence<T extends TimelineEvent>(events: T[]): T[] {
+    return events.slice().sort((a, b) => {
+        const diff = timelineOccurrenceSortMs(b) - timelineOccurrenceSortMs(a);
+        if (diff !== 0) return diff;
+        return String(b.id ?? '').localeCompare(String(a.id ?? ''), undefined, { numeric: true });
+    });
+}
+
+/** وقت العرض في بطاقة السجل = لحظة التسجيل إن وُجدت */
+export function timelineOccurrenceDisplayRaw(
+    event: Pick<TimelineEvent, 'timestamp' | 'date'> & { createdAt?: string },
+): string | undefined {
+    const ts = String(event.timestamp ?? '').trim();
+    if (ts) return ts;
+    const created = String(event.createdAt ?? '').trim();
+    if (created) return created;
+    const date = String(event.date ?? '').trim();
+    return date || undefined;
 }
 
 export function formatTimelineWhenAr(raw: string | undefined): string {
@@ -30,7 +78,7 @@ export function formatTimelineWhenAr(raw: string | undefined): string {
     if (!d) return s;
     const dateStr = d.toLocaleDateString('ar-EG', {
         year: 'numeric',
-        month: 'long',
+        month: 'numeric',
         day: 'numeric',
     });
     if (dateOnly) return dateStr;
@@ -51,9 +99,7 @@ export function timelineDeadlineDaysLeft(deadlineDate: string | undefined): numb
 }
 
 function eventSortTimeMs(e: TimelineEvent): number {
-    const ts = e.timestamp || e.date;
-    const d = parseTimelineDeadlineDate(ts);
-    return d ? d.getTime() : 0;
+    return timelineOccurrenceSortMs(e);
 }
 
 /** صف مع أولوية محسوبة للعرض في الرادار — لا يُكتب تلقائياً في التخزين */

@@ -22,6 +22,53 @@ describe('execution first-viewport warm honesty', () => {
         expect(shell).not.toMatch(/from\s+['"]\.\/debtorCardRowBadgesClusterLazy['"]/);
         expect(prefetch).not.toMatch(/requestIdleCallback[\s\S]{0,200}LazyActionGridSection/);
         expect(prefetch).not.toMatch(/requestIdleCallback[\s\S]{0,200}LazyTimelineSection/);
+        expect(shell).not.toContain('LazyPersonalTab');
+        expect(shell).not.toContain('LazyCoerciveTab');
+        expect(shell).not.toContain('prefetchFollowupMemoPanels');
+    });
+
+    it('تبويبات المحضر وبوابته خارج شِل أول viewport وحقيبة الطلاء', () => {
+        const enrich = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/enrichFollowupModalSnapshot.ts',
+        );
+        const chunkScope = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeShell.ts',
+        );
+        const overlayPrefetch = read(
+            'src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts',
+        );
+        const followupRuntime = read(
+            'src/app/components/lawyer/ExecutionDashboard/executionFollowupOverlayPrefetchRuntime.ts',
+        );
+        const tabPrefetch = read(
+            'src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts',
+        );
+        const loader = read('src/app/runtime/executionDashboardLoader.ts');
+        const firstPaint = loader.slice(
+            loader.indexOf('function prefetchExecutionFirstPaintChunks'),
+            loader.indexOf('function prefetchExecutionDeepWarmChunks'),
+        );
+        const scopeAndChunk = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.ts',
+        );
+
+        expect(enrich).toContain("from '../executionDashboardFollowupTabLazy'");
+        expect(enrich).not.toMatch(/from\s+['"][^'"]*executionDashboardLazyRegistryShell['"]/);
+        expect(tabPrefetch).toContain("from './executionDashboardFollowupTabLazy'");
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionDashboardFollowupTabLazy['"]/);
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionFollowupModalLazy['"]/);
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionFollowupHostLazy['"]/);
+        expect(overlayPrefetch).toContain("import('./executionFollowupOverlayPrefetchRuntime')");
+        expect(followupRuntime).toContain("from './executionDashboardFollowupTabLazy'");
+        expect(followupRuntime).toContain('primeFollowupModalSnapshotBuilder');
+        expect(scopeAndChunk).not.toContain('enrichFollowupModalSnapshot');
+        expect(scopeAndChunk).not.toMatch(/from\s+['"]\.\.\/buildFollowupModalSnapshotInput['"]/);
+        expect(scopeAndChunk).toContain('loadAndCacheFollowupModalSnapshotBuilder');
+        expect(chunkScope).not.toContain('executionFollowupModalLazy');
+        expect(chunkScope).not.toContain('executionDashboardFollowupTabLazy');
+        expect(chunkScope).not.toContain('LazyPersonalTab');
+        expect(firstPaint).not.toContain('executionDashboardFollowupTabLazy');
+        expect(firstPaint).not.toContain('executionFollowupModalLazy');
     });
 
     it('مسار first-paint لا يقيّم برميل overlays من أجل أقسام الجسم', () => {
@@ -50,6 +97,8 @@ describe('execution first-viewport warm honesty', () => {
         expect(boot).not.toContain('prefetchExecutionFollowupOverlay');
         expect(gates).toContain('if (!modals.showUnifiedExecutionModal) return');
         expect(gates).toContain('prefetchExecutionFollowupOverlay');
+        expect(gates).not.toMatch(/from\s+['"]\.\.\/executionDashboardShellOverlaysLazy['"]/);
+        expect(gates).toContain("import('../executionDashboardShellOverlaysLazy')");
     });
 
     it('أول viewport الحي يعزل الأقسام بهياكل صامتة وزر خروج', () => {
@@ -107,6 +156,9 @@ describe('execution first-viewport warm honesty', () => {
         const prefetch = read(
             'src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts',
         );
+        const followupRuntime = read(
+            'src/app/components/lawyer/ExecutionDashboard/executionFollowupOverlayPrefetchRuntime.ts',
+        );
         const flags = read(
             'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayModalFlags.ts',
         );
@@ -127,7 +179,15 @@ describe('execution first-viewport warm honesty', () => {
             'export function prefetchExecutionFinanceOverlay',
             followupFnStart,
         );
-        expect(prefetch).toContain('prefetchExecutionFollowupModalHost');
+        expect(followupRuntime).toContain('prefetchExecutionFollowupModalHost');
+        expect(followupRuntime).toContain('prefetchExecutionFollowupModalPortal');
+        expect(prefetch.slice(followupFnStart, followupFnEnd)).toContain(
+            "import('./executionFollowupOverlayPrefetchRuntime')",
+        );
+        expect(prefetch.slice(followupFnStart, followupFnEnd)).toContain(
+            'loadAndCacheFollowupModalSnapshotBuilder',
+        );
+        expect(prefetch).not.toMatch(/from\s+['"]\.\/hooks\/buildFollowupModalSnapshotInput['"]/);
         expect(prefetch.slice(followupFnStart, followupFnEnd)).not.toContain(
             'prefetchExecutionDashboardShellOverlays',
         );
@@ -171,7 +231,8 @@ describe('execution first-viewport warm honesty', () => {
             'src/app/components/lawyer/execution/ExecutionLawReferencePanel.tsx',
         );
         expect(tertiary).toContain('ExecutionFinancialHubInstantFrame');
-        expect(tertiary).toContain('ExecutionSeizureLogInstantFrame');
+        expect(tertiary).not.toContain('ExecutionSeizureLogInstantFrame');
+        expect(tertiary).not.toContain('LazyUnifiedSeizureLogHost');
         expect(tertiary).not.toContain('EXEC_OVERLAY_LAZY_FALLBACK');
         expect(secondary).toContain('ExecutionLawOverlayEntry');
         expect(secondary).toContain('executionTimelineSurfaceLazy');
@@ -191,6 +252,7 @@ describe('execution first-viewport warm honesty', () => {
         expect(requests).not.toContain('جاري تحميل سجل الطلبات');
         expect(requests).toContain('PreloadableOverlayGate');
         expect(requests).toContain('requestsTabInnerLazy');
+        expect(requests).toMatch(/from ['"]\.\/RequestsTabDecisionLog['"]/);
         expect(requests).not.toContain('React.lazy');
         expect(history).not.toContain('animate-pulse');
         expect(history).toContain('executionNotesInnerLazy');
@@ -256,5 +318,46 @@ describe('execution first-viewport warm honesty', () => {
         expect(flags).toContain('showStayOfExecutionModal');
         expect(entry).toContain('ExecutionShellOverlayInstantPaint');
         expect(visitation).not.toContain('جاري توليد المواعيد');
+    });
+
+    it('فتح الإضبارة لا يسخّن جسور المحضر ولا يبني كيس 197 مفتاحاً ولا ينسخه للنوافذ', () => {
+        const prefetchEffects = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerPrefetchEffects.ts',
+        );
+        const dossierPaint = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/prefetchExecutionHandlersForDossierPaint.ts',
+        );
+        const scopeAndChunk = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.ts',
+        );
+        const chunkScopeRef = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardChunkScopeRef.ts',
+        );
+        const openDossierFn = dossierPaint.slice(
+            dossierPaint.indexOf('export function prefetchExecutionHandlersForOpenDossier'),
+            dossierPaint.indexOf('export function prefetchExecutionHandlersForOpenFollowup'),
+        );
+
+        expect(prefetchEffects).toContain('prefetchExecutionHandlersForOpenDossier');
+        expect(prefetchEffects).not.toContain('prefetchEvictionFieldProceduresPanel');
+        expect(prefetchEffects).not.toContain('executionDashboardLazyRegistryOverlays');
+        expect(openDossierFn).toContain("prefetchExecutionCoreHandlers('seizure-requests')");
+        expect(openDossierFn).not.toContain('followup-admin-special');
+        expect(openDossierFn).not.toContain('seizure-log');
+        expect(openDossierFn).not.toContain('dossier-support');
+        expect(dossierPaint).toContain('followup-admin-special');
+        expect(scopeAndChunk).toContain('resolveFollowupModalSnapshotForPaint');
+        expect(scopeAndChunk).toContain('resolveDirectFollowupScopeSnapshotForPaint');
+        expect(scopeAndChunk).toContain('loadAndCacheFollowupModalSnapshotBuilder');
+        expect(scopeAndChunk).not.toContain('enrichFollowupModalSnapshot');
+        expect(scopeAndChunk).not.toMatch(/from\s+['"]\.\.\/buildFollowupModalSnapshotInput['"]/);
+        expect(scopeAndChunk).not.toContain('...scopeSourcesRef.current');
+        const directFollowup = read(
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardDirectFollowupScopeSnapshot.ts',
+        );
+        expect(directFollowup).not.toContain('...scopeSources,');
+        expect(directFollowup).toContain('Object.create(scopeSources)');
+        expect(chunkScopeRef).not.toContain('EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS');
+        expect(chunkScopeRef).toContain('assignExecutionShellOverlayScope');
     });
 });

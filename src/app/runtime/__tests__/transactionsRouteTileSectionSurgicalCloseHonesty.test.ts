@@ -196,6 +196,9 @@ describe('transactions RouteTile section surgical close honesty', () => {
             'utf8',
         );
         expect(chunks).toContain('prefetchTransactionsHubModule');
+        expect(chunks).toContain('isTransactionsHubJsWarmAllowed');
+        const medium = chunks.slice(chunks.indexOf('prefetchSettingsOverlayEntry();'));
+        expect(medium).not.toContain('prefetchTransactionsHubModule');
         const system = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem.tsx'),
             'utf8',

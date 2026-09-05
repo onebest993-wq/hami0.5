@@ -50,3 +50,9 @@ export function sanitizeRecentSearchLabels(raw: unknown): string[] {
     }
     return out;
 }
+
+export function pushGlobalSearchRecentLabel(prev: readonly string[], label: string): string[] {
+    const safe = clampRecentSearchLabel(label);
+    if (!safe) return prev.length ? [...prev] : [];
+    return [safe, ...prev.filter((s) => s !== safe)].slice(0, GLOBAL_SEARCH_MAX_RECENT_COUNT);
+}

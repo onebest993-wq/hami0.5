@@ -2,7 +2,7 @@
  * KV key/prefix ownership rules — canonical module tests.
  */
 import { describe, it, expect } from 'vitest';
-import { isKeyOwnedBy, isPrefixOwnedBy } from '@/app/security/kvProxyKeyOwnership';
+import { isCalendarNeverCloudKvMaterial, isKeyOwnedBy, isPrefixOwnedBy } from '@/app/security/kvProxyKeyOwnership';
 
 const ME = 'user-aaa';
 const OTHER = 'user-bbb';
@@ -161,5 +161,16 @@ describe('kv-proxy ownership — حالات حدية', () => {
     it('يرفض محاولة دس userId في مكان غير صحيح', () => {
         expect(isKeyOwnedBy(`user:${OTHER}:cases:${ME}`, ME, 'read')).toBe(false);
         expect(isKeyOwnedBy(`calendar:${OTHER}:${ME}-event`, ME, 'read')).toBe(false);
+    });
+});
+
+describe('isCalendarNeverCloudKvMaterial', () => {
+    it('يحظر بادئة التقويم حتى لو المفتاح مملوك', () => {
+        expect(isCalendarNeverCloudKvMaterial(`calendar:${ME}:event-1`)).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial(`calendar:${ME}:`)).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial(`hami:calendar:events:${ME}:v1`)).toBe(true);
+        expect(isKeyOwnedBy(`calendar:${ME}:event-1`, ME, 'write')).toBe(true);
+        expect(isCalendarNeverCloudKvMaterial(`transactions:${ME}:tx-1`)).toBe(false);
+        expect(isCalendarNeverCloudKvMaterial(`profile:${ME}`)).toBe(false);
     });
 });

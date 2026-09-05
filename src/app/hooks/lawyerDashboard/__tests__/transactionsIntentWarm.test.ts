@@ -8,6 +8,7 @@ import {
 
 const prefetchTransactionsHubModule = vi.fn();
 const prefetchTransactionsCloudModule = vi.fn();
+const fetchTransactionsThreadingState = vi.fn(() => Promise.resolve(null));
 const warmTransactionsThreadingStore = vi.fn(() => Promise.resolve());
 const isLitePerformanceActive = vi.fn(() => false);
 
@@ -18,6 +19,7 @@ vi.mock('@/app/runtime/transactionsHubLoader', () => ({
 
 vi.mock('@/app/services/transactions/transactionsCloudLoader', () => ({
     prefetchTransactionsCloudModule: (...args: unknown[]) => prefetchTransactionsCloudModule(...args),
+    fetchTransactionsThreadingState: (...args: unknown[]) => fetchTransactionsThreadingState(...args),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -71,9 +73,19 @@ describe('transactionsIntentWarm', () => {
         expect(warmTransactionsThreadingStore).not.toHaveBeenCalled();
     });
 
-    it('cloud idle لا يلمس المخزن', () => {
+    it('cloud idle بلا هوية لا يلمس المخزن ولا يجلب الحالة', () => {
         warmTransactionsCloudIdle();
         expect(prefetchTransactionsCloudModule).toHaveBeenCalledTimes(1);
+        expect(fetchTransactionsThreadingState).not.toHaveBeenCalled();
         expect(warmTransactionsThreadingStore).not.toHaveBeenCalled();
+    });
+
+    it('cloud idle مع هوية يجلب الحالة بعد الخمول بلا مخزن الفتح', () => {
+        const unregister = registerTransactionsWarmUserId('lawyer-1');
+        warmTransactionsCloudIdle();
+        expect(prefetchTransactionsCloudModule).toHaveBeenCalledTimes(1);
+        expect(fetchTransactionsThreadingState).toHaveBeenCalledWith('lawyer-1');
+        expect(warmTransactionsThreadingStore).not.toHaveBeenCalled();
+        unregister();
     });
 });

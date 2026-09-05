@@ -1,3 +1,11 @@
+import { unwrapForumBlobFromAtRest, wrapForumBlobForAtRest } from '@/app/services/forum/forumBlobAtRest';
+
+export {
+    FORUM_IDB_PREFIX,
+    buildForumIdbPath,
+    parseForumIdbPath,
+} from '@/app/services/forumBlobPath';
+
 const DB_NAME = 'hami-forum-blobs';
 const DB_VERSION = 1;
 const STORE = 'attachments';
@@ -8,19 +16,8 @@ type ForumBlobRow = {
     size: number;
     blob: Blob;
     updatedAt: string;
+    encrypted?: boolean;
 };
-
-export const FORUM_IDB_PREFIX = 'idb:forum:';
-
-export function buildForumIdbPath(cacheKey: string): string {
-    return `${FORUM_IDB_PREFIX}${cacheKey.trim()}`;
-}
-
-export function parseForumIdbPath(path: string | undefined | null): string | null {
-    if (!path?.startsWith(FORUM_IDB_PREFIX)) return null;
-    const key = path.slice(FORUM_IDB_PREFIX.length).trim();
-    return key || null;
-}
 
 function openDb(): Promise<IDBDatabase | null> {
     if (typeof indexedDB === 'undefined') return Promise.resolve(null);
@@ -41,19 +38,8 @@ function openDb(): Promise<IDBDatabase | null> {
     });
 }
 
-export async function putForumBlob(cacheKey: string, blob: Blob, mimeType: string): Promise<void> {
-    const db = await openDb();
-    if (!db) throw new Error('forum blob store unavailable');
-
-    const row: ForumBlobRow = {
-        key: cacheKey.trim(),
-        mimeType: mimeType || blob.type || 'application/octet-stream',
-        size: blob.size,
-        blob,
-        updatedAt: new Date().toISOString(),
-    };
-
-    await new Promise<void>((resolve, reject) => {
+function writeForumBlobRow(db: IDBDatabase, row: ForumBlobRow): Promise<void> {
+    return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, 'readwrite');
         tx.oncomplete = () => {
             db.close();
@@ -69,6 +55,23 @@ export async function putForumBlob(cacheKey: string, blob: Blob, mimeType: strin
         };
         tx.objectStore(STORE).put(row);
     });
+}
+
+export async function putForumBlob(cacheKey: string, blob: Blob, mimeType: string): Promise<void> {
+    const wrapped = await wrapForumBlobForAtRest(blob);
+    const db = await openDb();
+    if (!db) throw new Error('forum blob store unavailable');
+
+    const row: ForumBlobRow = {
+        key: cacheKey.trim(),
+        mimeType: mimeType || blob.type || 'application/octet-stream',
+        size: blob.size,
+        blob: wrapped.blob,
+        updatedAt: new Date().toISOString(),
+        ...(wrapped.encrypted ? { encrypted: true } : {}),
+    };
+
+    await writeForumBlobRow(db, row);
 }
 
 export async function getForumBlob(
@@ -102,14 +105,65 @@ export async function getForumBlob(
     });
 
     if (!row?.blob) return null;
-    return {
+    const mimeType = row.mimeType || row.blob.type || 'application/octet-stream';
+    const plain = await unwrapForumBlobFromAtRest({
         blob: row.blob,
-        mimeType: row.mimeType || row.blob.type || 'application/octet-stream',
-    };
+        mimeType,
+        encrypted: row.encrypted,
+    });
+    if (!plain) return null;
+    if (!row.encrypted) {
+        maybeUpgradeLegacyForumBlob(cacheKey, plain, mimeType);
+    }
+    return { blob: plain, mimeType };
+}
+
+function maybeUpgradeLegacyForumBlob(cacheKey: string, plain: Blob, mimeType: string): void {
+    void (async () => {
+        try {
+            const wrapped = await wrapForumBlobForAtRest(plain);
+            if (!wrapped.encrypted) return;
+            const db = await openDb();
+            if (!db) return;
+            await writeForumBlobRow(db, {
+                key: cacheKey.trim(),
+                mimeType,
+                size: plain.size,
+                blob: wrapped.blob,
+                updatedAt: new Date().toISOString(),
+                encrypted: true,
+            });
+        } catch {
+            /* fail-open: keep serving the plaintext already returned */
+        }
+    })();
 }
 
 export async function getForumBlobObjectUrl(cacheKey: string): Promise<string | null> {
     const row = await getForumBlob(cacheKey);
     if (!row) return null;
     return URL.createObjectURL(row.blob);
+}
+
+export async function deleteForumBlob(cacheKey: string): Promise<void> {
+    const key = cacheKey.trim();
+    if (!key) return;
+    const db = await openDb();
+    if (!db) return;
+    await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.oncomplete = () => {
+            db.close();
+            resolve();
+        };
+        tx.onerror = () => {
+            db.close();
+            resolve();
+        };
+        tx.onabort = () => {
+            db.close();
+            resolve();
+        };
+        tx.objectStore(STORE).delete(key);
+    });
 }

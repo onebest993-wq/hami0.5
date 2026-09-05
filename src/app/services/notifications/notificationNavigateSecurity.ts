@@ -1,5 +1,5 @@
 /** مسارات التنقّل المسموحة من إشعار */
-export const NOTIFICATION_NAV_TARGETS = [
+const NOTIFICATION_NAV_TARGETS = [
     'community',
     'vault',
     'scan_document',
@@ -32,7 +32,7 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const SERVER_PAYLOAD_META_KEYS = new Set(['dedupeKey', 'appendedBy', 'readSyncedBy', 'readSyncedAt']);
 
-export const MAX_PAYLOAD_STRING_LEN = 128;
+const MAX_PAYLOAD_STRING_LEN = 128;
 
 /** أحرف تكسر مُحدِّد CSS / HTML أو تُدخل مخططاً خطيراً */
 const UNSAFE_ID_CHARS = /[<>'"[\]\u0000-\u001F\u007F]/;

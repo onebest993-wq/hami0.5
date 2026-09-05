@@ -275,6 +275,60 @@ function legalAnalysisDevApiPlugin() {
     }
 }
 
+/**
+ * تحويل شجرة أول طلاء لأجندة المهام على طلب صريح بعد فتح الستارة/الأجندة.
+ * ليست في warmup.clientFiles حتى لا ينافس Overlay أول إطار للمنزل بعد تسجيل الدخول.
+ */
+function hamiFieldTasksAgendaDevWarmPlugin() {
+    const WARM_PATH = '/hami-dev/warm-tasks-manager-agenda'
+    const AGENDA = [
+        '/src/app/components/lawyer/dashboard/TasksManagerOverlay.tsx',
+        '/src/app/components/lawyer/dashboard/TasksManager.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/TasksManagerHeader.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/WeeklyAgendaSection.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/useTasksManagerController.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/AgendaTaskCard.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/TaskCard.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme.ts',
+        '/src/app/components/lawyer/dashboard/tasksManager/TasksManagerOverlays.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/useTasksManagerUiState.ts',
+        '/src/app/components/lawyer/dashboard/tasksManager/useTasksManagerDialogActions.ts',
+        '/src/app/components/lawyer/dashboard/tasksManager/utils.ts',
+        '/src/app/components/lawyer/dashboard/tasksManager/constants.ts',
+        '/src/app/components/lawyer/dashboard/tasksManager/TaskCardFieldBrief.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/TaskCardMainBrief.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/TaskCardPanels.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/TaskCardToolRow.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/TaskCardStatusRow.tsx',
+        '/src/app/components/lawyer/dashboard/tasksManager/useTaskCardChrome.ts',
+        '/src/app/components/lawyer/dashboard/tasksManager/taskCardUtils.ts',
+        '/src/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle.ts',
+    ]
+    return {
+        name: 'hami-field-tasks-agenda-dev-warm',
+        apply: 'serve' as const,
+        enforce: 'pre' as const,
+        configureServer(server: ViteDevServer) {
+            let warming = false
+            server.middlewares.use((req, res, next) => {
+                const pathOnly = (req.url ?? '').split('?')[0]
+                if (pathOnly !== WARM_PATH) {
+                    next()
+                    return
+                }
+                if (!warming) {
+                    warming = true
+                    void Promise.all(AGENDA.map((file) => server.transformRequest(file))).catch(() => {
+                        warming = false
+                    })
+                }
+                res.statusCode = 204
+                res.end()
+            })
+        },
+    }
+}
+
 // Stable Standard Config - Optimized for performance (Vite + Vitest merged)
 // Uses .mts extension to force ESM loading (fixes require() of ESM modules)
 function resolveSentryBundled(env: Record<string, string>): boolean {
@@ -305,6 +359,7 @@ function resolveCapacitorWebAliases(command: string, env: Record<string, string>
     { find: '@capacitor/geolocation', replacement: path.join(shimDir, 'pluginStub.ts') },
     { find: '@capacitor/filesystem', replacement: path.join(shimDir, 'pluginStub.ts') },
     { find: '@capacitor/share', replacement: path.join(shimDir, 'pluginStub.ts') },
+    { find: '@capacitor/haptics', replacement: path.join(shimDir, 'pluginStub.ts') },
     {
       find: '@capacitor/local-notifications',
       replacement: path.join(shimDir, 'localNotificationsStub.ts'),
@@ -862,6 +917,7 @@ function resolveLawyerHomePaintChunk(id: string): string | undefined {
     '/src/app/components/lawyer/dashboard/LawyerHomeAmbient',
     '/src/app/components/lawyer/dashboard/HomeBlockPatternOverlay',
     '/src/app/components/lawyer/dashboard/HomeMoroccanGlassDecor',
+    '/src/app/components/lawyer/dashboard/commandHubTileClasses',
     '/src/app/services/settings/homeLayout',
     '/src/app/services/settings/homeWidgetPlacements',
     '/src/app/services/settings/homeBlockLabels',
@@ -910,6 +966,44 @@ function resolveLawyerHomeTabContentChunk(id: string): string | undefined {
   }
   if (normalized.includes('/src/app/components/lawyer/dashboard/commandHub/')) {
     return 'lawyer-home-command-hub'
+  }
+  return undefined
+}
+
+/**
+ * زر/شكل التثبيت — ورقة مستقلة.
+ * إن بقيت بلا اسم يمتصّها lawyer-home-hub-pins (أيقونة Pin مشتركة مع صف التثبيت)
+ * فأول فتح للمعاملات يدفع لوحة تثبيتات الصفحة.
+ */
+function resolveWorkspacePinButtonChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (
+    /\/src\/app\/workspace\/workspacePinVisuals\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/workspace\/WorkspacePinButton\.(tsx|ts|js)$/.test(normalized) ||
+    /\/src\/app\/components\/ui\/icons\/Pin\.(ts|js)$/.test(normalized) ||
+    /lucide-react\/dist\/esm\/icons\/pin\.js$/.test(normalized)
+  ) {
+    return 'workspace-pin-button'
+  }
+  return undefined
+}
+
+/**
+ * بناة عناصر التثبيت — مشتركة مع تجميع لوحة التثبيتات.
+ * بلا اسم يمتصّها lawyer-home-hub-pins فيدفع أول فتح للمعاملات لوحة المنزل.
+ */
+function resolveWorkspacePinBuildersChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (
+    normalized.includes('/src/app/workspace/workspacePinBuilders') ||
+    normalized.includes('/src/app/workspace/workspacePinRecord') ||
+    normalized.includes('/src/app/workspace/pinDisplayUtils') ||
+    normalized.includes('/src/app/workspace/extractCaseRefs') ||
+    normalized.includes('/src/app/workspace/resolveLinkedCaseMeta') ||
+    normalized.includes('/src/app/workspace/lawsuitWorkspacePin') ||
+    normalized.includes('/src/app/workspace/executionWorkspacePin')
+  ) {
+    return 'workspace-pin-builders'
   }
   return undefined
 }
@@ -966,6 +1060,290 @@ function resolveLawyerDashboardStemChunk(id: string): string | undefined {
   return undefined
 }
 
+/**
+ * أوراق مشتركة بلا اعتمادية ثقيلة — يجب أن تُسمّى قبل أي chunk ميزة.
+ *
+ * بلا تثبيت: Rollup يسكن الورقة داخل أول chunk مسمّى يستوردها
+ * (`execution-dashboard-persist-pipeline` غالباً). بعدها كل مستورد للورقة
+ * — لوحة OTP، المنتدى، أيقونة إغلاق — يدفع إغلاق خط أنابيب التنفيذ (~1.2 م.ب).
+ * القياس: LawyerAuthOtpPanel استورد parseJsonResponse (17 سطراً) فسحب persist-pipeline.
+ *
+ * الأيقونات تبقى ملفاً لكل أيقونة بلا برميل `lawyer-lucide-icons` — تسمية كل
+ * أيقونة chunk مستقل أنتج مقاطع فارغة وكسَر قصد «تتبع الشاشة المستورِدة».
+ */
+function resolveSharedRuntimeLeafChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (!normalized.includes('/src/')) return undefined
+
+  if (/\/src\/app\/utils\/bffJsonResponse\.(ts|js)$/.test(normalized)) {
+    return 'bff-json-leaf'
+  }
+  /**
+   * تاريخ الجهاز YYYY-MM-DD. بلا تثبيت يمتصّه execution-dashboard-boot-pipeline
+   * فيدفع المنزل وصدف التقويم إغلاق خط إقلاع التنفيذ لأجل اليوم المحلي.
+   */
+  if (/\/src\/app\/utils\/localYmd\.(ts|js)$/.test(normalized)) {
+    return 'local-ymd'
+  }
+  /**
+   * hop التقويم السحابي. بلا تثبيت يمتصّه lawyer-boot-peek-lite عبر
+   * homeHubRadarWarmCache فيدفع المضيف أرشيف المنزل عند prefetch النموذج.
+   * الطبقتان تبقى ملفين؛ تسميتان منفصلتان — لا دمج hop.
+   */
+  if (/\/src\/app\/services\/calendar\/calendarCloudRuntime\.(ts|js)$/.test(normalized)) {
+    return 'calendar-cloud-runtime'
+  }
+  if (/\/src\/app\/services\/calendar\/calendarCloudLoader\.(ts|js)$/.test(normalized)) {
+    return 'calendarCloudLoader'
+  }
+  /**
+   * كاش أحداث الذاكرة. بلا تثبيت يمتصّه lawyer-boot-peek-lite عبر
+   * homeHubRadarWarmCache فيُجبر ScheduleTabHost على peek المنزل.
+   */
+  if (/\/src\/app\/services\/calendar\/calendarEventsCache\.(ts|js)$/.test(normalized)) {
+    return 'calendar-events-cache'
+  }
+  /**
+   * مفاتيح تخزين الأحداث/الشواهد. بلا تثبيت يمتصّها persist-pipeline عبر
+   * lawyerCalendarCloud فتدفع calendarLocalSnapshot (المضيف) إغلاق التنفيذ.
+   */
+  if (/\/src\/app\/services\/calendar\/calendarStorageKeys\.(ts|js)$/.test(normalized)) {
+    return 'calendar-storage-keys'
+  }
+  /**
+   * ذاكرة رادار الهاب (peek فقط). بلا تثبيت تسكن داخل lawyer-boot-peek-lite
+   * عبر homeHubRadarWarmCache فيدفع ScheduleTabHost شجرة peek المنزل (ملف شخصي).
+   */
+  if (/\/src\/app\/services\/alerts\/homeHubRadarPeek\.(ts|js)$/.test(normalized)) {
+    return 'home-hub-radar-peek'
+  }
+  /**
+   * نموذج الإشعار (أنواع + اشتقاق). بلا تثبيت يمتصّه lawyer-boot-stores عبر
+   * notificationStore فيدفع المنتدى إغلاق المخزن لأجل deriveNotificationCategory.
+   */
+  if (/\/src\/app\/infrastructure\/notificationModel\.(ts|js)$/.test(normalized)) {
+    return 'notification-model'
+  }
+  /**
+   * قراءة blob الإشعار sync. بلا تثبيت يمتصّه lawyer-boot-stores عبر
+   * notificationStore فيدفع شارة المنتدى إغلاق zustand.
+   */
+  if (/\/src\/app\/infrastructure\/notificationPeekLite\.(ts|js)$/.test(normalized)) {
+    return 'notification-peek-lite'
+  }
+  /**
+   * ملكية مفاتيح KV. بلا تثبيت يمتصّها execution-storage-cache عبر
+   * lawyerWorkCloudGate فيدفع CommunityDB إغلاق كاش إضبارة التنفيذ.
+   */
+  if (/\/src\/app\/security\/kvProxyKeyOwnership\.(ts|js)$/.test(normalized)) {
+    return 'kv-proxy-key-ownership'
+  }
+  if (/\/src\/lib\/cloudSyncEnv\.(js|ts)$/.test(normalized)) {
+    return 'cloud-sync-env'
+  }
+  /**
+   * بوابة مزامنة العمل. بلا تثبيت تسكن داخل execution-storage-cache
+   * فيدفع lawyerCloudKv / lawyerRepositoryCloud كاش التنفيذ (~19 ك.ب).
+   */
+  if (/\/src\/app\/services\/settings\/lawyerWorkCloudGate\.(ts|js)$/.test(normalized)) {
+    return 'lawyer-work-cloud-gate'
+  }
+  if (/\/src\/app\/utils\/uuidv4\.(ts|js)$/.test(normalized)) {
+    return 'hami-uuidv4'
+  }
+  /**
+   * تخزين الدعاوى الجزائية. بلا تثبيت يمتصّه persist-pipeline عبر
+   * جسر التقويم فيدفع CriminalDashboard إغلاق تنفيذ persist لأجل zustand.
+   */
+  if (
+    /\/src\/app\/utils\/criminalCasesStorage/.test(normalized) ||
+    /\/src\/app\/utils\/criminalCaseCardIndex\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/criminalShardedPersistStorage\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/criminalEmptyPersistAuth\.(ts|js)$/.test(normalized)
+  ) {
+    return 'criminal-cases-storage'
+  }
+  /**
+   * محرك الطعن. بلا تثبيت يمتصّه execution-dashboard-boot-pipeline عبر
+   * طابور قرارات الحجز فيدفع المالية/التمييز إغلاق إقلاع التنفيذ (~242 ك.ب).
+   */
+  if (normalized.includes('/src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/')) {
+    return 'execution-appeal-engine'
+  }
+  /**
+   * طابور قرارات الحجز. بلا تثبيت يسكن داخل boot-pipeline مع المحرك.
+   */
+  if (/\/src\/app\/utils\/executorSeizureDecisionQueue/.test(normalized)) {
+    return 'executor-seizure-decision-queue'
+  }
+  /**
+   * رادار 48س + تسميات الصف. بلا تثبيت يمتصّه lawyer-home-hub-card عبر
+   * useHomeHubRadarState فيدفع المضيف بطاقة المحور (~42 ك.ب) إن شارك ورقة.
+   */
+  if (
+    /\/src\/app\/workspace\/useCalendarRadar48h\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/workspace\/calendarRadarDisplay\.(ts|js)$/.test(normalized)
+  ) {
+    return 'calendar-radar-48h'
+  }
+  if (
+    /\/src\/app\/runtime\/appStateEvents\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/hooks\/useVisibilityAwareInterval\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/runtime\/backgroundInterval\.(ts|js)$/.test(normalized)
+  ) {
+    return 'app-state-events'
+  }
+  if (/\/src\/app\/motion\/overlayMotionRuntime\.(ts|js)$/.test(normalized)) {
+    return 'overlay-motion-runtime'
+  }
+  if (/\/src\/app\/utils\/overlayPortal\.(ts|js)$/.test(normalized)) {
+    return 'overlay-portal'
+  }
+  if (/\/src\/app\/utils\/scheduleIdleWork\.(ts|js)$/.test(normalized)) {
+    return 'schedule-idle-work'
+  }
+  if (/\/src\/app\/runtime\/devicePerformanceTier\.(ts|js)$/.test(normalized)) {
+    return 'device-performance-tier'
+  }
+  if (
+    /\/src\/app\/utils\/debug\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/utils\/consoleHygiene\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/secureFetchErrors\.(ts|js)$/.test(normalized)
+  ) {
+    return 'hami-debug'
+  }
+  if (/\/src\/app\/utils\/lazy\/preloadableLazy\.(ts|js|tsx)$/.test(normalized)) {
+    return 'preloadable-lazy'
+  }
+  if (/\/src\/app\/observability\/sentryBuildPolicy\.(ts|js)$/.test(normalized)) {
+    return 'sentry-build-policy'
+  }
+  /**
+   * تقارير Sentry للتقويم/المنتدى — بلا تثبيت يمتصّها persist-pipeline
+   * فيدفع calendarPerfMetrics / forumPerfMetrics إغلاق التنفيذ.
+   */
+  if (
+    /\/src\/app\/services\/calendar\/calendarSentryReporting\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/forum\/forumSentryReporting\.(ts|js)$/.test(normalized)
+  ) {
+    return 'perf-sentry-reporting'
+  }
+  if (/\/src\/app\/services\/transactions\/transactionsInputSecurity\.(ts|js)$/.test(normalized)) {
+    return 'tx-input-security'
+  }
+  /**
+   * ترحيل JSON الآمن — ورقة مستقلة. إدخالها في hami-persist-foundation
+   * أسكن home-paint داخل الأساس فقفز إغلاق main إلى 1.1 م.ب.
+   */
+  if (
+    /\/src\/app\/services\/storage\/readSecureOrDrainLegacySync\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/storage\/syncSecureJson\.(ts|js)$/.test(normalized)
+  ) {
+    return 'secure-json-legacy'
+  }
+  if (/\/src\/app\/services\/storage\/storageEncryptionError\.(ts|js)$/.test(normalized)) {
+    return 'storage-encryption-error'
+  }
+  if (
+    /\/src\/app\/services\/transactions\/persistTransactionsSecure\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/transactions\/notifyTransactionsPersistFailure\.(ts|js)$/.test(normalized)
+  ) {
+    return 'tx-secure-persist'
+  }
+  /**
+   * مخزن المعاملات — حزمة مجال مستقلة. ليست داخل persist-foundation
+   * (انحدار إقلاع مقيس) ولا تُمتص داخل persist-pipeline.
+   */
+  if (
+    /\/src\/app\/modules\/transactionsThreading\/(store|transactionsThreadingStoreRuntime|transactionsThreadingStoreMaps|transactionsThreadingStoreOptimistic|transactionsThreadingStoreSeed|persistentRepository|repository|service|types|ids|taskTree)\.(ts|js)$/.test(
+      normalized,
+    ) ||
+    /\/src\/app\/services\/transactions\/(transactionsThreadingMirror|sanitizeTransactionsThreadingPersist|transactionsThreadingDumpBridge)\.(ts|js)$/.test(
+      normalized,
+    ) ||
+    /\/src\/app\/services\/cloud\/lawyerTransactionTypes\.(ts|js)$/.test(normalized)
+  ) {
+    return 'transactions-threading-store'
+  }
+  if (/\/src\/app\/services\/cloud\/lawyerRepositoryCloud\.(ts|js)$/.test(normalized)) {
+    return 'lawyer-repository-cloud'
+  }
+  /**
+   * حافلة الحوار بلا motion. بلا تثبيت يمتصّها persist-pipeline
+   * فيدفع AccountSection إغلاق التنفيذ عند أول SmartDialog.confirm.
+   * لا تُدرَج SmartDialogContainer (motion) — نفس قيد SmartToast.
+   */
+  if (
+    /\/src\/app\/components\/ui\/smartDialogBus\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/components\/ui\/SmartDialog\.(ts|tsx|js|jsx)$/.test(normalized)
+  ) {
+    return 'hami-dialog-lite'
+  }
+  if (/\/src\/app\/utils\/storageCache\.(ts|js)$/.test(normalized)) {
+    return 'execution-storage-cache'
+  }
+  /**
+   * نواة الشبكة. بلا تثبيت يمتصّها persist-pipeline فيدفع المنتدى والتقويم
+   * والإعدادات إغلاق التنفيذ عند أول fetchSecure.
+   */
+  if (
+    /\/src\/app\/services\/SecureAPIClient\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/secureApiWifeSigning\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/secureApiNetworkFeatures\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/kvProxyGuard\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/utils\/bffWifeSign\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/security\/wifePublicApi\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/runtime\/sameOriginApiProbe\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/auth\/localSigningToken\.(ts|js)$/.test(normalized)
+  ) {
+    return 'secure-api-client'
+  }
+  /**
+   * HMAC الزوجة. بلا تثبيت داخل secure-api-client يسحب supabase إلى
+   * كل مستورد لـ fetchSecure (المنتدى على أول فتح الخلاصة).
+   */
+  if (/\/src\/app\/services\/RequestSigningService\.(ts|js)$/.test(normalized)) {
+    return 'wife-hmac-signing'
+  }
+  return undefined
+}
+
+/**
+ * وحدات صدفة التقويم المشتركة بين InstantChrome (MainView) والرادار الحي (Host).
+ * بلا تثبيت يسكنها Rollup داخل LawyerDashboardMainView فيُجبر Host على استيراد
+ * كسرة المنزل كاملة — 117 اعتماداً ثابتاً معظمها وهمي على مسار الفتح.
+ */
+function resolveScheduleChromeSharedChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (!normalized.includes('/src/')) return undefined
+  if (normalized.includes('/__tests__/')) return undefined
+
+  const chromeLite = [
+    '/src/app/services/calendar/calendarShellSession',
+    '/src/app/services/calendar/calendarMonthMath',
+    '/src/app/services/calendar/calendarWeekStrip',
+    '/src/app/services/calendar/calendarArabicLabels',
+    '/src/app/services/calendar/calendarLiveHandoffContext',
+    '/src/app/services/calendar/calendarReminderOverlayGate',
+    '/src/app/services/calendar/calendarOpenSourceIntent',
+    '/src/app/services/calendar/legalDeadlineEngine',
+    '/src/app/services/calendar/calendarEventForm',
+    /**
+     * معرّف/صف الحدث. بلا تثبيت يمتصّه persist-pipeline عبر lawyerCalendarCloud
+     * فيدفع RadarOpenInstantAddHost (MainView) إغلاق التنفيذ لأجل UUID.
+     */
+    '/src/app/services/calendar/calendarEventRecord',
+    '/src/app/services/calendar/bridge/core',
+    '/src/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeClasses',
+    '/src/app/components/lawyer/dashboard/schedule/RadarEventFormInstantCover',
+    '/src/app/services/calendarModuleVisuals',
+  ]
+  if (chromeLite.some((fragment) => normalized.includes(fragment))) {
+    return 'schedule-chrome-lite'
+  }
+  return undefined
+}
+
 function resolveBootRuntimeChunk(id: string): string | undefined {
   const normalized = normalizeModuleId(id)
   if (!normalized.includes('/src/')) return undefined
@@ -1008,7 +1386,9 @@ function resolveBootRuntimeChunk(id: string): string | undefined {
     normalized.includes('/src/app/security/wifeNativeFetch') ||
     normalized.includes('/src/boot/shouldPreloadLawyerBoard') ||
     normalized.includes('/src/app/services/auth/legalTermsAcceptance') ||
-    normalized.includes('/src/app/services/auth/passwordRecoveryGate')
+    normalized.includes('/src/app/services/auth/passwordRecoveryGate') ||
+    /\/src\/app\/utils\/bffAuthFlags\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/runtime\/nativePlatform\.(ts|js)$/.test(normalized)
   ) {
     return 'boot-local-only'
   }
@@ -1024,7 +1404,8 @@ function resolveBootRuntimeChunk(id: string): string | undefined {
     normalized.includes('/src/app/bootstrap/homeMainGridPaintAnnounce') ||
     normalized.includes('/src/app/bootstrap/homeBootChromeState') ||
     normalized.includes('/src/app/services/profile/profileBootWarmPending') ||
-    normalized.includes('/src/app/bootstrap/bootStaticShell.constants')
+    normalized.includes('/src/app/bootstrap/bootStaticShell.constants') ||
+    /\/src\/app\/components\/lawyer\/bootStemIcons\.(ts|tsx|js)$/.test(normalized)
   ) {
     return 'boot-paint-leaves'
   }
@@ -1090,7 +1471,8 @@ function resolveBootRuntimeChunk(id: string): string | undefined {
     normalized.includes('/src/app/utils/inertProps') ||
     normalized.includes('/src/app/utils/authStorage') ||
     normalized.includes('/src/app/services/SecureStoreService') ||
-    normalized.includes('/src/app/services/CryptoService')
+    normalized.includes('/src/app/services/CryptoService') ||
+    /\/src\/app\/security\/deviceId\.(ts|js)$/.test(normalized)
   ) {
     return 'boot-runtime'
   }
@@ -1324,6 +1706,122 @@ export default defineConfig(({ command, mode }) => {
   },
   plugins: [
     hamiHqOmitLawyerWorkPlugin(hqProduct),
+    ...(process.env.HAMI_DUMP_CHUNK_MODULES === '1'
+      ? [
+          {
+            name: 'hami-dump-chunk-modules',
+            generateBundle(this: { getModuleInfo: (id: string) => { importedIds: readonly string[] } | null }, _opts: unknown, bundle: Record<string, { type: string; name?: string; fileName: string; moduleIds?: string[] }>) {
+              const short = (id: string) =>
+                id.replace(/\\/g, '/').replace(/^.*\/(src\/|node_modules\/)/, (_, p1: string) =>
+                  p1 === 'node_modules/' ? 'node_modules/' : 'src/',
+                )
+              const chunks = Object.values(bundle).filter((c) => c.type === 'chunk') as Array<{
+                name?: string
+                fileName: string
+                moduleIds: string[]
+              }>
+              const pipelineNames = [
+                'execution-dashboard-persist-pipeline',
+                'execution-dashboard-boot-pipeline',
+                'execution-dashboard-claim-pipeline',
+                'execution-dashboard-workspace-pipeline',
+                'lawyer-home-hub-card',
+                'lawyer-home-hub-alerts-feed',
+                'lawyer-boot-peek-lite',
+                'lawyer-boot-stores',
+                'execution-storage-cache',
+              ]
+              const wantedNames = [
+                'LawyerDashboardMainView',
+                'ScheduleTabHost',
+                'AddTaskBottomSheet',
+                'CommunityScreen',
+                'CommunityScreenContent',
+                'useCalendarData',
+              ]
+              const pipelineSets = Object.fromEntries(
+                pipelineNames.map((name) => {
+                  const chunk = chunks.find((c) => c.name === name)
+                  return [name, new Set(chunk?.moduleIds ?? [])]
+                }),
+              )
+              const edges: Record<string, Record<string, Array<{ importer: string; pipelineModule: string }>>> = {}
+              for (const chunk of chunks) {
+                if (!wantedNames.includes(chunk.name ?? '')) continue
+                const byPipeline: Record<string, Array<{ importer: string; pipelineModule: string }>> = {}
+                for (const [pipeName, pipeSet] of Object.entries(pipelineSets)) {
+                  const hits: Array<{ importer: string; pipelineModule: string }> = []
+                  for (const id of chunk.moduleIds) {
+                    const info = this.getModuleInfo(id)
+                    if (!info) continue
+                    for (const dep of info.importedIds) {
+                      if (pipeSet.has(dep)) {
+                        hits.push({ importer: short(id), pipelineModule: short(dep) })
+                      }
+                    }
+                  }
+                  if (hits.length) byPipeline[pipeName] = hits
+                }
+                edges[chunk.name ?? chunk.fileName] = byPipeline
+              }
+              const reverseNames = [
+                'lawyer-boot-stores',
+                'execution-storage-cache',
+                'lawyer-boot-peek-lite',
+              ]
+              const wantedSets = Object.fromEntries(
+                wantedNames.map((name) => {
+                  const chunk = chunks.find((c) => c.name === name)
+                  return [name, new Set(chunk?.moduleIds ?? [])]
+                }),
+              )
+              const reverse: Record<string, Record<string, Array<{ pipelineModule: string; wantedModule: string }>>> = {}
+              for (const pipeName of reverseNames) {
+                const chunk = chunks.find((c) => c.name === pipeName)
+                if (!chunk) continue
+                const byWanted: Record<string, Array<{ pipelineModule: string; wantedModule: string }>> = {}
+                for (const id of chunk.moduleIds) {
+                  const info = this.getModuleInfo(id)
+                  if (!info) continue
+                  for (const dep of info.importedIds) {
+                    for (const [wanted, set] of Object.entries(wantedSets)) {
+                      if (!set.has(dep)) continue
+                      if (!byWanted[wanted]) byWanted[wanted] = []
+                      byWanted[wanted].push({ pipelineModule: short(id), wantedModule: short(dep) })
+                    }
+                  }
+                }
+                if (Object.keys(byWanted).length) reverse[pipeName] = byWanted
+              }
+              fs.writeFileSync(
+                path.join(projectRoot, '.audit/_chunk_connect_edges.json'),
+                JSON.stringify(
+                  {
+                    edges,
+                    reverse,
+                    members: {
+                      CommunityScreenContent: (
+                        chunks.find((c) => c.name === 'CommunityScreenContent')?.moduleIds ?? []
+                      ).map(short),
+                      'execution-storage-cache': (
+                        chunks.find((c) => c.name === 'execution-storage-cache')?.moduleIds ?? []
+                      ).map(short),
+                      'execution-dashboard-persist-pipeline': (
+                        chunks.find((c) => c.name === 'execution-dashboard-persist-pipeline')?.moduleIds ?? []
+                      ).map(short),
+                      'execution-dashboard-boot-pipeline': (
+                        chunks.find((c) => c.name === 'execution-dashboard-boot-pipeline')?.moduleIds ?? []
+                      ).map(short),
+                    },
+                  },
+                  null,
+                  2,
+                ),
+              )
+            },
+          },
+        ]
+      : []),
     preferFileOverDirectory(projectRoot),
     hamiHqDocumentRewrite(),
     {
@@ -1347,6 +1845,7 @@ export default defineConfig(({ command, mode }) => {
     tailwindcss(),
     pdfjsAssetsPlugin(command, { minimalFonts: pdfMinimalAssets }),
     legalAnalysisDevApiPlugin(),
+    hamiFieldTasksAgendaDevWarmPlugin(),
     /** قبل ختم العامل: الختم يُشتق من أسماء `assets/` وأصول القشرة تنضم إليها هنا */
     hamiShellAssetHash(),
     serviceWorkerCacheStampPlugin(command),
@@ -1398,7 +1897,12 @@ export default defineConfig(({ command, mode }) => {
       ],
     },
     watch: {
-      ignored: ['**/playwright-report/**', '**/test-results/**', '**/blob-report/**'],
+      ignored: [
+        '**/playwright-report/**',
+        '**/test-results/**',
+        '**/blob-report/**',
+        '**/rgb-cleanup/**',
+      ],
     },
     headers: {
       ...getDevSecurityHeaders(),
@@ -1484,6 +1988,10 @@ export default defineConfig(({ command, mode }) => {
          */
         experimentalMinChunkSize: Number(process.env.HAMI_MIN_CHUNK_SIZE ?? 0),
         manualChunks(id) {
+          const sharedLeafChunk = resolveSharedRuntimeLeafChunk(id)
+          if (sharedLeafChunk) return sharedLeafChunk
+          const scheduleChromeChunk = resolveScheduleChromeSharedChunk(id)
+          if (scheduleChromeChunk) return scheduleChromeChunk
           const bootChunk = resolveBootRuntimeChunk(id)
           if (bootChunk) return bootChunk
           if (!hqProduct) {
@@ -1499,6 +2007,10 @@ export default defineConfig(({ command, mode }) => {
             if (overlaySnapLiteChunk) return overlaySnapLiteChunk
             const bootPeekLiteChunk = resolveLawyerBootPeekLiteChunk(id)
             if (bootPeekLiteChunk) return bootPeekLiteChunk
+            const workspacePinButtonChunk = resolveWorkspacePinButtonChunk(id)
+            if (workspacePinButtonChunk) return workspacePinButtonChunk
+            const workspacePinBuildersChunk = resolveWorkspacePinBuildersChunk(id)
+            if (workspacePinBuildersChunk) return workspacePinBuildersChunk
             const homeHubChunk = resolveLawyerHomeHubChunk(id)
             if (homeHubChunk) return homeHubChunk
             const shellLiteChunk = resolveHamiShellLiteChunk(id)

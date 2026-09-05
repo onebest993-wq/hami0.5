@@ -1,6 +1,6 @@
 {
-  "generated": "2026-08-29T13:10:47.136Z",
-  "totalRouteFiles": 98,
+  "generated": "2026-08-30T20:00:59.576Z",
+  "totalRouteFiles": 100,
   "public": [
     {
       "method": "GET",
@@ -227,17 +227,6 @@
     {
       "method": "GET",
       "path": "/api/auth/public-verified-badge"
-    },
-    {
-      "method": "GET",
-      "path": "/api/calendar/tombstones"
-    },
-    {
-      "method": "POST",
-      "path": "/api/calendar/tombstones",
-      "body": {
-        "probe": true
-      }
     },
     {
       "method": "POST",
@@ -482,6 +471,32 @@
         "content": "probe",
         "title": "t"
       }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/repository"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/repository",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/repository/signed-url",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/search"
     },
     {
       "method": "GET",

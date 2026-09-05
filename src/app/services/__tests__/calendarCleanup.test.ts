@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { saveLawsuitFilesRaw, loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import {
     cleanupCalendarForUser,
     pruneOrphanedBridgeEvents,
@@ -13,12 +13,14 @@ import { CalendarDB } from '@/app/services/lawyer-cloud';
 import { buildStableBridgeId } from '../calendarBridge';
 import { resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 import { flushPendingCalendarSyncs } from '../calendarBridge';
+import * as storageHydrationGuard from '@/app/services/dossierPersistence/storageHydrationGuard';
 
 const USER = 'cleanup-test-user';
 const CAL_KEY = 'hami:calendar:events:v1';
 
 describe('calendar cleanup — محذوف ومختلق', () => {
     beforeEach(() => {
+        vi.restoreAllMocks();
         resetReconcileInFlightForTests();
         SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
         localStorage.clear();
@@ -118,6 +120,10 @@ describe('calendar cleanup — محذوف ومختلق', () => {
     });
 
     it('cleanupCalendarForUser يبقي الجلسة الحقيقية فقط', async () => {
+        vi.spyOn(storageHydrationGuard, 'shouldSkipDossierDependentCalendarPurge').mockResolvedValue(
+            false,
+        );
+
         saveLawsuitFilesRaw([
             {
                 id: 'keep',
@@ -137,6 +143,9 @@ describe('calendar cleanup — محذوف ومختلق', () => {
                 ],
             },
         ]);
+        expect(loadLawsuitFilesRaw().some((f) => String((f as { id?: string }).id) === 'keep')).toBe(
+            true,
+        );
 
         const ghostId = buildStableBridgeId('lawsuit', 'keep', 'phantom');
         const now = new Date().toISOString();
@@ -154,6 +163,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         });
 
         await cleanupCalendarForUser(USER);
+        await flushPendingCalendarSyncs();
         resetCalendarEventsCacheForTests();
         const events = await CalendarDB.getEvents(USER);
 

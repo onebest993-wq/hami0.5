@@ -6,9 +6,7 @@ import {
     readLawyerDashboardMainViewOverlayHosts,
     readLawyerDashboardMainViewSurface,
 } from './readLawyerDashboardMainViewSurface';
-
 const root = process.cwd();
-
 describe('forum dock section surgical close honesty', () => {
     it('PostModeration ┘╪د ┘è╪▒╪│┘ ╪ث╪ص╪»╪د╪س ╪ز╪╡╪ص┘è╪ص ╪ح┘┘ë 127.0.0.1:7777', () => {
         const mod = fs.readFileSync(
@@ -632,6 +630,7 @@ describe('forum dock section surgical close honesty', () => {
             'components/CommunityScreenOverlays.tsx',
             'components/CommunityScreenComposeOverlays.tsx',
             'components/CommunityScreenBrowseOverlays.tsx',
+            'components/ForumOverlayInstantCovers.tsx',
         ];
         for (const rel of overlayFiles) {
             const src = fs.readFileSync(path.join(forumRoot, rel), 'utf8');
@@ -906,6 +905,7 @@ describe('forum dock section surgical close honesty', () => {
             'forumVoiceFormat.ts',
             'components/CommunityScreenComposeOverlays.tsx',
             'components/CommunityScreenBrowseOverlays.tsx',
+            'components/ForumOverlayInstantCovers.tsx',
             'components/CommunityScreenOverlays.types.ts',
             'components/AddQuestionSheetOptions.tsx',
             'components/AddQuestionSheetAttachments.tsx',

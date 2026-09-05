@@ -18,12 +18,23 @@ class DocsVaultService {
         this.load();
     }
 
+    /** عزل مستندات المخزن القديم حسب المستخدم — بلا ترحيل المفتاح المشترك (يُسرّب عناوين حساب آخر). */
+    setUserScope(userId: string | null): void {
+        const nextKey = userId ? `hami_docs_vault_${userId}` : 'hami_docs_vault';
+        if (nextKey === this.storageKey) return;
+        this.storageKey = nextKey;
+        this.docs = [];
+        this.load();
+    }
+
     private load() {
         try {
             const stored = SecureStoreService.getItemSync(this.storageKey);
             if (stored) {
                 const parsed: unknown = JSON.parse(stored);
                 this.docs = Array.isArray(parsed) ? (parsed as Document[]) : [];
+            } else {
+                this.docs = [];
             }
         } catch (e) {
             console.error("Failed to load docs vault", e);

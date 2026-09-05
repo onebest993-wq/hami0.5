@@ -27,7 +27,7 @@ const FILTER_LABELS: Record<RepositoryFeedFilter, string> = {
     dossier: 'ملاحظات الأضابير',
 };
 
-export const REPOSITORY_FEED_FILTERS: RepositoryFeedFilter[] = ['all', 'media', 'drafts', 'dossier'];
+const REPOSITORY_FEED_FILTERS: RepositoryFeedFilter[] = ['all', 'media', 'drafts', 'dossier'];
 
 export function repositoryFeedFilterLabel(filter: RepositoryFeedFilter): string {
     return FILTER_LABELS[filter];
@@ -212,7 +212,7 @@ export function searchRepositoryFeed(
     );
 }
 
-export function filterRepositoryFeedByCustomCategory(
+function filterRepositoryFeedByCustomCategory(
     items: RepositoryFeedItem[],
     category: string,
     vaultDocs: SmartVaultDoc[],

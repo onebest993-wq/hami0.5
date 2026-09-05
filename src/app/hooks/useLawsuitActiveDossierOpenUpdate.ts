@@ -114,6 +114,7 @@ export function useLawsuitActiveDossierOpenUpdate({
             void refreshAppAlerts();
             void commitLawsuitPersistOrWarn('التعديل', [normalizedFile.id], {
                 requireActiveFileId: normalizedFile.id,
+                timeoutMs: 14_000,
             });
 
             if (childLink && before) {

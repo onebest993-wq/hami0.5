@@ -43,6 +43,18 @@ describe('registrationCredentialsSecurity', () => {
         expect(validateRegistrationPasswordSecure('SecureLaw9')).toBeNull();
     });
 
+    it('يرفض كل رمز يستبعده فحص الحقن بلا ثغرة في قائمة السماح', () => {
+        /* لا يُقبل رمز تُجيزه قائمة الأحرف ويرفضه فحص الحقن أو العكس — رسالة واحدة متّسقة. */
+        for (const symbol of ['<', '>', '`', '"', '\\', ' ', "'"]) {
+            const password = `Secure${symbol}Law9`;
+            expect(validateRegistrationPasswordSecure(password)).not.toBeNull();
+        }
+        /* الرموز المسموحة فعلاً تمرّ */
+        for (const symbol of ['!', '@', '#', '$', '%', '^', '&', '*', '_', '-', '=', '?', '|', '~']) {
+            expect(validateRegistrationPasswordSecure(`Secure${symbol}Law9`)).toBeNull();
+        }
+    });
+
     it('يقبل هاتفاً عراقياً حقيقياً ويرفض الوهمي', () => {
         expect(normalizeIraqiPhoneInput('+9647719876543')).toBe('07719876543');
         expect(validateIraqiLawyerPhoneSecure('07719876543')).toBeNull();

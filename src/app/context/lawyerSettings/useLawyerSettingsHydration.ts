@@ -2,14 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 import { applySettingsToDom } from '@/app/services/settings/apply';
-import {
-    getLawyerSettingsSnapshot,
-    invalidateLawyerSettingsCache,
-    publishLawyerSettingsLive,
-} from '@/app/services/settings/settingsSnapshot';
+import { publishLawyerSettingsLive } from '@/app/services/settings/settingsSnapshot';
 import type { AppSettingsState } from '@/app/services/settings/types';
 import type { ShapeKey, ThemeKey } from '@/app/types/common';
-import { isCloudSyncEnabled } from '@/lib/cloudSyncEnv.js';
 import {
     loadInitialSettingsAsync,
     readProviderBootSettings,
@@ -48,37 +43,10 @@ export function useLawyerSettingsHydration() {
         const startHydrate = () => {
             if (cancelled) return;
 
-            const runInitialHydrate = async () => {
-                let loaded: AppSettingsState | null = null;
-
-                if (isCloudSyncEnabled()) {
-                    try {
-                        const snap = getLawyerSettingsSnapshot();
-                        if (snap.data.cloudSync) {
-                            const { loadFromCloud, applyAppData, migrateLegacyDevUserCloudData } =
-                                await import('@/lib/syncService.js');
-                            await migrateLegacyDevUserCloudData().catch(() => undefined);
-                            const remote = await loadFromCloud();
-                            if (remote && applyAppData(remote)) {
-                                invalidateLawyerSettingsCache();
-                                loaded = await loadInitialSettingsAsync();
-                                applySettingsToDom(loaded);
-                                publishLawyerSettingsLive(loaded);
-                            }
-                        }
-                    } catch {
-                        /* السحابة اختيارية عند الإقلاع */
-                    }
-                }
-
+            void loadInitialSettingsAsync().then((loaded) => {
                 if (cancelled) return;
-                if (!loaded) {
-                    loaded = await loadInitialSettingsAsync();
-                }
                 applyLoaded(loaded, 'initial');
-            };
-
-            void runInitialHydrate();
+            });
 
             void SecureStoreService.ensureBootShellReady().then(() => {
                 if (cancelled) return;

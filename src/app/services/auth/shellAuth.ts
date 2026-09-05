@@ -1,4 +1,4 @@
-import { isExplicitDevUnlock } from '@/app/services/auth/devUnlockSession';
+import { isExplicitDevUnlock, DEV_UNLOCK_LAWYER_ID } from '@/app/services/auth/devUnlockSession';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 
 /** معرّفات لا تُعدّ جلسة Supabase/BFF حقيقية في بوابات الواجهة (إنتاج) */
@@ -6,16 +6,29 @@ export const SHELL_NON_AUTH_USER_IDS = new Set<string>([GUEST_LAWYER_ID, 'demo_u
 
 /**
  * فتح ميزات الواجهة بدون تسجيل دخول حقيقي.
- * - مفتوح فقط عند VITE_SHELL_AUTH_OPEN=true صراحةً (E2E / قياس boot)
- * - غير مضبوط أو false → بوابة الدخول تظهر (fail-closed)
+ * - VITE_SHELL_AUTH_OPEN=true صراحةً (E2E / قياس boot)
+ * - MODE=development (`npm run dev`) — مؤقت حتى تُعاد بوابة الدخول
+ * - VITE_SHELL_AUTH_OPEN=false → البوابة حتى في التطوير
+ * - غير مضبوط في الإنتاج والقياس → بوابة الدخول (fail-closed)
  */
+function isLocalViteDevShell(): boolean {
+    if (String(import.meta.env.VITE_SHELL_AUTH_OPEN) === 'false') return false;
+    return String(import.meta.env.MODE) === 'development';
+}
+
+/** `npm run dev` — جلسة عمل محامٍ، لا ضيف. الإنتاج والقياس لا يدخلان هنا. */
+export function isLocalDevWorkLawyerEnabled(): boolean {
+    return isLocalViteDevShell();
+}
+
 export function isShellAuthBypassed(): boolean {
     const flag = import.meta.env.VITE_SHELL_AUTH_OPEN;
     if (flag === 'true') return true;
     /* زر «الدخول كمطور» — DEV فقط؛ يفتح قيود الواجهة لهذه المرحلة */
     if (isExplicitDevUnlock()) return true;
     if (flag === 'false') return false;
-    // الافتراضي دائماً مغلق — حتى في التطوير — حتى تظهر شاشة الدخول قبل الواجهة
+    if (isLocalDevWorkLawyerEnabled()) return true;
+    // الافتراضي دائماً مغلق في الإنتاج والقياس حتى تظهر شاشة الدخول
     return false;
 }
 
@@ -52,6 +65,8 @@ export function resolveShellAuthUserId(
     if (auth) return auth;
     const display = displayUserId?.trim();
     if (display) return display;
-    if (isShellAuthBypassed()) return GUEST_LAWYER_ID;
+    if (isShellAuthBypassed()) {
+        return isLocalDevWorkLawyerEnabled() ? DEV_UNLOCK_LAWYER_ID : GUEST_LAWYER_ID;
+    }
     return null;
 }

@@ -18,7 +18,6 @@ interface ImportMetaEnv {
     readonly VITE_SUPPORT_WHATSAPP?: string;
     readonly VITE_ADMIN_MASTER_EMAIL?: string;
     readonly VITE_ENABLE_KV_PROXY?: string;
-    readonly VITE_ENABLE_CALENDAR_TOMBSTONES_CLOUD?: string;
     readonly VITE_HAMI_NOTIFICATION_SERVER_SYNC?: string;
     readonly VITE_URGENT_CLOUD_SYNC?: string;
     readonly VITE_COMMUNITY_DEV_OPEN?: string;

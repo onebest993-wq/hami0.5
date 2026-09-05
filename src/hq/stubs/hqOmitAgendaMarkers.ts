@@ -3,7 +3,7 @@ export function invalidateTombstoneCache(_userId?: string): void {
     /* HQ product excludes lawyer calendar tombstones */
 }
 
-export function resetCloudTombstoneProbeForTests(): void {
+export function resetTombstoneStateForTests(): void {
     /* HQ product excludes lawyer calendar tombstones */
 }
 

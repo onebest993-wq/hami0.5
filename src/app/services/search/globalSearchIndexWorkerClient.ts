@@ -15,15 +15,16 @@ type WorkerResponse = {
 let worker: Worker | null = null;
 let workerFailed = false;
 let requestSeq = 0;
-let activeBuildGeneration = 0;
-const pending = new Map<number, { generation: number; resolve: (v: GlobalSearchEntry[]) => void; reject: (e: Error) => void }>();
+const pending = new Map<
+    number,
+    { resolve: (v: GlobalSearchEntry[]) => void; reject: (e: Error) => void }
+>();
 
 function settleWorkerMessage(event: MessageEvent<WorkerResponse>): void {
     const { id, index, error } = event.data;
     const job = pending.get(id);
     if (!job) return;
     pending.delete(id);
-    if (job.generation !== activeBuildGeneration) return;
     if (error) {
         job.reject(new Error(error));
         return;
@@ -55,10 +56,6 @@ function ensureWorker(): Worker | null {
     }
 }
 
-export function isGlobalSearchWorkerAvailable(): boolean {
-    return ensureWorker() !== null;
-}
-
 export function prefetchGlobalSearchIndexWorker(): void {
     ensureWorker();
 }
@@ -72,17 +69,9 @@ export function buildGlobalSearchIndexOffThread(
     }
 
     const id = ++requestSeq;
-    const generation = ++activeBuildGeneration;
     return new Promise<GlobalSearchEntry[]>((resolve, reject) => {
-        pending.set(id, { generation, resolve, reject });
+        pending.set(id, { resolve, reject });
         const payload: WorkerRequest = { id, input };
         instance.postMessage(payload);
     });
-}
-
-export function terminateGlobalSearchIndexWorker(): void {
-    worker?.terminate();
-    worker = null;
-    workerFailed = false;
-    pending.clear();
 }

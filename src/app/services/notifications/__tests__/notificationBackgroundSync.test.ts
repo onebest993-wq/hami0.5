@@ -53,6 +53,14 @@ vi.mock('@/app/services/auth/lawyerVerificationRemote', () => ({
     syncLawyerVerificationFromServer: vi.fn(async () => undefined),
 }));
 
+const { canReachCollaborationNetwork } = vi.hoisted(() => ({
+    canReachCollaborationNetwork: vi.fn(() => true),
+}));
+
+vi.mock('@/app/services/settings/collaborationNetworkGate', () => ({
+    canReachCollaborationNetwork: () => canReachCollaborationNetwork(),
+}));
+
 function makeNotif(id: string): NotificationModel {
     return {
         id,
@@ -95,6 +103,7 @@ describe('refreshNotificationShellBadge', () => {
         retryLegacyPrefixCleanupIfPartial.mockClear();
         emitForumUnreadCount.mockClear();
         syncForumNotificationsToAppStore.mockClear();
+        canReachCollaborationNetwork.mockReturnValue(true);
     });
 
     it('ينظّف legacy قبل المزامنة افتراضياً', async () => {
@@ -135,5 +144,13 @@ describe('refreshNotificationShellBadge', () => {
         await refreshNotificationShellBadge('user-1', { includeForumSync: false });
         expect(syncLawyerVerificationFromServer).toHaveBeenCalledWith('user-1');
         expect(fetchAccountNetworkGate).toHaveBeenCalledWith('user-1');
+    });
+
+    it('لا يلمس الشبكة عند قطع الاتصال', async () => {
+        canReachCollaborationNetwork.mockReturnValue(false);
+        await refreshNotificationShellBadge('user-1');
+        expect(purgeLegacyNotificationsIfNeeded).not.toHaveBeenCalled();
+        expect(fetchNotifications).not.toHaveBeenCalled();
+        expect(listForumNotifications).not.toHaveBeenCalled();
     });
 });

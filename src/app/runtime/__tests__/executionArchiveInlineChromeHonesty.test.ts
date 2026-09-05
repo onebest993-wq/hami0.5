@@ -68,7 +68,7 @@ describe('execution archive inline chrome honesty', () => {
 
         const afterHome = read('src/app/runtime/hubArchiveAfterHomePaint.ts');
         expect(afterHome).toContain('prefetchExecutionArchiveOpen');
-        expect(afterHome).toContain("isSectionBackgroundPrefetchAllowed({ allowOnLite: true })");
+        expect(afterHome).toContain("isRecencyBackgroundWarmAllowed('execution')");
         expect(afterHome).not.toContain('armExecutionArchiveHost');
         expect(afterHome).not.toContain('BOOT_REVEAL_DONE');
 
@@ -89,7 +89,7 @@ describe('execution archive inline chrome honesty', () => {
         const chunks = read('src/app/runtime/overlayEntryChunks.ts');
         expect(chunks.indexOf('prefetchHubArchivesAfterHomePaint')).toBeGreaterThan(0);
         expect(chunks.indexOf('prefetchHubArchivesAfterHomePaint')).toBeLessThan(
-            chunks.indexOf('profile/ProfileTabHost'),
+            chunks.indexOf('prefetchProfileTabHost'),
         );
     });
 });

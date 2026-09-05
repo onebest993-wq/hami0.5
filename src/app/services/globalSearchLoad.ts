@@ -1,12 +1,7 @@
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-import {
-    RepositoryDB,
-    type CommunityPost,
-} from '@/app/services/lawyer-cloud';
-import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { CommunityPost } from '@/app/services/cloud/lawyerCommunityTypes';
 import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { Transaction, TransactionTask } from '@/app/modules/transactionsThreading/types';
-import { fetchCommunityPosts } from '@/app/services/forum/communityCloudLoader';
 import { invalidateGlobalSearchFuseCache } from '@/app/services/globalSearchFuse';
 import { invalidateGlobalSearchIndexCache } from '@/app/services/globalSearchIndexRuntime';
 import { invalidateProfileLineCache } from '@/app/services/globalSearchProfileCache';
@@ -66,23 +61,34 @@ async function fetchGlobalSearchExtras(
         { QUANTUM_TASKS_STORAGE_KEY, deserializeQuantumTasks },
         { fetchCalendarEvents },
         { fetchTransactionsThreadingState },
+        { SmartVaultDB },
+        communitySurface,
     ] = await Promise.all([
         import('@/app/services/urgent-actions-db'),
         import('@/app/infrastructure/persistence/LocalStorageRepository'),
         import('@/app/utils/quantumTasksStorage'),
         import('@/app/services/calendar/calendarCloudLoader'),
         import('@/app/services/transactions/transactionsCloudLoader'),
+        import('@/app/services/vault/smartVaultRuntime'),
+        includeCommunityPosts
+            ? Promise.all([
+                  import('@/app/services/cloud/lawyerRepositoryCloud'),
+                  import('@/app/services/forum/communityCloudLoader'),
+              ])
+            : Promise.resolve(null),
     ]);
 
-    const [calendarEvents, vaultDocs, repositoryDocs, urgentState, threadingState, communityPosts] =
+    const [calendarEvents, vaultDocs, urgentState, threadingState, repositoryDocs, communityPosts] =
         await Promise.all([
             fetchCalendarEvents(userId).catch(() => [] as CalendarEvent[]),
             SmartVaultDB.listDocs(userId).catch(() => [] as SmartVaultDoc[]),
-            RepositoryDB.listDocuments().catch(() => [] as RepositoryDocument[]),
             UrgentActionsDB.getState(userId).catch(() => null),
             fetchTransactionsThreadingState(userId).catch(() => null),
-            includeCommunityPosts
-                ? fetchCommunityPosts().catch(() => [] as CommunityPost[])
+            communitySurface
+                ? communitySurface[0].RepositoryDB.listDocuments().catch(() => [] as RepositoryDocument[])
+                : Promise.resolve([] as RepositoryDocument[]),
+            communitySurface
+                ? communitySurface[1].fetchCommunityPosts().catch(() => [] as CommunityPost[])
                 : Promise.resolve([] as CommunityPost[]),
         ]);
 

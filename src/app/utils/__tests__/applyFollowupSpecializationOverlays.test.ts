@@ -26,14 +26,16 @@ describe('applyFollowupSpecializationOverlays', () => {
         expect(overlaid.suppressHiddenPersonalCoerciveRequests).toBe(true);
     });
 
-    it('does not reopen coercive tabs for deceased even with high financial center', () => {
+    it('does not hide seizure tab for deceased financial debtor', () => {
         const base = resolveFollowupSpecializationVisibility('استحصال دين مالي', false);
         const overlaid = applyFollowupSpecializationOverlays(base, {
             isEmployee: false,
             financialCenterTotalIqd: 900_000,
             activeDebtorIsDeceased: true,
         });
-        expect(overlaid.hideFollowupSeizureRequestsTab).not.toBe(false);
+        expect(overlaid.hideFollowupSeizureRequestsTab).toBe(false);
+        expect(overlaid.hideFollowupCoerciveTab).toBe(true);
+        expect(overlaid.hidePersonalCoerciveFollowupTab).toBe(true);
     });
 
     it('keeps coercive tab hidden for financial collection when earner overlay unlocks personal tab', () => {

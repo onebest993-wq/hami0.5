@@ -7,7 +7,7 @@ import { useLawyerExecutionFiles, type LawyerArchiveOverlay } from '@/app/hooks/
 import { useLawyerGlobalNotes } from '@/app/hooks/useLawyerGlobalNotes';
 import type { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import type { LawyerDashboardWorkspaceStem } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceStem';
+import type { LawyerDashboardWorkspaceStem } from '@/app/hooks/lawyerDashboard/lawyerDashboardWorkspaceStem.types';
 
 function unpinWorkspaceForDeletedFile(file: { id: string | number; type?: string }): void {
     void import('@/app/workspace/unpinWorkspaceEntity')
@@ -56,10 +56,11 @@ export function useLawyerDashboardWorkspaceHeavy({
         files,
         setFiles,
         setLawsuitSegments,
+        commitLawsuitLifecycleMutation,
     } = stem;
 
     const lawsuitMutations = useLawsuitFileMutations({
-        setLawsuitSegments,
+        commitLawsuitLifecycleMutation,
         setActiveFile,
         userId: user?.id,
         authUserId,

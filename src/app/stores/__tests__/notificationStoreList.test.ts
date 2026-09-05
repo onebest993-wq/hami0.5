@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { NotificationModel } from '@/app/infrastructure/notificationModel';
 import {
+    applyKeptReadFlags,
     applyUpsertsToList,
     normalizeNotification,
     stripInvalidNotifications,
@@ -34,6 +35,15 @@ describe('notificationStoreList', () => {
                 makeNotif({ id: 'c', isRead: false }),
             ]),
         ).toBe(2);
+    });
+
+    it('applyKeptReadFlags يبقي المرجع إن كان مقروءاً ويعلّم المطلوب فقط', () => {
+        const unread = makeNotif({ id: 'a', isRead: false });
+        const read = makeNotif({ id: 'b', isRead: true });
+        const next = applyKeptReadFlags([unread, read], (n) => n.id === 'a');
+        expect(next[0]).not.toBe(unread);
+        expect(next[0]!.isRead).toBe(true);
+        expect(next[1]).toBe(read);
     });
 
     it('applyUpsertsToList يُبقي نفس المرجع عند قائمة وارد فارغة', () => {

@@ -76,8 +76,12 @@ describe('globalSearchInstantPaint', () => {
         expect(bridge).toBeTruthy();
         expect(bridge?.querySelector('.hami-gs-layer')).toBeTruthy();
         expect(bridge?.querySelector('.hami-gs-sheet')).toBeTruthy();
-        expect(bridge?.querySelector('[data-testid="global-search-paint-input"]')).toBeTruthy();
+        const paintInput = bridge?.querySelector('[data-testid="global-search-paint-input"]');
+        expect(paintInput).toBeTruthy();
+        expect(paintInput?.className).toContain('text-[16px]');
+        expect(paintInput?.className).toContain('sm:text-base');
         expect(bridge?.querySelector('.hami-gs-header')).toBeTruthy();
+        expect(bridge?.querySelector('.hami-gs-title-row')).toBeTruthy();
         expect(bridge?.textContent).toContain('البحث الشامل');
     });
 

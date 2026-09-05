@@ -7,11 +7,11 @@ const TX_TASK_NOTES_MAX = 2_000;
 export const TX_DOC_TITLE_MAX = 160;
 const TX_DOC_TYPE_MAX = 60;
 export const TX_OFFICIAL_REF_MAX = 120;
-export const TX_ID_MAX = 80;
-export const TX_USER_ID_MAX = 128;
+const TX_ID_MAX = 80;
+const TX_USER_ID_MAX = 128;
 export const TX_SHARE_BODY_MAX = 16_000;
-export const TX_ISO_MAX = 40;
-export const TX_FORUM_AUTHOR_MAX = 80;
+const TX_ISO_MAX = 40;
+const TX_FORUM_AUTHOR_MAX = 80;
 
 const DOCUMENT_OWNER_TAGS = new Set(['للموكل', 'للدائرة', 'أخرى']);
 

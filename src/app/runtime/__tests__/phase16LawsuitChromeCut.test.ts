@@ -79,7 +79,9 @@ describe('phase-16 lawsuit chrome first-paint', () => {
             join(root, 'src/app/components/lawyer/dashboard/LawsuitsCivilArchiveInstantShell.tsx'),
             'utf8',
         );
-        expect(src).toContain('جاري تجهيز الإضابير');
+        expect(src).toContain('LawsuitsCivilArchiveInstantShell');
+        expect(src).toContain('data-testid="lawsuit-vault-quiet-status"');
+        expect(src).not.toContain('جاري تجهيز الإضابير');
         expect(src).not.toContain('LawsuitVaultSnapshotGrid');
         expect(src).not.toContain('لا توجد ملفات');
         expect(src).not.toContain('Array.from');

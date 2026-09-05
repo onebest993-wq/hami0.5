@@ -137,6 +137,12 @@ export function validateDocumentData(data: any): { valid: boolean; error?: strin
  * Validation for Judgment data
  */
 export function validateJudgmentData(data: any): { valid: boolean; error?: string } {
+    if (data.action === 'adjourn_pleading') {
+        if (!data.judgmentDate || !isValidDate(data.judgmentDate)) {
+            return { valid: false, error: 'يجب إدخال تاريخ الجلسة / الموعد القادم' };
+        }
+        return { valid: true };
+    }
     if (!data.judgmentType) {
         return { valid: false, error: 'يجب اختيار نوع الحكم' };
     }

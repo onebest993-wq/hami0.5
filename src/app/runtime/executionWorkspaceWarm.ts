@@ -26,8 +26,8 @@ export type ExecutionWorkspaceWarmOptions = {
 
 /**
  * تسخين فوري لمخزن التنفيذ، ثم (secondary) الإضبارة + نموذج الإنشاء.
- * الإنشاء لا يُسخَّن على مسار فتح الأرشيف الأساسي — يُنافس bandwidth أول paint.
- * secondaryDelayMs الافتراضي 0 — أي تأخير يُفقد سباق أول نقرة على الإضبارة.
+ * idle/hover: includeSecondary=false حتى لا ينافس طلاء المنزل.
+ * فتح الأيقونة: includeSecondary=true و secondaryDelayMs=0 بينما المستخدم يتصفّح المخزن.
  */
 export function warmExecutionWorkspace(options?: ExecutionWorkspaceWarmOptions): void {
     if (typeof window === 'undefined') return;

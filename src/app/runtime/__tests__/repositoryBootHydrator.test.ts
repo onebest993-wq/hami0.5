@@ -53,11 +53,16 @@ describe('repositoryBootHydrator', () => {
         });
     });
 
-    it('bindRepositoryBootHydrator يُجدول التهيئة عند dashboard-interactive', () => {
+    it('bindRepositoryBootHydrator يسخّن فوراً ويستمع لـ dashboard-interactive', () => {
+        const addSpy = vi.spyOn(window, 'addEventListener');
         const unbind = bindRepositoryBootHydrator('lawyer-1');
-        expect(hydrateRepositoryShellForInstantOpen).not.toHaveBeenCalled();
-        window.dispatchEvent(new Event('hami:dashboard-interactive'));
         expect(hydrateRepositoryShellForInstantOpen).toHaveBeenCalled();
+        expect(addSpy).toHaveBeenCalledWith(
+            'hami:dashboard-interactive',
+            expect.any(Function),
+            expect.objectContaining({ once: true }),
+        );
         unbind();
+        addSpy.mockRestore();
     });
 });

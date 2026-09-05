@@ -5,7 +5,7 @@ import {
     isExplicitDevUnlock,
 } from '@/app/services/auth/devUnlockSession';
 import { isExplicitLocalGuest } from '@/app/services/auth/localGuestSession';
-import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
+import { isShellAuthBypassed, isLocalDevWorkLawyerEnabled } from '@/app/services/auth/shellAuth';
 
 let cachedGuest: ReturnType<typeof createGuestLawyerSession> | null = null;
 
@@ -17,7 +17,9 @@ export function getDevMockLawyerSession(): ReturnType<typeof createGuestLawyerSe
 /** مستخدم تجريبي ثابت عند غياب الجلسة (تطوير / VITE_SHELL_AUTH_OPEN / دخول صريح بدون تسجيل) */
 export function resolveDevMockLawyerUser(user: User | null | undefined): User | null {
     if (user?.id) return user;
-    if (isExplicitDevUnlock()) return createDevUnlockLawyerSession().user;
+    if (isExplicitDevUnlock() || isLocalDevWorkLawyerEnabled()) {
+        return createDevUnlockLawyerSession().user;
+    }
     if (!isShellAuthBypassed() && !isExplicitLocalGuest()) return null;
     return getDevMockLawyerSession().user;
 }
@@ -29,5 +31,8 @@ export function resolveDevMockLawyerSession(
     if (session) return session;
     const resolvedUser = resolveDevMockLawyerUser(user);
     if (!resolvedUser) return null;
+    if (isExplicitDevUnlock() || isLocalDevWorkLawyerEnabled()) {
+        return createDevUnlockLawyerSession().session;
+    }
     return getDevMockLawyerSession().session;
 }

@@ -1,6 +1,10 @@
-import { SETTINGS_INSTANT_BRIDGE_ID } from '@/app/runtime/settingsInstantPaintConstants';
+import {
+    SETTINGS_INSTANT_BRIDGE_ID,
+    SETTINGS_OVERLAY_HOST_SELECTOR,
+} from '@/app/runtime/settingsInstantPaintConstants';
 import type { HubLayerMotionSpec } from '@/app/runtime/overlayHubLayerMotion';
 import { TASKS_MANAGER_INSTANT_CHROME_ID } from '@/app/services/fieldTasks/fieldTasksShellSnap';
+import { REPOSITORY_INSTANT_CHROME_ID } from '@/app/runtime/repositoryInstantChromeMarkup';
 
 export const FORUM_HUB_LAYER: HubLayerMotionSpec = {
     openAttr: 'data-hami-forum-open',
@@ -14,6 +18,7 @@ export const REPOSITORY_HUB_LAYER: HubLayerMotionSpec = {
     closingAttr: 'data-hami-repository-closing',
     enterAttr: 'data-hami-repository-enter',
     layerSelector: '[data-testid="smart-repository-modal"]',
+    chromeId: REPOSITORY_INSTANT_CHROME_ID,
 };
 
 export const TASKS_MANAGER_HUB_LAYER: HubLayerMotionSpec = {
@@ -35,8 +40,10 @@ export const SETTINGS_HUB_LAYER: HubLayerMotionSpec = {
     openAttr: 'data-hami-settings-open',
     closingAttr: 'data-hami-settings-closing',
     enterAttr: 'data-hami-settings-enter',
-    layerSelector: '[data-testid="hami-settings-overlay-host"]',
+    layerSelector: SETTINGS_OVERLAY_HOST_SELECTOR,
     chromeId: SETTINGS_INSTANT_BRIDGE_ID,
+    /** يطابق `settingsChromeOverlay.css` — لا نُقصّر الإغلاق إلى 140ms الافتراضي للـ hub. */
+    exitMs: 220,
 };
 
 export const FIELD_TASKS_HUB_LAYER: HubLayerMotionSpec = {

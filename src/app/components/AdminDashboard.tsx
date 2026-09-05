@@ -19,6 +19,7 @@ import { HqTrustedDevicesPanel } from '@/app/components/admin/HqTrustedDevicesPa
 import { HqReportsInbox } from '@/app/components/admin/HqReportsInbox';
 import { HqForumAdminPanel } from '@/app/components/admin/HqForumAdminPanel';
 import { HqKeepAlivePane } from '@/app/components/admin/HqKeepAlivePane';
+import { HqStateBlock } from '@/app/components/admin/hqChrome';
 import { useHeadquartersStatus } from '@/app/components/admin/useHeadquartersStatus';
 import { useHqTabKeepAlive } from '@/app/components/admin/useHqTabKeepAlive';
 import {
@@ -389,11 +390,7 @@ export const AdminDashboard = ({ onLogout, initialTab = 'monitor', skipLiveProbe
                           </p>
                       </div>
                       <Suspense
-                          fallback={
-                              <div className="hq-state">
-                                  جاري تحميل أدوات القوانين…
-                              </div>
-                          }
+                          fallback={<HqStateBlock kind="loading" title="المكتبة القانونية الذكية" />}
                       >
                           <LazyAdminLawEntry className="w-full shadow-2xl shadow-black/40" />
                       </Suspense>

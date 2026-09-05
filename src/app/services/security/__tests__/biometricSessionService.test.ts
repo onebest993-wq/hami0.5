@@ -13,6 +13,12 @@ const registerBiometricCredential = vi.fn();
 const verifyBiometricUnlock = vi.fn();
 const clearStoredBiometricCredential = vi.fn();
 
+vi.mock('@/app/runtime/nativeBiometricEnrollmentStore', () => ({
+    hasNativeBiometricEnrollment: () => hasNativeBiometricEnrollment(),
+    clearNativeBiometricEnrollment: (...args: unknown[]) => clearNativeBiometricEnrollment(...args),
+    markNativeBiometricEnrolled: vi.fn(),
+}));
+
 vi.mock('@/app/runtime/nativeBiometricBridge', () => ({
     probeNativeBiometricAvailability: (...args: unknown[]) => probeNativeBiometricAvailability(...args),
     registerNativeBiometric: (...args: unknown[]) => registerNativeBiometric(...args),

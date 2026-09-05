@@ -64,7 +64,6 @@ function sanitizeTransactionRecord(tx: Transaction): Transaction | null {
         clientName: fields.clientName,
         targetDepartment: fields.targetDepartment,
         status: sanitizeTransactionStatus(tx.status),
-        agreedFees: 0,
         createdAt,
         updatedAt: sanitizeTransactionIsoTimestamp(tx.updatedAt, createdAt),
     };
@@ -109,7 +108,7 @@ function sanitizeDocumentRecord(doc: TransactionDocument): TransactionDocument |
     };
 }
 
-/** يعقّم حمولة الحالة قبل الكتابة المحلية/السحابية — المالية المهجورة تُفرَّغ دائماً */
+/** يعقّم حمولة الحالة قبل الكتابة المحلية/السحابية — بلا حقول مالية مهجورة */
 export function sanitizeTransactionsThreadingSaveInput(
     userId: string,
     input: TransactionsThreadingSaveInput,
@@ -126,24 +125,9 @@ export function sanitizeTransactionsThreadingSaveInput(
             .map(sanitizeTaskRecord)
             .filter((row): row is TransactionTask => row != null)
             .slice(0, MAX_TASKS),
-        financeRecords: [],
         documents: (Array.isArray(input.documents) ? (input.documents as TransactionDocument[]) : [])
             .map(sanitizeDocumentRecord)
             .filter((row): row is TransactionDocument => row != null)
             .slice(0, MAX_DOCUMENTS),
     };
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

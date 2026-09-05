@@ -1,11 +1,18 @@
 /**
- * مزامنة العمل — ليست منتدى ولا ملف مهني.
- * الدعاوى/التنفيذ/التقويم/المعاملات/المخزن/المستودع تبقى محلية
- * حتى يُفعَّل cloudSync في الإعدادات والبيئة تسمح.
+ * مزامنة العمل — ليست منتدى ولا استشارة زميل ولا طلب عون.
+ * الدعاوى/التنفيذ/المعاملات/المخزن تبقى محلية حتى يُفعَّل cloudSync.
+ * مستودع المنتدى العام سحابي عبر `forum_repository_docs` ولا يخضع لهذه البوابة؛
+ * مرآة KV `repository:docs:` المحلية تبقى خلفها.
+ * التعاون الصريح خلف `canReachCollaborationNetwork` (قطع الاتصال فقط).
+ * التقويم خارج KV دائماً (`isCalendarNeverCloudKvMaterial`).
+ * يدخل المزامنة الشاملة فقط داخل نقطة الحفظ المشفّرة (`workCloudCheckpoint`).
+ * `lawyer_settings` محلي مشفّر — لا يمر عبر KV ولا `/api/settings/cloud-sync`.
  */
 import { isCloudSyncEnabled } from '@/lib/cloudSyncEnv.js';
 import { getLawyerSettingsSnapshot } from './settingsSnapshot';
 import type { AppSettingsState } from './types';
+
+export { isCalendarNeverCloudKvMaterial } from '@/app/security/kvProxyKeyOwnership';
 
 const USER_PROFILE_KV_RE = /^user:[^:]+:profile(?::|$)/;
 

@@ -1,34 +1,45 @@
 import {
     prefetchFieldTasksSheetModule,
+    prefetchFieldTasksCurtainCardSurfaces,
     prefetchTasksManagerModule,
 } from '@/app/runtime/fieldTasksHubLoader';
 import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
-
-function warmQuantumTasksDiskRead(): void {
-    void import('@/app/utils/quantumTasksStorage')
-        .then((m) => m.warmQuantumTasksDiskRead())
-        .catch(() => undefined);
-}
+import { warmQuantumTasksDiskRead } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
 
 /** مسار تسخين الستارة فقط — لا يتنافس مع chunk الأجندة على أول فتح */
-function warmFieldTasksSheetPipeline(forceHydrate: boolean): void {
+function warmFieldTasksSheetCore(forceHydrate: boolean): void {
     warmQuantumTasksDiskRead();
     prefetchFieldTasksSheetModule();
     void hydrateFieldTasksShellForInstantOpen(forceHydrate);
 }
 
-/** hover/لمس الدوك — ستارة + بيانات فقط؛ الأجندة عند «إدارة الكل» */
+function scheduleCurtainCardSurfacesAfterAgenda(): void {
+    if (typeof window === 'undefined') {
+        prefetchFieldTasksCurtainCardSurfaces();
+        return;
+    }
+    const run = () => prefetchFieldTasksCurtainCardSurfaces();
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(run, { timeout: 900 });
+    } else {
+        window.setTimeout(run, 0);
+    }
+}
+
+/** hover/لمس الدوك — ستارة + بطاقات الستارة؛ الأجندة لا تُحمَّل هنا */
 export function warmFieldTasksOnHover(): void {
-    warmFieldTasksSheetPipeline(false);
+    warmFieldTasksSheetCore(false);
+    prefetchFieldTasksCurtainCardSurfaces();
 }
 
-/** فتح ستارة الميدان — ستارة فقط */
+/** فتح ستارة الميدان — hydrate فوراً؛ بطاقات الستارة idle حتى لا تنافس Overlay */
 export function warmFieldTasksOnOpen(): void {
-    warmFieldTasksSheetPipeline(true);
+    warmFieldTasksSheetCore(true);
+    scheduleCurtainCardSurfacesAfterAgenda();
 }
 
-/** فتح مدير الأجندة — المسار الكامل */
+/** فتح مدير الأجندة — مقطع الأجندة فقط؛ الثانوي بعد أول تخطيط */
 export function warmFieldTasksManagerOnOpen(): void {
-    warmFieldTasksSheetPipeline(true);
+    warmQuantumTasksDiskRead();
     prefetchTasksManagerModule();
 }

@@ -1,6 +1,6 @@
 export const REPOSITORY_SHELL_FEATURE = 'المستودع';
 
-export type OpenRepositoryFromShellParams = {
+type OpenRepositoryFromShellParams = {
     signedIn: boolean;
     onSignedOut: () => void;
     onOpen: () => void;

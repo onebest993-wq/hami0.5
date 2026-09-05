@@ -35,10 +35,83 @@ describe('mergeCommunityPostsById', () => {
         expect(merged?.isEdited).toBe(true);
     });
 
-    it('┘è╪»┘à╪ش ╪د┘┘ê╪│┘ê┘à ┘à┘ ╪د┘┘╪│╪«╪ر ╪د┘┘à╪ص┘┘è╪ر ┘ê╪د┘╪ذ╪╣┘è╪»╪ر', () => {
-        const local = base('p2', { tags: ['#┘à╪»┘┘è'], updatedAt: '2026-01-01T10:00:00.000Z' });
-        const remote = base('p2', { tags: ['#╪ز┘┘┘è╪░'], updatedAt: '2026-01-01T12:00:00.000Z' });
+    it('isEdited يتبع المحتوى المُبقى ولا يبقى باتحاد دائم', () => {
+        const local = base('p6', {
+            content: 'نفس النص',
+            isEdited: true,
+            updatedAt: '2026-01-01T10:00:00.000Z',
+        });
+        const remote = base('p6', {
+            content: 'نفس النص',
+            isEdited: false,
+            updatedAt: '2026-01-01T12:00:00.000Z',
+        });
         const [merged] = mergeCommunityPostsById([local], [remote]);
-        expect(merged?.tags).toEqual(expect.arrayContaining(['#┘à╪»┘┘è', '#╪ز┘┘┘è╪░']));
+        expect(merged?.isEdited).toBeFalsy();
+    });
+
+    it('الوسوم تتبع النسخة الأحدث ولا تُوحَّد باتحاد دائم', () => {
+        const local = base('p2', { tags: ['#مدني'], updatedAt: '2026-01-01T10:00:00.000Z' });
+        const remote = base('p2', { tags: ['#جنائي'], updatedAt: '2026-01-01T12:00:00.000Z' });
+        const [merged] = mergeCommunityPostsById([local], [remote]);
+        expect(merged?.tags).toEqual(['#جنائي']);
+    });
+
+    it('يحافظ على وسوم المحلي إن كان هو الأحدث', () => {
+        const local = base('p2b', { tags: ['#مدني'], updatedAt: '2026-01-01T14:00:00.000Z' });
+        const remote = base('p2b', { tags: ['#جنائي'], updatedAt: '2026-01-01T12:00:00.000Z' });
+        const [merged] = mergeCommunityPostsById([local], [remote]);
+        expect(merged?.tags).toEqual(['#مدني']);
+    });
+
+    it('يفتح التثبيت والقفل من النسخة الأحدث ولا يثبّتهما للأبد', () => {
+        const local = base('p3', {
+            isPinned: true,
+            isLocked: true,
+            updatedAt: '2026-01-01T10:00:00.000Z',
+        });
+        const remote = base('p3', {
+            isPinned: false,
+            isLocked: false,
+            updatedAt: '2026-01-01T12:00:00.000Z',
+        });
+        const [merged] = mergeCommunityPostsById([local], [remote]);
+        expect(merged?.isPinned).toBeFalsy();
+        expect(merged?.isLocked).toBeFalsy();
+    });
+
+    it('لا يعيد تصويتاً أُلغي على النسخة الأحدث', () => {
+        const local = base('p4', {
+            upvoterIds: ['u1'],
+            updatedAt: '2026-01-01T10:00:00.000Z',
+        });
+        const remote = base('p4', {
+            upvoterIds: [],
+            updatedAt: '2026-01-01T12:00:00.000Z',
+        });
+        const [merged] = mergeCommunityPostsById([local], [remote]);
+        expect(merged?.upvoterIds).toEqual([]);
+    });
+
+    it('يحذف تعليقاً غائباً عن الخادم عندما المنشور البعيد أحدث', () => {
+        const local = base('p5', {
+            comments: [
+                {
+                    id: 'c-del',
+                    postId: 'p5',
+                    authorId: 'u1',
+                    authorName: 'محامٍ',
+                    content: 'سيُحذف',
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                },
+            ],
+            updatedAt: '2026-01-01T10:00:00.000Z',
+        });
+        const remote = base('p5', {
+            comments: [],
+            updatedAt: '2026-01-01T12:00:00.000Z',
+        });
+        const [merged] = mergeCommunityPostsById([local], [remote]);
+        expect(merged?.comments).toEqual([]);
     });
 });

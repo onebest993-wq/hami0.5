@@ -66,4 +66,22 @@ describe('privacyBlurRuntime', () => {
         unbind();
         expect(document.getElementById('hami-privacy-blur-shield')).toBeTruthy();
     });
+
+    it('يُظهر درع الخصوصية من حدث الحالة الأصلية', () => {
+        isCapacitorNativePlatform.mockReturnValue(true);
+        const unbind = bindPrivacyBlur(true);
+
+        window.dispatchEvent(
+            new CustomEvent('hami-native-app-state', { detail: { isActive: false } }),
+        );
+        const shield = document.getElementById('hami-privacy-blur-shield');
+        expect(shield?.style.visibility).toBe('visible');
+
+        window.dispatchEvent(
+            new CustomEvent('hami-native-app-state', { detail: { isActive: true } }),
+        );
+        expect(shield?.style.visibility).toBe('hidden');
+
+        unbind();
+    });
 });

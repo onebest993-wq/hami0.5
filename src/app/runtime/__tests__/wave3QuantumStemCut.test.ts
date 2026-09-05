@@ -21,6 +21,8 @@ describe('wave3 quantum stem cut', () => {
         expect(src).not.toMatch(/\bgetItemSync\b/);
         expect(src).not.toMatch(/\bsetItemSync\b/);
         expect(src).toContain('writeSecureAndClearLegacySync');
+        expect(src).not.toMatch(/from ['"][^'"]*tasksManager\/utils['"]/);
+        expect(src).not.toMatch(/from ['"][^'"]*nlpParser['"]/);
         expect(src).not.toMatch(/localStorage\.setItem\(QUANTUM_TASKS_STORAGE_KEY/);
         expect(src).toContain("import('@/app/services/SecureStoreService')");
         const lite = fs.readFileSync(
@@ -76,6 +78,14 @@ describe('wave3 quantum stem cut', () => {
         expect(prime).not.toMatch(/from ['"][^'"]*nlpParser['"]/);
         expect(prime).not.toMatch(/from ['"][^'"]*useQuantumTasks['"]/);
         expect(prime).not.toMatch(/from ['"][^'"]*quantumTasksStorage['"]/);
+        expect(prime).not.toContain('readSecurePayloadWhenReady');
+        expect(fullBoot).not.toContain('scheduleFieldTasksCurtainPeekFromSecureStore');
+        const hydrate = fs.readFileSync(
+            path.join(root, 'src/app/runtime/fieldTasksBootHydrator.ts'),
+            'utf8',
+        );
+        expect(hydrate).toContain('scheduleFieldTasksCurtainPeekFromSecureStore');
+        expect(hydrate).not.toMatch(/from ['"]@\/app\/utils\/quantumTasksCurtainPeek['"]/);
         const vite = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
         expect(vite).toContain('quantumTasksStorageDeserialize');
         expect(vite).toContain('primeQuantumTasksBootMetrics');

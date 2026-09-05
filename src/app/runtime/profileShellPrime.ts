@@ -118,5 +118,8 @@ export function warmProfileOnHover(userId?: string | null): void {
 }
 
 export function warmProfileOnOpen(userId?: string | null): void {
+    void import('@/app/runtime/sectionChunkRecency')
+        .then((m) => m.rememberOpenedSectionChunk('profile'))
+        .catch(() => undefined);
     primeProfileForOpen(userId);
 }

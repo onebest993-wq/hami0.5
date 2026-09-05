@@ -2,6 +2,7 @@ import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
+import { sanitizeForumReportReason } from '../../../services/forum/forumInputSecurity.ts';
 import { requireForumAuthAndUnbanned, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,6 +34,10 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         const postId = payload.postId.trim();
+        const reason = sanitizeForumReportReason(payload.reason);
+        if (reason.length < 2) {
+            return jsonResponse(400, { ok: false, error: 'postId و reason مطلوبان' });
+        }
         const existing = await ForumRepository.getPostById(postId);
         if (!existing) {
             return jsonResponse(404, { ok: false, error: 'المنشور غير موجود' });
@@ -43,13 +48,13 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(429, { ok: false, error: 'لقد أبلغت عن هذا المنشور مسبقاً أو انتظر' });
         }
 
-        const result = await ForumRepository.reportPost(postId, payload.reason, auth.userId);
+        const result = await ForumRepository.reportPost(postId, reason, auth.userId);
         if (result.ok) {
             void import('../../../services/forum/forumReportModeratorNotify.server').then(({ dispatchForumReportSubmitted }) =>
                 dispatchForumReportSubmitted({
                     postId,
                     reporterId: auth.userId,
-                    reason: payload.reason as string,
+                    reason,
                     targetLabel: 'منشور',
                 }),
             );

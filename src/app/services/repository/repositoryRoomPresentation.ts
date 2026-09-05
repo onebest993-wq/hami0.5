@@ -1,3 +1,4 @@
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
 import {
     type RepositoryRoom,
     type RepositoryRoomFilter,
@@ -15,12 +16,10 @@ function pinnedStorageKey(userId: string): string {
     return `${PINNED_KEY}:${userId.trim()}`;
 }
 
-export function loadRepositoryPinnedRoomIds(userId: string): string[] {
-    if (!userId.trim()) return [];
+function parsePinnedIds(raw: string | null): string[] {
+    if (!raw) return [];
     try {
-        const raw = localStorage.getItem(pinnedStorageKey(userId));
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
         return parsed
             .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
@@ -28,6 +27,11 @@ export function loadRepositoryPinnedRoomIds(userId: string): string[] {
     } catch {
         return [];
     }
+}
+
+export function loadRepositoryPinnedRoomIds(userId: string): string[] {
+    if (!userId.trim()) return [];
+    return parsePinnedIds(readSecureJsonRawSync(pinnedStorageKey(userId)));
 }
 
 export function saveRepositoryPinnedRoomIds(userId: string, ids: string[]): void {
@@ -41,7 +45,7 @@ export function saveRepositoryPinnedRoomIds(userId: string, ids: string[]): void
         unique.push(trimmed);
         if (unique.length >= REPOSITORY_PINNED_MAX) break;
     }
-    localStorage.setItem(pinnedStorageKey(userId), JSON.stringify(unique));
+    writeSecureJsonValue(pinnedStorageKey(userId), unique);
 }
 
 export function pruneRepositoryPinnedRoomIds(userId: string, validRoomIds: Set<string>): string[] {
@@ -87,7 +91,7 @@ export function repositoryRoomInitial(title: string): string {
     return map[raw] ?? raw.toUpperCase();
 }
 
-export type RepositoryRoomAlphaGroup = {
+type RepositoryRoomAlphaGroup = {
     letter: string;
     rooms: RepositoryRoom[];
 };

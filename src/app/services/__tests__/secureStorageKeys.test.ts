@@ -82,3 +82,30 @@ describe('secureStorageKeys transactions stay encrypted at rest', () => {
         expect(isTransactionsStorageKey('lawyer_files_active')).toBe(false);
     });
 });
+
+describe('secureStorageKeys settings stay encrypted at rest', () => {
+    const oversize = 'x'.repeat(ENCRYPT_MAX_BYTES + 1);
+
+    it('lawyer_settings تشفير أو فشل — بلا سقوط لنص صريح', () => {
+        expect(isSensitiveStorageKey('lawyer_settings')).toBe(true);
+        expect(isWarmEncryptAlwaysKey('lawyer_settings')).toBe(true);
+        expect(isEncryptOrFailStorageKey('lawyer_settings')).toBe(true);
+        expect(fallsBackToPlaintextBySize('lawyer_settings', oversize)).toBe(false);
+        expect(shouldEncryptValue('lawyer_settings', oversize)).toBe(true);
+        expect(shouldEncryptValue('lawyer_settings', '{}')).toBe(true);
+    });
+});
+
+describe('secureStorageKeys tasks stay encrypted at rest', () => {
+    const oversize = 'x'.repeat(ENCRYPT_MAX_BYTES + 1);
+
+    it('مهام الأجندة وطلبات العون تشفير أو فشل', () => {
+        for (const key of ['hami_quantum_legal_tasks_v1', 'hami_task_help_requests_v1'] as const) {
+            expect(isSensitiveStorageKey(key)).toBe(true);
+            expect(isWarmEncryptAlwaysKey(key)).toBe(true);
+            expect(isEncryptOrFailStorageKey(key)).toBe(true);
+            expect(fallsBackToPlaintextBySize(key, oversize)).toBe(false);
+            expect(shouldEncryptValue(key, oversize)).toBe(true);
+        }
+    });
+});

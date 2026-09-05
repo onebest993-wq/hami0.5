@@ -1,6 +1,6 @@
 import { normalizeBackgroundPatternOpacity } from './surfaceAppearance';
 
-export type PatternIntensityId = 'light' | 'medium' | 'clear';
+type PatternIntensityId = 'light' | 'medium' | 'clear';
 
 export const PATTERN_INTENSITY_PRESETS: ReadonlyArray<{
     id: PatternIntensityId;

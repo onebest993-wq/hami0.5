@@ -54,7 +54,7 @@ describe('liveAuthUserId', () => {
         expect(resolveLiveAuthUserIdForStorage()).toBe('mock-2');
     });
 
-    it('يصفّر هوية الواجهة عند تبديل الحساب لا عند أول ملء', () => {
+    it('يصفّر هوية الواجهة عند تبديل الحساب لا عند أول ملء', async () => {
         setLiveAuthUserId(null);
         publishUserIdentityUiState({
             userId: 'lawyer-a',
@@ -67,9 +67,11 @@ describe('liveAuthUserId', () => {
         expect(getUserIdentityUiState('lawyer-a')?.displayName).toBe('أحمد مهدي');
         setLawyerProfileBootWarmPending(true);
         setLiveAuthUserId('lawyer-b');
-        expect(getUserIdentityUiState('lawyer-a')).toBeNull();
-        expect(getUserIdentityUiState('lawyer-b')).toBeNull();
-        expect(isLawyerProfileBootWarmPending()).toBe(false);
+        await vi.waitFor(() => {
+            expect(getUserIdentityUiState('lawyer-a')).toBeNull();
+            expect(getUserIdentityUiState('lawyer-b')).toBeNull();
+            expect(isLawyerProfileBootWarmPending()).toBe(false);
+        });
     });
 
     it('يخفي ستارة المنتدى العالقة عند تبديل الحساب', async () => {

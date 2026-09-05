@@ -76,7 +76,7 @@ describe('POST /api/auth/otp/preview', () => {
         expect(String(json.error)).toMatch(/لا يوجد حساب/);
     });
 
-    it('يعيد آخر رقمين دون معرّف المستخدم', async () => {
+    it('يعيد جاهزية القنوات دون معرّف المستخدم', async () => {
         const res = await POST(
             previewRequest({ email: 'a@gmail.com', purpose: 'password_reset' }),
         );
@@ -84,13 +84,24 @@ describe('POST /api/auth/otp/preview', () => {
         const json = await res.json();
         expect(json).toMatchObject({
             ok: true,
-            phoneTail: '24',
             hasWhatsAppNumber: true,
             emailReady: true,
             whatsappSendReady: false,
         });
         expect(json.userId).toBeUndefined();
         expect(String(json.adminWhatsappUrl)).toMatch(/wa\.me\/9647811102199/);
+    });
+
+    it('لا يكشف ذيل رقم الهاتف لمسار مفتوح بلا جلسة', async () => {
+        const res = await POST(
+            previewRequest({ email: 'a@gmail.com', purpose: 'password_reset' }),
+        );
+        expect(res.status).toBe(200);
+        const raw = await res.text();
+        expect(raw).not.toMatch(/phoneTail/);
+        /* آخر رقمين من 07803344524 */
+        expect(raw).not.toMatch(/"24"/);
+        expect(raw).not.toMatch(/07803344524|3344524/);
     });
 
     it('يرفض نطاقاً بلا بريد حقيقي', async () => {

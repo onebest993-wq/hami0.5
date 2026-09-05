@@ -1,5 +1,10 @@
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { isCloudSyncEnabled } from './cloudSyncEnv.js';
+import {
+    mergeRemoteLawyerSettingsPreservingDeviceLock,
+    sealCloudSyncedAppData,
+    sealCloudSyncedLawyerSettings,
+} from '@/app/services/settings/sealCloudSyncedPreferences';
 
 const CLOUD_SYNC_PATH = '/api/settings/cloud-sync';
 const LEGACY_DEV_USER_KEY = 'dev_user';
@@ -72,12 +77,16 @@ async function resolveUserKeyOrThrow() {
 }
 
 /**
+ * كيس BFF لجدول lawyer_settings.app_data — إرث المسح/الترحيل.
+ * يُختم قبل الرفع: قاطع الجهاز ومفتاح المزامنة لا يُنقلان.
+ * مزامنة العمل عبر runCloudSyncAllNow / KV المختوم لا عبر هذا الكيس.
  * @param {{ lawyer_settings?: unknown }} [overrides]
  */
 export function collectAppData(overrides = {}) {
     return {
-        lawyer_settings:
+        lawyer_settings: sealCloudSyncedLawyerSettings(
             overrides.lawyer_settings ?? persistenceRepository.load('lawyer_settings'),
+        ),
         lawyer_theme: persistenceRepository.load('lawyer_theme'),
         lawyer_shape: persistenceRepository.load('lawyer_shape'),
         syncedAt: Date.now(),
@@ -85,6 +94,7 @@ export function collectAppData(overrides = {}) {
 }
 
 /**
+ * يدمج التفضيلات البعيدة دون المساس بقفل الجهاز أو مفتاح المزامنة المحلي.
  * @param {unknown} appData
  */
 export function applyAppData(appData) {
@@ -92,7 +102,11 @@ export function applyAppData(appData) {
 
     const record = /** @type {Record<string, unknown>} */ (appData);
     if (record.lawyer_settings != null) {
-        persistenceRepository.save('lawyer_settings', record.lawyer_settings);
+        const local = persistenceRepository.load('lawyer_settings');
+        persistenceRepository.save(
+            'lawyer_settings',
+            mergeRemoteLawyerSettingsPreservingDeviceLock(record.lawyer_settings, local),
+        );
     }
     if (record.lawyer_theme != null) {
         persistenceRepository.save('lawyer_theme', record.lawyer_theme);
@@ -108,7 +122,7 @@ export function applyAppData(appData) {
  */
 export async function saveToCloud(appData) {
     await resolveUserKeyOrThrow();
-    return bffCloudSyncRequest('POST', { app_data: appData ?? {} });
+    return bffCloudSyncRequest('POST', { app_data: sealCloudSyncedAppData(appData) ?? {} });
 }
 
 export async function loadFromCloud() {
@@ -116,7 +130,9 @@ export async function loadFromCloud() {
     if (!user_key) return null;
 
     const res = await bffCloudSyncRequest('GET');
-    return res?.app_data ?? null;
+    const raw = res?.app_data ?? null;
+    if (raw == null) return null;
+    return sealCloudSyncedAppData(raw);
 }
 
 /** ترحيل اختياري من dev_user إلى المستخدم الحالي */

@@ -60,7 +60,19 @@ describe('lawyerCloudKv work-cloud gate', () => {
     it('يمرّر مفاتيح العمل عند تفعيل المزامنة', async () => {
         isLawyerWorkCloudLive.mockReturnValue(true);
         const { lawyerCloudKv } = await import('@/app/services/cloud/lawyerCloudKv');
-        await lawyerCloudKv.get('calendar:u1:e1');
+        await lawyerCloudKv.get('transactions:u1:t1');
         expect(fetchSecure).toHaveBeenCalledTimes(1);
+    });
+
+    it('يرفض التقويم حتى ومزامنة العمل مفعّلة ولا يلمس /api', async () => {
+        isLawyerWorkCloudLive.mockReturnValue(true);
+        const { lawyerCloudKv } = await import('@/app/services/cloud/lawyerCloudKv');
+        await expect(lawyerCloudKv.get('calendar:u1:e1')).rejects.toBeInstanceOf(KvLocalOnlyError);
+        await expect(lawyerCloudKv.set('calendar:u1:e1', {})).rejects.toBeInstanceOf(KvLocalOnlyError);
+        await expect(lawyerCloudKv.getByPrefix('calendar:u1:')).rejects.toBeInstanceOf(KvLocalOnlyError);
+        await expect(lawyerCloudKv.del('hami:calendar:events:u1:v1')).rejects.toBeInstanceOf(
+            KvLocalOnlyError,
+        );
+        expect(fetchSecure).not.toHaveBeenCalled();
     });
 });

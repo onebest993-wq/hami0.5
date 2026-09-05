@@ -1,6 +1,6 @@
 import type { DockShellMetrics } from './dockShellLayout';
 
-export type DockChromeZoneVisibility = {
+type DockChromeZoneVisibility = {
     shellVisible: boolean;
 };
 
@@ -16,7 +16,7 @@ const SCROLL_PAD_BUFFER_PX = 18;
 /** حدود الحاوية + فجوة بصرية صغيرة تحت آخر بطاقة */
 export const DOCK_SHELL_CHROME_EXTRA_PX = 4;
 
-export type DockChromeOccupancyInput = {
+type DockChromeOccupancyInput = {
     visibility: DockChromeZoneVisibility;
     shellMetrics: Pick<DockShellMetrics, 'rowMinHeightPx' | 'shellVerticalPaddingPx'>;
     stackGapPx: number;

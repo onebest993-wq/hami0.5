@@ -26,7 +26,6 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   constructor(seed?: {
     transactions?: Transaction[];
     tasks?: TransactionTask[];
-    financeRecords?: unknown[];
     documents?: TransactionDocument[];
   }) {
     if (seed?.transactions) this.transactions = seed.transactions.map((t) => ({ ...t }));
@@ -38,7 +37,6 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
     return {
       transactions: this.transactions.map((t) => ({ ...t })),
       tasks: this.tasks.map((t) => ({ ...t })),
-      financeRecords: [] as unknown[],
       documents: this.documents.map((d) => ({ ...d })),
     };
   }
@@ -46,7 +44,6 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   replace(seed: {
     transactions?: Transaction[];
     tasks?: TransactionTask[];
-    financeRecords?: unknown[];
     documents?: TransactionDocument[];
   }) {
     this.transactions = (seed.transactions ?? []).map((t) => ({ ...t }));
@@ -66,13 +63,13 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   async saveTransaction(transaction: Transaction): Promise<void> {
     const exists = this.transactions.some((t) => t.id === transaction.id);
     if (exists) return;
-    this.transactions = [{ ...transaction, agreedFees: 0 }, ...this.transactions].map((t) => ({ ...t }));
+    this.transactions = [{ ...transaction }, ...this.transactions];
   }
 
   async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
     const idx = this.transactions.findIndex((t) => t.id === id);
     if (idx === -1) throw new Error('Transaction not found');
-    const next = { ...this.transactions[idx], ...updates, agreedFees: 0 };
+    const next = { ...this.transactions[idx], ...updates };
     this.transactions = this.transactions.map((t, i) => (i === idx ? next : t));
     return { ...next };
   }
@@ -89,7 +86,7 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   async saveTask(task: TransactionTask): Promise<void> {
     const exists = this.tasks.some((t) => t.id === task.id);
     if (exists) return;
-    this.tasks = [...this.tasks, task].map((t) => ({ ...t }));
+    this.tasks = [...this.tasks, { ...task }];
   }
 
   async updateTask(id: string, updates: Partial<TransactionTask>): Promise<TransactionTask> {
@@ -116,7 +113,7 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   async saveDocument(doc: TransactionDocument): Promise<void> {
     const exists = this.documents.some((d) => d.id === doc.id);
     if (exists) return;
-    this.documents = [...this.documents, doc].map((d) => ({ ...d }));
+    this.documents = [...this.documents, { ...doc }];
   }
 
   async deleteDocument(id: string): Promise<void> {

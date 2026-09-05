@@ -20,6 +20,7 @@ vi.mock('@/app/runtime/fieldTasksHubLoader', () => ({
     prefetchFieldTasksCurtainCardSurfaces: vi.fn(),
     prefetchTasksManagerModule: vi.fn(),
     prefetchTasksManagerSecondarySurfaces: vi.fn(),
+    warmTasksManagerAgendaDevTransforms: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/fieldTasksBootHydrator', () => ({
@@ -151,6 +152,24 @@ describe('useLawyerDashboardFieldTasks', () => {
         expect(result.current.showTasksManager).toBe(true);
         expect(result.current.fieldTasksSheetOpen).toBe(false);
         expect(result.current.fieldTasksHostMounted).toBe(false);
+    });
+
+    it('بلاطة المهام تغلق الأجندة وتعيد ستارة الميدان', async () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab: vi.fn() }),
+        );
+
+        act(() => {
+            result.current.openTasksManager();
+        });
+        expect(result.current.showTasksManager).toBe(true);
+
+        act(() => {
+            result.current.openFieldTasksSheet();
+        });
+
+        expect(result.current.fieldTasksSheetOpen).toBe(true);
+        expect(result.current.showTasksManager).toBe(false);
     });
 
     it('يغلق عند dismiss-transient-overlays', async () => {

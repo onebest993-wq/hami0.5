@@ -9,6 +9,7 @@ const previewAuthOtpAccount = vi.fn();
 const openNativeScheme = vi.fn();
 
 vi.mock('@/app/services/auth/authOtpClient', () => ({
+    AUTH_OTP_CODE_LENGTH: 6,
     requestAuthOtp: (...args: unknown[]) => requestAuthOtp(...args),
     completeAuthOtp: (...args: unknown[]) => completeAuthOtp(...args),
     previewAuthOtpAccount: (...args: unknown[]) => previewAuthOtpAccount(...args),
@@ -23,8 +24,9 @@ vi.mock('@/app/services/profile/profileContactNavigation', () => ({
     openNativeScheme: (...args: unknown[]) => openNativeScheme(...args),
 }));
 
+/** المعاينة لا تُرجع ذيل الرقم — الخادم يمنعه عن المسار المفتوح. */
 const previewOk = {
-    phoneTail: '99',
+    phoneTail: null as string | null,
     hasWhatsAppNumber: true,
     emailReady: true,
     whatsappSendReady: false,
@@ -167,6 +169,63 @@ describe('LawyerAuthOtpPanel', () => {
         fireEvent.submit(screen.getByTestId('lawyer-auth-otp-submit').closest('form')!);
         expect(completeAuthOtp).not.toHaveBeenCalled();
         expect(screen.getByTestId('lawyer-auth-otp-error').textContent).toMatch(/8 أحرف/);
+    });
+
+    it('يمنع إرسال رمز ناقص إلى الخادم', async () => {
+        render(
+            <LawyerAuthOtpPanel
+                purpose="password_reset"
+                initialEmail="a@gmail.com"
+                onBack={vi.fn()}
+            />,
+        );
+        await continueResetEmail();
+        fireEvent.click(screen.getByTestId('lawyer-auth-otp-channel-email'));
+        expect(await screen.findByTestId('lawyer-auth-otp-code')).toBeInTheDocument();
+        fireEvent.change(screen.getByTestId('lawyer-auth-otp-code'), { target: { value: '1234' } });
+        fireEvent.change(screen.getByTestId('lawyer-auth-otp-new-password'), {
+            target: { value: 'Abcd1234' },
+        });
+        fireEvent.change(screen.getByTestId('lawyer-auth-otp-confirm-password'), {
+            target: { value: 'Abcd1234' },
+        });
+        fireEvent.submit(screen.getByTestId('lawyer-auth-otp-submit').closest('form')!);
+        expect(completeAuthOtp).not.toHaveBeenCalled();
+        expect(screen.getByTestId('lawyer-auth-otp-error').textContent).toMatch(/6 أرقام/);
+    });
+
+    it('يقتصر حقل الرمز على طول الرمز المُصدَر', async () => {
+        render(
+            <LawyerAuthOtpPanel
+                purpose="password_reset"
+                initialEmail="a@gmail.com"
+                onBack={vi.fn()}
+            />,
+        );
+        await continueResetEmail();
+        fireEvent.click(screen.getByTestId('lawyer-auth-otp-channel-email'));
+        const field = await screen.findByTestId('lawyer-auth-otp-code');
+        fireEvent.change(field, { target: { value: '12345678' } });
+        expect((field as HTMLInputElement).value).toBe('123456');
+    });
+
+    it('يأخذ ذيل الرقم من الإرسال الفعلي لا من المعاينة', async () => {
+        previewAuthOtpAccount.mockResolvedValue({
+            ...previewOk,
+            whatsappSendReady: true,
+        });
+        requestAuthOtp.mockResolvedValueOnce({
+            delivery: 'otp',
+            message: 'تم',
+            resendAfterSec: 60,
+            phoneTail: '24',
+        });
+        render(
+            <LawyerAuthOtpPanel purpose="email_confirm" initialEmail="a@gmail.com" onBack={vi.fn()} />,
+        );
+        fireEvent.click(await screen.findByTestId('lawyer-auth-otp-channel-whatsapp'));
+        const hint = await screen.findByTestId('lawyer-auth-otp-delivery-hint');
+        expect(hint.textContent).toMatch(/ينتهي بـ 24/);
     });
 
     it('يعيد الإرسال بعد انتهاء العدّ عبر البريد', async () => {

@@ -6,9 +6,7 @@ import {
 
 const MARK_PREFIX = 'hami:settings:';
 
-export type SettingsPerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
-
-export type { SettingsPerfReportContext };
+type SettingsPerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
 
 export function markSettingsPerfPhase(phase: SettingsPerfPhase): void {
     if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;

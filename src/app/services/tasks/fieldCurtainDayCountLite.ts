@@ -41,7 +41,7 @@ export function isEligibleFieldDaySheetTaskLite(task: LegalTask, now: Date): boo
     if (task.status !== 'pending' && task.status !== 'delegated') return false;
     if (isTaskMarkedDone(task)) return false;
     if (isTaskOnFieldCurtain(task)) return true;
-    if (task.isFatalDeadline) return false;
+    /** الحتمي يظهر إن استحق اليوم أو تأخّر — التثبيت اليدوي يبقى للأجندة */
     const todayYmd = dateToLocalYmd(now);
     if (task.parsedDate && isTaskInCurrentAgendaWeek(task, now)) {
         const weekDue = fieldDaySheetDueYmdLite(task);

@@ -1,4 +1,4 @@
-import { StorageEncryptionError } from '@/app/services/SecureStoreService';
+import { StorageEncryptionError } from '@/app/services/storage/storageEncryptionError';
 
 /**
  * بلاغ ظاهر بعد فشل تثبيت المعاملات على القرص.

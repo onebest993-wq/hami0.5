@@ -7,6 +7,7 @@ const SHEET_ATTR = 'data-hami-field-tasks-open';
 const MANAGER_ATTR = 'data-hami-tasks-manager-open';
 const SHEET_SELECTOR = '[data-field-tasks-root]';
 const MANAGER_SELECTOR = '[data-testid="tasks-manager-overlay"]';
+export const FIELD_TASKS_INSTANT_CHROME_ID = 'hami-field-tasks-instant-chrome';
 export const TASKS_MANAGER_INSTANT_CHROME_ID = 'hami-tasks-manager-instant-chrome';
 
 export function isFieldTasksShellSnappedOpen(): boolean {
@@ -24,6 +25,7 @@ export function snapFieldTasksShellOpen(): boolean {
 export function snapFieldTasksShellClose(): void {
     if (typeof document === 'undefined') return;
     document.documentElement.removeAttribute(SHEET_ATTR);
+    document.getElementById(FIELD_TASKS_INSTANT_CHROME_ID)?.remove();
 }
 
 export function isTasksManagerShellSnappedOpen(): boolean {

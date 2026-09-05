@@ -1,6 +1,6 @@
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
-    isSectionBackgroundPrefetchAllowed,
+    isTransactionsHubJsWarmAllowed,
     sectionBackgroundHydrateDelayMs,
 } from '@/app/runtime/sectionPrefetchPolicy';
 import {
@@ -20,7 +20,7 @@ let hydrateInflight: Promise<boolean> | null = null;
 let coldBootPrefetchStarted = false;
 
 function transactionsPrefetchAllowed(): boolean {
-    return isSectionBackgroundPrefetchAllowed();
+    return isTransactionsHubJsWarmAllowed();
 }
 
 function hydrateDelayMs(): number {

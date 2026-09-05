@@ -10,7 +10,8 @@ export type BackupDomain =
     | 'repository'
     | 'calendar'
     | 'tasks'
-    | 'transactions';
+    | 'transactions'
+    | 'transactionsThreading';
 
 export type DossierSnapshotMeta = {
     domain: BackupDomain;

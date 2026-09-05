@@ -1,4 +1,4 @@
-import { SETTINGS_DEFAULT_SECTION, SETTINGS_NAV, type SettingsSectionId } from './nav';
+import { SETTINGS_DEFAULT_SECTION, isSettingsSectionId, type SettingsSectionId } from './nav';
 
 export const SETTINGS_SECTION_STORAGE_KEY = 'hami:settings-active-section';
 
@@ -6,9 +6,7 @@ export function readPersistedSettingsSection(): SettingsSectionId {
     if (typeof window === 'undefined') return SETTINGS_DEFAULT_SECTION;
     try {
         const stored = sessionStorage.getItem(SETTINGS_SECTION_STORAGE_KEY);
-        if (stored && SETTINGS_NAV.some((item) => item.id === stored)) {
-            return stored as SettingsSectionId;
-        }
+        if (isSettingsSectionId(stored)) return stored;
     } catch {
         /* ignore */
     }

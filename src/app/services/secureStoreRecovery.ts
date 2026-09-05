@@ -8,6 +8,7 @@
 import type { BackupDomain } from '@/app/services/dossierPersistence/dossierPersistenceTypes';
 import {
     backupDomainForStorageKey,
+    isTransactionsThreadingStateKey,
 } from '@/app/services/dossierPersistence/protectedStorageKeys';
 import {
     EXECUTION_FILES_STORAGE_KEY,
@@ -100,6 +101,19 @@ export async function recoverPlaintextAfterDecryptFailure(storageKey: string): P
     }
     if (executionDomainForKey(storageKey)) {
         return announce('backup:execution', await readBackup('execution'));
+    }
+
+    if (isTransactionsThreadingStateKey(storageKey)) {
+        if (__HAMI_CLIENT_PRODUCT__ === 'hq') return null;
+        const { readLatestDossierBackup } = await import(
+            '@/app/services/dossierPersistence/dossierBackupStore'
+        );
+        const backup = await readLatestDossierBackup('transactionsThreading');
+        const first = backup?.payload[0];
+        if (first && typeof first === 'object' && !Array.isArray(first)) {
+            return announce('backup:transactionsThreading', JSON.stringify(first));
+        }
+        return null;
     }
 
     const backupDomain = backupDomainForStorageKey(storageKey);

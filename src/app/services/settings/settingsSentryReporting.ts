@@ -65,8 +65,3 @@ export function reportSettingsOpenToSentry(
         });
     });
 }
-
-/** للاختبارات */
-export function resetSettingsSentryModuleForTests(): void {
-    sentryModulePromise = null;
-}

@@ -4,8 +4,11 @@ import {
     clearForumOpenIntent,
     consumeForumOpenPostId,
     isForumOpenIntentPending,
+    isForumSurfaceLive,
     requestOpenLawyerForum,
     resetForumOpenIntentForTests,
+    setForumSurfaceLive,
+    subscribeForumSurfaceLive,
 } from '@/app/runtime/forumOpenIntent';
 
 describe('forumOpenIntent', () => {
@@ -30,5 +33,24 @@ describe('forumOpenIntent', () => {
         clearForumOpenIntent();
         expect(isForumOpenIntentPending()).toBe(false);
         unbind();
+    });
+
+    it('يُعلم مشتركي حياة السطح دون تكرار القيمة', () => {
+        let ticks = 0;
+        const unsub = subscribeForumSurfaceLive(() => {
+            ticks += 1;
+        });
+        expect(isForumSurfaceLive()).toBe(false);
+        setForumSurfaceLive(true);
+        expect(isForumSurfaceLive()).toBe(true);
+        expect(ticks).toBe(1);
+        setForumSurfaceLive(true);
+        expect(ticks).toBe(1);
+        setForumSurfaceLive(false);
+        expect(ticks).toBe(2);
+        unsub();
+        setForumSurfaceLive(true);
+        expect(ticks).toBe(2);
+        setForumSurfaceLive(false);
     });
 });

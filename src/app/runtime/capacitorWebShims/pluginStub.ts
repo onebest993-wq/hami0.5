@@ -21,3 +21,13 @@ export const Encoding = { UTF8: 'utf8' };
 export const Share = {
     share: async () => undefined,
 };
+export const Haptics = {
+    impact: async () => undefined,
+    notification: async () => undefined,
+    vibrate: async () => undefined,
+    selectionStart: async () => undefined,
+    selectionChanged: async () => undefined,
+    selectionEnd: async () => undefined,
+};
+export const ImpactStyle = { Heavy: 'HEAVY', Medium: 'MEDIUM', Light: 'LIGHT' };
+export const NotificationType = { Success: 'SUCCESS', Warning: 'WARNING', Error: 'ERROR' };

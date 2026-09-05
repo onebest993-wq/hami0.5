@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -95,5 +97,13 @@ describe('performLawsuitNewCaseSave — no hang, sync create', () => {
         const mem = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
         expect(localStorage.getItem(LAWSUIT_PENDING_CREATES_KEY)).toBeNull();
         expect(Boolean(pending) || Boolean(mem)).toBe(true);
+    });
+
+    it('useLawsuitNewCaseFlow binds performLawsuitNewCaseSave (save click must not throw ReferenceError)', () => {
+        const src = readFileSync(join(process.cwd(), 'src/app/hooks/useLawsuitNewCaseFlow.ts'), 'utf8');
+        expect(src).toMatch(
+            /import\s*\{[\s\S]*performLawsuitNewCaseSave[\s\S]*\}\s*from\s*'@\/app\/hooks\/lawsuitNewCaseSave'/,
+        );
+        expect(src).toContain('performLawsuitNewCaseSave({');
     });
 });

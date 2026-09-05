@@ -1,8 +1,8 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { UserRole } from '@/app/types/admin-types';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
-import { isVaultIdbStoragePath } from '@/app/services/vault/vaultBlobPathLite';
+import { uuidv4 } from '@/app/utils/uuidv4';
+import { isRemoteStorageObjectPath } from '@/app/services/storage/removeRemoteStoragePaths';
 import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
 import {
     persistSecurePayloadWhenReady,
@@ -30,14 +30,6 @@ export type {
     ForumNotification,
     NotificationType,
 } from '@/app/services/cloud/lawyerCommunityTypes';
-
-function isRemoteStorageObjectPath(path: string): boolean {
-    const p = path.trim();
-    if (!p) return false;
-    if (p.startsWith('idb:') || p.startsWith('local:')) return false;
-    if (isVaultIdbStoragePath(p)) return false;
-    return true;
-}
 
 async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
     const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
@@ -375,19 +367,16 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
 }
 
 function mergeCommunityComments(
-    left: CommunityComment[],
-    right: CommunityComment[],
+    local: CommunityComment[],
+    remote: CommunityComment[],
+    remoteCanonical: boolean,
 ): CommunityComment[] {
-    const map = new Map<string, CommunityComment>();
-    for (const c of left) map.set(c.id, c);
-    for (const c of right) {
-        const prev = map.get(c.id);
-        if (!prev) {
-            map.set(c.id, c);
-            continue;
-        }
-        map.set(c.id, c.content.length >= prev.content.length ? c : prev);
+    if (remoteCanonical) {
+        return [...remote].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
     }
+    const map = new Map<string, CommunityComment>();
+    for (const c of remote) map.set(c.id, c);
+    for (const c of local) map.set(c.id, c);
     return Array.from(map.values()).sort(
         (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
     );
@@ -428,7 +417,6 @@ function mergeSingleCommunityPost(local: CommunityPost, remote: CommunityPost): 
     const older = remoteTime >= localTime ? local : remote;
 
     let content = local.content;
-    let isEdited = Boolean(local.isEdited || remote.isEdited);
     let editCount = Math.max(local.editCount ?? 0, remote.editCount ?? 0);
     let editHistory =
         (local.editHistory?.length ?? 0) >= (remote.editHistory?.length ?? 0)
@@ -446,9 +434,19 @@ function mergeSingleCommunityPost(local: CommunityPost, remote: CommunityPost): 
         }
     }
 
-    const upvoterIds = [...new Set([...(local.upvoterIds ?? []), ...(remote.upvoterIds ?? [])])];
-    const comments = mergeCommunityComments(local.comments ?? [], remote.comments ?? []);
-    const tags = Array.from(new Set([...(local.tags ?? []), ...(remote.tags ?? [])]));
+    const upvoterIds = newer.upvoterIds ?? [];
+    const comments = mergeCommunityComments(
+        local.comments ?? [],
+        remote.comments ?? [],
+        remoteTime >= localTime,
+    );
+    const tags = [...(newer.tags ?? [])];
+    const isEdited =
+        content === local.content && local.content !== remote.content
+            ? Boolean(local.isEdited)
+            : content === remote.content && remote.content !== local.content
+              ? Boolean(remote.isEdited)
+              : Boolean(newer.isEdited);
 
     return {
         ...newer,
@@ -461,10 +459,10 @@ function mergeSingleCommunityPost(local: CommunityPost, remote: CommunityPost): 
         upvoterIds,
         comments,
         bestCommentId: newer.bestCommentId ?? older.bestCommentId ?? null,
-        isPinned: local.isPinned || remote.isPinned,
-        isLocked: local.isLocked || remote.isLocked,
-        isUrgent: local.isUrgent || remote.isUrgent,
-        isAnonymous: local.isAnonymous || remote.isAnonymous,
+        isPinned: newer.isPinned,
+        isLocked: newer.isLocked,
+        isUrgent: newer.isUrgent,
+        isAnonymous: newer.isAnonymous,
         updatedAt: new Date(Math.max(localTime, remoteTime)).toISOString(),
     };
 }
@@ -659,7 +657,12 @@ export async function addCommunityPost(post: CommunityPost) {
 
 export async function addCommunityComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
+    if (!post) throw new Error('المنشور غير موجود');
+    if (post.isLocked === true) throw new Error('النقاش على هذا المنشور مقفل');
+    if (comment.parentId) {
+        const parent = post.comments.find((c) => c.id === comment.parentId);
+        if (!parent) throw new Error('التعليق الأصل غير موجود في هذا المنشور');
+    }
     const updated: CommunityPost = { ...post, comments: [...post.comments, comment], updatedAt: new Date().toISOString() };
     await CommunityDB.savePost(updated);
     return updated;

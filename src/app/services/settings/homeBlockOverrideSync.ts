@@ -1,12 +1,10 @@
 import type { HomeBlockStyleOverride } from './homeLayout';
 
 /** حقول المظهر القديمة من وضع التحرير — تُزال عند المزامنة فقط */
-export const HOME_BLOCK_GLOBAL_APPEARANCE_KEYS = [
+const HOME_BLOCK_GLOBAL_APPEARANCE_KEYS = [
     'accentColor',
     'shape',
 ] as const satisfies ReadonlyArray<keyof HomeBlockStyleOverride>;
-
-export type HomeBlockGlobalAppearanceKey = (typeof HOME_BLOCK_GLOBAL_APPEARANCE_KEYS)[number];
 
 export function hasConflictingAppearanceOverrides(
     override?: HomeBlockStyleOverride,

@@ -49,14 +49,10 @@ function ensureTransactionsInstantChromeBridge(): void {
         'hami-tx-overlay-layer pointer-events-auto fixed inset-0 z-[230] w-[100vw] max-w-[100vw] h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#0A0F1C]';
     bridge.innerHTML =
         '<div class="relative flex h-full min-h-[100dvh] w-full flex-col overflow-x-hidden bg-[#0A0F1C]" style="font-family:Tajawal,Cairo,sans-serif">' +
-        '<header class="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0A0F1C] px-4 py-2">' +
+        '<header class="flex shrink-0 items-center border-b border-white/[0.06] bg-[#0A0F1C] px-4 py-2">' +
         '<div class="min-w-0 flex-1 text-center">' +
         '<h1 class="truncate text-[17px] font-semibold text-[#F4F4F5]" style="margin:0">إدارة المعاملات</h1>' +
-        '</div></header>' +
-        '<div class="mx-auto w-full max-w-[520px] flex-1 space-y-2 px-4 py-2">' +
-        '<div class="h-11 bg-white/[0.03]"></div>' +
-        '<div class="h-12 rounded-xl bg-white/[0.03]"></div>'.repeat(4) +
-        '</div></div>';
+        '</div></header></div>';
     portal.appendChild(bridge);
 }
 

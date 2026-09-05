@@ -16,7 +16,7 @@ import {
     markGlobalSearchPerfPhase,
 } from '@/app/services/search/globalSearchPerfMetrics';
 
-export type CommitGlobalSearchShellOpenParams = {
+type CommitGlobalSearchShellOpenParams = {
     querySeed?: string;
     showGlobalSearchRef: MutableRefObject<boolean>;
     setSearchHostMounted: (mounted: boolean) => void;

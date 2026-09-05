@@ -90,12 +90,18 @@ describe('execution Phase 0 measure honesty', () => {
             'utf8',
         );
         expect(overlayPrefetch).toContain("from './executionDashboardLazyRegistryShell'");
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionDashboardFollowupTabLazy['"]/);
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionFollowupModalLazy['"]/);
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionFollowupHostLazy['"]/);
+        expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionDashboardShellOverlaysLazy['"]/);
+        expect(overlayPrefetch).toContain("import('./executionFollowupOverlayPrefetchRuntime')");
+        expect(overlayPrefetch).toContain("import('./executionDashboardShellOverlaysLazy')");
         expect(overlayPrefetch).not.toMatch(
             /from\s+['"]\.\/executionDashboardLazyRegistryOverlays['"]/,
         );
         expect(overlayPrefetch).toContain("import('./executionDashboardLazyRegistryOverlays')");
         expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionFollowupTabPrefetch['"]/);
-        expect(overlayPrefetch).toContain("import('./executionFollowupTabPrefetch')");
+        expect(overlayPrefetch).not.toContain("import('./executionFollowupTabPrefetch')");
         expect(overlayPrefetch).not.toMatch(/from\s+['"]\.\/executionDashboardLazyRegistry['"]/);
         expect(overlayPrefetch).not.toMatch(barrelFrom);
     });

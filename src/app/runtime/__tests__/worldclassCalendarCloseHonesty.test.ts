@@ -139,7 +139,13 @@ describe('world-class calendar close honesty', () => {
             'utf8',
         );
         expect(boundary).toContain('radar-error-fallback');
+        expect(boundary).toContain('resetKey');
         expect(boundary).not.toContain("from '@/app/components/ui/ErrorBoundary'");
+        const tab = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardScheduleTab.tsx'),
+            'utf8',
+        );
+        expect(tab).toContain('resetKey=');
     });
 
     it('كاشف الإثقال موصول إلى ScheduleConflictAlert', () => {
@@ -152,6 +158,8 @@ describe('world-class calendar close honesty', () => {
         );
         expect(insights).toContain('detectConflictsFromUnifiedEvents');
         expect(insights).toContain('scheduleConflict');
+        expect(insights).not.toMatch(/import \{ detectConflictsFromUnifiedEvents \}/);
+        expect(insights).toContain("import('@/app/services/calendar/scheduleConflictDetector')");
         const radar = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/SmartLegalRadar.tsx'),
             'utf8',

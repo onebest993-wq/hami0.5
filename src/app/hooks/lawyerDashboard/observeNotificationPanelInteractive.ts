@@ -1,4 +1,4 @@
-export type ObserveNotificationPanelInteractiveInput = {
+type ObserveNotificationPanelInteractiveInput = {
     onInteractive: () => void;
     isDone: () => boolean;
 };

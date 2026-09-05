@@ -23,11 +23,9 @@ export function registerRepositoryWarmUserId(userId: string | null | undefined):
     };
 }
 
-/** prefetch مقطع Entry + بيانات — hover/idle */
-export function warmRepositoryHubOnHover(userId?: string | null): void {
+/** prefetch مقطع Entry فقط — hover/idle لا ينافس بايتات الفتح */
+export function warmRepositoryHubOnHover(_userId?: string | null): void {
     prefetchRepositoryHubModule();
-    const uid = (userId ?? registeredWarmUserId)?.trim();
-    if (uid) prefetchSmartVaultDocs(uid);
 }
 
 export type RepositoryWarmTab = 'notepad' | 'vault';
@@ -40,12 +38,14 @@ export function warmRepositoryDataCache(userId?: string | null): Promise<SmartVa
     return refreshVaultDocsFromStore(uid).catch(() => seeded);
 }
 
-/** عند فتح المستودع — نفس تسخين الـ hover (Entry + وثائق) */
+/** عند فتح المستودع — المقطع ثم وثائق المخزن */
 export function warmRepositoryOnOpen(
     userId?: string | null,
     _tab: RepositoryWarmTab = 'notepad',
 ): void {
-    warmRepositoryHubOnHover(userId);
+    prefetchRepositoryHubModule();
+    const uid = (userId ?? registeredWarmUserId)?.trim();
+    if (uid) prefetchSmartVaultDocs(uid);
 }
 
 /** idle warm لبطاقة المستودع — يُلغى على lite / توفير البيانات / localOnly */

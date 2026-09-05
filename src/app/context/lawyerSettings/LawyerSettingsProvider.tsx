@@ -11,7 +11,6 @@ import {
     LawyerSettingsSecurityContext,
 } from './lawyerSettingsContexts';
 import { stripWallpaperForStorage } from './lawyerSettingsPersistence';
-import { useLawyerSettingsCloudSync } from './useLawyerSettingsCloudSync';
 import { useLawyerSettingsHydration } from './useLawyerSettingsHydration';
 import { useLawyerSettingsRuntimeEffects } from './useLawyerSettingsRuntimeEffects';
 import { useLawyerSettingsSliceMemos } from './useLawyerSettingsSliceMemos';
@@ -39,12 +38,6 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
         autoSaveOn,
         settingsHydrated,
     );
-
-    useLawyerSettingsCloudSync({
-        settings: settingsForPersistence,
-        settingsHydrated,
-        cloudSyncEnabled: settings.data.cloudSync && !settings.security.localOnlyMode,
-    });
 
     useLawyerSettingsRuntimeEffects({
         settings,

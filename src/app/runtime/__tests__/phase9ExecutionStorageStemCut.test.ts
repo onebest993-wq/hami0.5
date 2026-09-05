@@ -40,10 +40,12 @@ describe('phase-9 execution-storage stem cut', () => {
     });
 
     it('lawyer-cloud و cloudSyncEngine لا يسحبان storage sync', () => {
+        const repo = readFileSync(join(root, 'src/app/services/cloud/lawyerRepositoryCloud.ts'), 'utf8');
         const cloud = readFileSync(join(root, 'src/app/services/lawyer-cloud.ts'), 'utf8');
         const sync = readFileSync(join(root, 'src/app/services/cloudSyncEngine.ts'), 'utf8');
-        expect(cloud).toContain("from '@/app/services/storage/removeRemoteStoragePaths'");
+        expect(repo).toContain("from '@/app/services/storage/removeRemoteStoragePaths'");
         expect(cloud).not.toContain("from '@/app/services/vaultBlobStore'");
+        expect(cloud).not.toContain("from '@/app/services/storage/removeRemoteStoragePaths'");
         expect(sync).not.toMatch(/import \{[^}]*reconcileExecutionDossierStorageAsync/);
         expect(sync).toContain('executionDossierStorageReconcile');
     });

@@ -49,6 +49,10 @@ export function suppressSettingsReopen(ms: number = SETTINGS_REOPEN_SUPPRESS_MS)
     const fallbackTimer = window.setTimeout(clear, duration);
 
     reopenSuppressCleanup = () => {
+        if (typeof window === 'undefined') {
+            clearTimeout(fallbackTimer);
+            return;
+        }
         window.removeEventListener('pointerdown', swallowGearGhost, true);
         window.removeEventListener('click', swallowGearGhost, true);
         window.clearTimeout(fallbackTimer);

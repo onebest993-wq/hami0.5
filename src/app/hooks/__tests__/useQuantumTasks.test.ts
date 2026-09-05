@@ -77,6 +77,48 @@ describe('useQuantumTasks', () => {
         expect(t.subTasks[0]!.kind).toBe('field');
     });
 
+    it('addWeeklyLocationBundle with plan titles attaches branch steps', () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+        const day = startOfLocalDay(new Date(2026, 4, 18));
+
+        act(() => {
+            result.current.addWeeklyLocationBundle(
+                day,
+                'محكمة الرصافة',
+                ['طلب حجز', 'متابعة'],
+                'خطة تنفيذ',
+            );
+        });
+
+        const t = result.current.pendingTasks[0]!;
+        expect(t.title).toBe('خطة تنفيذ');
+        expect(t.subTasks).toHaveLength(2);
+        expect(t.subTasks.every((st) => st.kind === 'branch' && st.planStatus === 'pending')).toBe(true);
+
+        const subId = t.subTasks[0]!.id;
+        act(() => {
+            result.current.setSubTaskPlanStatus(t.id, subId, 'delayed');
+        });
+        expect(result.current.tasks[0]!.subTasks[0]!.planStatus).toBe('delayed');
+        expect(result.current.tasks[0]!.subTasks[0]!.isCompleted).toBe(false);
+
+        act(() => {
+            result.current.setSubTaskPlanStatus(t.id, subId, 'done');
+        });
+        expect(result.current.tasks[0]!.subTasks[0]!.planStatus).toBe('done');
+        expect(result.current.tasks[0]!.subTasks[0]!.isCompleted).toBe(true);
+
+        act(() => {
+            result.current.renameSubTask(t.id, subId, 'طلب حجز محدّث');
+        });
+        expect(result.current.tasks[0]!.subTasks[0]!.title).toBe('طلب حجز محدّث');
+
+        act(() => {
+            result.current.removeSubTask(t.id, subId);
+        });
+        expect(result.current.tasks[0]!.subTasks).toHaveLength(1);
+    });
+
     it('addWeeklyLocationBundle with details string creates task without sub tasks', () => {
         const { result } = renderHook(() => useQuantumTasks([]));
         const day = startOfLocalDay(new Date(2026, 4, 18));

@@ -2,12 +2,9 @@ import type { NotificationModel } from '@/app/infrastructure/NotificationReposit
 import { capNotificationList } from '@/app/services/notifications/notificationLimits';
 import { loadForumSupabaseAdmin } from '@/app/services/forum/loadForumSupabaseAdmin';
 
-
-
 const INBOX_TABLE = 'lawyer_shell_notifications';
 const INBOX_VIEW = 'lawyer_shell_notification_inbox_v';
 const EVENTS_TABLE = 'lawyer_shell_notification_events';
-const REBUILD_RPC = 'rebuild_lawyer_shell_inbox_from_events';
 const DEFAULT_LIST_LIMIT = 400;
 
 type ShellNotificationRow = {
@@ -25,7 +22,7 @@ type ShellNotificationRow = {
     updated_at: string;
 };
 
-export type ShellNotificationEventType = 'created' | 'updated' | 'read' | 'read_all' | 'merged';
+type ShellNotificationEventType = 'created' | 'updated' | 'read' | 'read_all' | 'merged';
 
 export { isShellNotificationSupabaseEnabled } from '@/app/services/notifications/notificationStoragePolicy';
 
@@ -88,7 +85,7 @@ async function appendEvent(
     });
 }
 
-export type ShellInboxQueryResult =
+type ShellInboxQueryResult =
     | { ok: true; rows: NotificationModel[] }
     | { ok: false; rows: [] };
 
@@ -119,7 +116,7 @@ export async function listShellNotificationsSupabase(
     return listed.rows;
 }
 
-export type ShellNotificationSchemaStatus = {
+type ShellNotificationSchemaStatus = {
     ok: boolean;
     inbox: boolean;
     events: boolean;
@@ -149,16 +146,6 @@ export async function verifyShellNotificationSchema(): Promise<ShellNotification
         events: eventsOk,
         inboxView: viewOk,
     };
-}
-
-/** إعادة بناء inbox من event log — صيانة/تعافي. */
-export async function rebuildInboxFromEventsSupabase(userId: string): Promise<number> {
-    const admin = await loadForumSupabaseAdmin();
-    if (!admin) return -1;
-
-    const { data, error } = await admin.rpc(REBUILD_RPC, { p_user_id: userId });
-    if (error) return -1;
-    return typeof data === 'number' ? data : 0;
 }
 
 export async function upsertShellNotificationSupabase(

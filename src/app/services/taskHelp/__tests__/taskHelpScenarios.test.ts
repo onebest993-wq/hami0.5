@@ -8,10 +8,21 @@ import {
 } from '../taskHelpScenarios';
 import { sanitizeTaskForPublic } from '@/app/services/tasks/taskSanitizer';
 import { TaskHelpApiService } from '../taskHelpApiService';
-import { SecureFetchError } from '@/app/services/SecureAPIClient';
+import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClient';
+
+const canReachCollaborationNetwork = vi.fn(() => false);
+
+vi.mock('@/app/services/settings/collaborationNetworkGate', () => ({
+    canReachCollaborationNetwork: () => canReachCollaborationNetwork(),
+    COLLABORATION_NETWORK_OFF: 'COLLABORATION_NETWORK_OFF',
+    assertCollaborationNetworkReachable: () => {
+        if (!canReachCollaborationNetwork()) throw new Error('COLLABORATION_NETWORK_OFF');
+    },
+}));
 
 describe('task help scenarios (offline)', () => {
     beforeEach(async () => {
+        canReachCollaborationNetwork.mockReturnValue(false);
         await saveTaskHelpRecords([]);
     });
 
@@ -117,8 +128,16 @@ describe('sanitizeTaskForPublic regression', () => {
 });
 
 describe('TaskHelpApiService accept does not bypass server lock', () => {
+    it('بلا شبكة تعاون لا يُستدعى fetchSecure', async () => {
+        canReachCollaborationNetwork.mockReturnValue(false);
+        const fetchSecure = vi.spyOn(SecureAPIClient, 'fetchSecure');
+        await TaskHelpApiService.list('owner-1');
+        expect(fetchSecure).not.toHaveBeenCalled();
+        fetchSecure.mockRestore();
+    });
+
     it('rethrows 409 ALREADY_ACCEPTED without local accept fallback', async () => {
-        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
+        canReachCollaborationNetwork.mockReturnValue(true);
         const fetchSecure = vi
             .spyOn(SecureAPIClient, 'fetchSecure')
             .mockRejectedValue(

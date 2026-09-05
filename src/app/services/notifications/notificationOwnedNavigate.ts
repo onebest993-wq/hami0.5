@@ -3,12 +3,12 @@ import {
     sanitizeNotificationActionPayload,
 } from '@/app/services/notifications/notificationNavigateSecurity';
 
-export type NotificationOwnedCaseLite = {
+type NotificationOwnedCaseLite = {
     id?: unknown;
     caseNo?: string;
 };
 
-export type NotificationOwnedNavigateInput = {
+type NotificationOwnedNavigateInput = {
     path: string;
     payload: Record<string, unknown> | null;
     signedIn: boolean;
@@ -17,7 +17,7 @@ export type NotificationOwnedNavigateInput = {
     inboxPostIds: ReadonlySet<string>;
 };
 
-export type NotificationOwnedNavigateResult =
+type NotificationOwnedNavigateResult =
     | { kind: 'noop' }
     | { kind: 'schedule'; eventId?: string; date?: string }
     | { kind: 'open-lawsuit'; id: string }

@@ -55,7 +55,9 @@ export function assembleLawyerDashboardReadyView({
     pendingFieldTasksCount,
     dashboardExecutionFiles,
     deferredFeatureSurfacesProps,
+    fieldTasksFeatureSurfacesProps,
     preDockFeatureSurfacesProps,
+    repositoryFeatureSurfacesProps,
     navigationSurfacesProps,
 }: AssembleLawyerDashboardReadyViewParams): Extract<LawyerDashboardCoreViewModel, { status: 'ready' }> {
     const { wallpaperSrc, hasWallpaper, dashboardBg, dashboardSurfaceStyle } = buildLawyerDashboardSurface({
@@ -267,7 +269,9 @@ export function assembleLawyerDashboardReadyView({
             setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
         },
         deferredFeatureSurfacesProps,
+        fieldTasksFeatureSurfacesProps,
         preDockFeatureSurfacesProps,
+        repositoryFeatureSurfacesProps,
         navigationSurfacesProps,
     };
 }

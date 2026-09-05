@@ -41,6 +41,19 @@ describe('dossierWipeGuard', () => {
         expect(shouldRejectDossierWipe('hami_quantum_legal_tasks_v1', incoming, existing)).toBe(true);
     });
 
+    it('طلبات العون: يرفض التفريغ فوق تالف ويسمح بالمسح المتعمّد', () => {
+        expect(shouldRejectDossierWipe('hami_task_help_requests_v1', '[]', 'hami_enc_v2:cold')).toBe(
+            true,
+        );
+        expect(
+            shouldRejectDossierWipe(
+                'hami_task_help_requests_v1',
+                '[]',
+                JSON.stringify([{ id: 'h1' }]),
+            ),
+        ).toBe(false);
+    });
+
     it('counts array items in raw json', () => {
         expect(countDossierArray(JSON.stringify([{ id: 'a' }]))).toBe(1);
         expect(countDossierArray('{}')).toBe(0);

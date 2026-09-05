@@ -1,35 +1,13 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-
 import type { AppSettingsState } from './types';
-
 import { shouldAllowPush } from './apply';
-
-import { BUILTIN_AUTO_SUMMARY } from './builtInBehavior';
-
+import { getLawyerSettingsSnapshot } from './settingsSnapshot';
 import {
-    getLawyerSettingsSnapshot,
-    invalidateLawyerSettingsCache,
-    publishLawyerSettingsLive,
-} from './settingsSnapshot';
-
-import {
-    alertNotificationChannel,
     filterAlertsByNotificationPolicy,
     shouldShowChannelInApp,
     getNotificationSettings,
     type NotificationChannelKey,
 } from '@/app/services/notifications/notificationAlertPolicy';
-
-export type { AppSettingsState };
-export {
-    getLawyerSettingsSnapshot,
-    invalidateLawyerSettingsCache,
-    publishLawyerSettingsLive,
-};
-
-export type { NotificationChannelKey };
-
-export { alertNotificationChannel };
 
 export function isNotificationChannelAllowed(
     channel: NotificationChannelKey | null,
@@ -43,7 +21,6 @@ export function filterAlertsByNotificationSettings(
     alerts: SecretaryAlert[],
     settings: AppSettingsState = getLawyerSettingsSnapshot(),
 ): SecretaryAlert[] {
-    void BUILTIN_AUTO_SUMMARY;
     return filterAlertsByNotificationPolicy(alerts, settings);
 }
 
@@ -52,9 +29,6 @@ export function canSendPushNotifications(settings: AppSettingsState = getLawyerS
     if (!n.masterEnabled) return false;
     return shouldAllowPush(settings);
 }
-
-export { isCloudSyncBucketEnabled, isLiveCloudSyncBucketEnabled } from './cloudSyncBucket';
-export { isLawyerWorkCloudLive, isWorkLocalKvMaterial } from './lawyerWorkCloudGate';
 
 function shouldPrefetchLawyerChunks(settings: AppSettingsState = getLawyerSettingsSnapshot()): boolean {
     return settings.performance.prefetchScreens;

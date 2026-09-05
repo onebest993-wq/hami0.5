@@ -1,31 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-    countActiveFieldCurtainTasks,
-    countFieldDaySheetTasks,
-    listActiveFieldCurtainTasks,
     listFieldDaySheetTasks,
     sortFieldCurtainTasks,
 } from '@/app/services/tasks/fieldCurtainTasks';
 import { legalTaskStub as task } from './legalTaskStub';
 
 describe('fieldCurtainTasks', () => {
-    it('lists only pinned incomplete tasks', () => {
-        const tasks = [
-            task({ id: '1', title: 'مثبت', pinnedToFieldCurtain: true }),
-            task({ id: '2', title: 'منجز', pinnedToFieldCurtain: true, completedAt: new Date() }),
-            task({ id: '3', title: 'عادي' }),
-        ];
-        expect(listActiveFieldCurtainTasks(tasks).map((t) => t.id)).toEqual(['1']);
-        expect(countActiveFieldCurtainTasks(tasks)).toBe(1);
-    });
-
-    it('ignores fatal deadlines on curtain', () => {
-        const tasks = [
-            task({ id: '1', title: 'حتمي', pinnedToFieldCurtain: true, isFatalDeadline: true }),
-        ];
-        expect(countActiveFieldCurtainTasks(tasks)).toBe(0);
-    });
-
     it('sorts by pin time then title', () => {
         const older = task({
             id: 'a',
@@ -42,7 +22,7 @@ describe('fieldCurtainTasks', () => {
         expect(sortFieldCurtainTasks([older, newer]).map((t) => t.id)).toEqual(['b', 'a']);
     });
 
-    it('sheet list includes pinned and today-due (non-fatal) tasks', () => {
+    it('sheet list includes pinned, today-due, and today fatal tasks', () => {
         const today = new Date('2026-06-21T10:00:00');
         const tasks = [
             task({
@@ -58,13 +38,25 @@ describe('fieldCurtainTasks', () => {
             }),
             task({
                 id: '3',
-                title: 'حتمية غير مثبتة',
+                title: 'حتمية اليوم',
                 isFatalDeadline: true,
                 parsedDate: new Date('2026-06-21T09:00:00'),
             }),
         ];
-        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['2', '1']);
-        expect(countFieldDaySheetTasks(tasks, today)).toBe(2);
+        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['3', '2', '1']);
+    });
+
+    it('sheet list excludes future fatal deadlines', () => {
+        const today = new Date('2026-06-21T10:00:00');
+        const tasks = [
+            task({
+                id: 'future-fatal',
+                title: 'حتمية لاحقة',
+                isFatalDeadline: true,
+                parsedDate: new Date('2026-08-01T09:00:00'),
+            }),
+        ];
+        expect(listFieldDaySheetTasks(tasks, today)).toHaveLength(0);
     });
 
     it('sheet list includes past-day tasks in current week (pinned or overdue)', () => {
@@ -130,7 +122,6 @@ describe('fieldCurtainTasks', () => {
             }),
         ];
         const listed = listFieldDaySheetTasks(tasks, today);
-        expect(countFieldDaySheetTasks(tasks, today)).toBe(listed.length);
         expect(listed.map((t) => t.id).sort()).toEqual(['pinned', 'today']);
     });
 
@@ -157,6 +148,6 @@ describe('fieldCurtainTasks', () => {
                 parsedDate: localMidnight,
             }),
         ];
-        expect(countFieldDaySheetTasks(tasks, today)).toBe(1);
+        expect(listFieldDaySheetTasks(tasks, today)).toHaveLength(1);
     });
 });

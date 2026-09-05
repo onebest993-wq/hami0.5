@@ -17,6 +17,7 @@ import {
 } from '@/app/services/schedule/scheduleShellSnap';
 import { clearPersistedLawyerScheduleTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { primeCalendarEventsCacheFromPeek } from '@/app/services/calendar/calendarEventsWarm';
 
 export type CalendarSearchFocus = { date?: string; eventId?: string } | null;
 
@@ -25,6 +26,7 @@ export type CommitScheduleTabOpenParams = {
     armScheduleHost: () => void;
     setCalendarSearchFocus: (focus: CalendarSearchFocus) => void;
     setActiveTab: (tab: 'schedule') => void;
+    userId?: string | null;
 };
 
 export type CommitScheduleTabCloseParams = {
@@ -102,6 +104,7 @@ function runScheduleOpenCommit({
  * ScheduleTabHost يبقى كسولاً (~١٧٦٥ ك.ب) خارج جذع الإقلاع.
  */
 export function commitScheduleTabOpen(params: CommitScheduleTabOpenParams): void {
+    primeCalendarEventsCacheFromPeek(params.userId);
     void import('@/app/runtime/scheduleHubLoader')
         .then((m) => m.loadScheduleTabHostModule())
         .catch(() => undefined);

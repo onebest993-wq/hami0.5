@@ -12,5 +12,3 @@ export const SETTINGS_PERF_BUDGET = {
     },
     sentryMetric: 'settings.open_to_interactive_ms',
 } as const;
-
-export type SettingsPerfBudgetKey = keyof typeof SETTINGS_PERF_BUDGET.openToInteractiveMs;

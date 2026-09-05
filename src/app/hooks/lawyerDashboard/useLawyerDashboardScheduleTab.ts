@@ -205,6 +205,7 @@ export function useLawyerDashboardScheduleTab({
                         armScheduleHost,
                         setCalendarSearchFocus,
                         setActiveTab,
+                        userId,
                     });
                 },
             });

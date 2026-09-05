@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
-import { openSettingsFromHeader, prepareSettingsE2E, revealHeaderToolbarTools, switchSettingsTab, ensureSmartDialogInfrastructure } from './helpers/settingsFixtures';
+import { openSettingsFromHeader, prepareSettingsE2E, revealHeaderToolbarTools, switchSettingsTab } from './helpers/settingsFixtures';
 
 const MOBILE_E2E_PROJECTS = new Set(['mobile-chrome', 'mobile-safari', 'tablet-chrome']);
 
@@ -64,21 +64,10 @@ test.describe('مركز الإعدادات — موبايل', () => {
         await switchSettingsTab(shell, 'security');
 
         const screenshotToggle = shell.getByTestId('settings-toggle-security-screenshotDeterrent');
-        const privacyBlur = shell.getByTestId('settings-toggle-security-privacyBlur');
-        await expect(privacyBlur).toBeVisible();
-        await expect(privacyBlur).toHaveAttribute('aria-checked', 'true');
-        const blurBox = await privacyBlur.boundingBox();
-        expect(blurBox).not.toBeNull();
-        expect(blurBox!.height).toBeGreaterThanOrEqual(44);
-        expect(blurBox!.width).toBeGreaterThanOrEqual(44);
-
-        await ensureSmartDialogInfrastructure(page);
-        await privacyBlur.tap();
-        const dialog = page.getByTestId('smart-dialog-overlay');
-        await expect(dialog).toBeVisible({ timeout: 8_000 });
-        await dialog.getByRole('button', { name: 'إلغاء' }).tap();
-        await expect(dialog).toBeHidden({ timeout: 5_000 });
-        await expect(privacyBlur).toHaveAttribute('aria-checked', 'true');
+        const shotBox = await screenshotToggle.boundingBox();
+        expect(shotBox).not.toBeNull();
+        expect(shotBox!.height).toBeGreaterThanOrEqual(44);
+        expect(shotBox!.width).toBeGreaterThanOrEqual(44);
 
         const before = await screenshotToggle.getAttribute('aria-checked');
         await screenshotToggle.tap();

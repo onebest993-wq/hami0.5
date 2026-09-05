@@ -6,6 +6,19 @@ import {
 } from '@/app/services/fieldTasks/fieldTasksShellSnap';
 import { armHubLayerEnter } from '@/app/runtime/overlayHubLayerMotion';
 import { TASKS_MANAGER_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
+import {
+    buildTasksManagerInstantChromeBonesHtml,
+    buildTasksManagerInstantChromeInnerHtml,
+    buildTasksManagerInstantChromePeekHtml,
+    listTasksManagerInstantPeekTitles,
+    TASKS_MANAGER_INSTANT_CHROME_ROOT_CLASS,
+} from '@/app/runtime/tasksManagerInstantChromeMarkup';
+import {
+    FIELD_TASKS_CURTAIN_PEEK_READY_EVENT,
+    publishFieldTasksCurtainPeekFromDiskSync,
+    scheduleFieldTasksCurtainPeekFromSecureStore,
+} from '@/app/utils/quantumTasksCurtainPeek';
+import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
 
 const OVERLAY_SELECTOR = '[data-testid="tasks-manager-overlay"]';
 
@@ -31,33 +44,79 @@ function ensureTasksManagerInstantChromeBridge(): void {
     bridge.setAttribute('aria-busy', 'true');
     bridge.setAttribute('aria-label', 'أجندة المهام');
     bridge.setAttribute('dir', 'rtl');
-    bridge.className =
-        'pointer-events-auto fixed inset-0 z-[230] w-[100vw] max-w-[100vw] h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#0A0F1C] hami-overlay-safe-insets';
-    bridge.innerHTML =
-        '<div class="relative flex h-full min-h-[100dvh] w-full flex-col overflow-x-hidden bg-[#0A0F1C]" style="font-family:Tajawal,Cairo,sans-serif">' +
-        '<header class="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0A0F1C] px-4 py-3">' +
-        '<div class="min-w-0 text-right">' +
-        '<h1 class="truncate text-lg font-semibold text-[#F4F4F5]" style="margin:0">أجندة المهام</h1>' +
-        '<p class="mt-0.5 text-[11px] font-medium text-white/40" style="margin:0">الأسبوع الحالي</p>' +
-        '</div></header>' +
-        '<div class="mx-auto w-full max-w-3xl flex-1 space-y-3 px-4 py-5">' +
-        '<div class="h-16 rounded-2xl bg-white/[0.04]"></div>'.repeat(5) +
-        '</div></div>';
+    bridge.setAttribute('data-hami-overlay-safe', '1');
+    bridge.className = TASKS_MANAGER_INSTANT_CHROME_ROOT_CLASS;
+    bridge.innerHTML = buildTasksManagerInstantChromeInnerHtml();
     portal.appendChild(bridge);
+    fillTasksManagerInstantChromePeek(bridge);
+    bindTasksManagerInstantChromePeekRefresh(bridge);
+}
+
+function fillTasksManagerInstantChromePeek(bridge: HTMLElement): void {
+    const body = bridge.querySelector('[data-tasks-manager-instant-body]');
+    if (!(body instanceof HTMLElement)) return;
+    const titles = listTasksManagerInstantPeekTitles(getQuantumPendingSnapshot());
+    const peekHtml = buildTasksManagerInstantChromePeekHtml(titles);
+    if (peekHtml) {
+        body.innerHTML = peekHtml;
+        bridge.removeAttribute('aria-busy');
+        return;
+    }
+    if (body.childElementCount === 0) {
+        body.innerHTML = buildTasksManagerInstantChromeBonesHtml();
+    }
+    bridge.setAttribute('aria-busy', 'true');
+}
+
+function bindTasksManagerInstantChromePeekRefresh(bridge: HTMLElement): void {
+    if (bridge.dataset.hamiPeekBound === '1') return;
+    bridge.dataset.hamiPeekBound = '1';
+    const onReady = () => {
+        if (!document.contains(bridge)) {
+            window.removeEventListener(FIELD_TASKS_CURTAIN_PEEK_READY_EVENT, onReady);
+            return;
+        }
+        fillTasksManagerInstantChromePeek(bridge);
+    };
+    window.addEventListener(FIELD_TASKS_CURTAIN_PEEK_READY_EVENT, onReady);
+}
+
+function findWarmTasksManagerOverlay(): HTMLElement | null {
+    const overlay = document.querySelector(OVERLAY_SELECTOR);
+    if (!(overlay instanceof HTMLElement)) return null;
+    /** قشرة تبقى إن كان الـ overlay هيكلاً فارغاً ينتظر مقطع TasksManager */
+    if (!overlay.querySelector('[data-testid="tasks-manager"]')) return null;
+    return overlay;
+}
+
+function revealTasksManagerWarmOverlay(overlay: HTMLElement): void {
+    overlay.style.setProperty('opacity', '1');
+    overlay.style.setProperty('visibility', 'visible');
+    /**
+     * لا تُكتب pointer-events:none هنا — armHubLayerEnter يعيد الاستدعاء بعد commit React
+     * فيسلب النقر من الأجندة المفتوحة. React يملك النقر عبر data-open.
+     */
+    overlay.setAttribute('data-open', 'true');
 }
 
 /** طلاء فوري في لمسة الأجندة — قبل انتظار chunk TasksManager */
 export function paintTasksManagerInstantChrome(): boolean {
     if (typeof document === 'undefined') return false;
+    if (getQuantumPendingSnapshot().length === 0) {
+        publishFieldTasksCurtainPeekFromDiskSync();
+        scheduleFieldTasksCurtainPeekFromSecureStore();
+    }
     snapFieldTasksShellClose();
     snapTasksManagerShellOpen();
     armHubLayerEnter(TASKS_MANAGER_HUB_LAYER, () => {
-        const overlay = document.querySelector(OVERLAY_SELECTOR);
-        if (!(overlay instanceof HTMLElement)) return null;
-        if (overlay.getAttribute('aria-hidden') === 'true') return null;
+        const overlay = findWarmTasksManagerOverlay();
+        if (!overlay) return null;
+        revealTasksManagerWarmOverlay(overlay);
         return overlay;
     });
-    if (document.querySelector(OVERLAY_SELECTOR)) {
+    const overlay = findWarmTasksManagerOverlay();
+    if (overlay) {
+        revealTasksManagerWarmOverlay(overlay);
         removeTasksManagerInstantChrome();
         return true;
     }

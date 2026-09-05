@@ -11,7 +11,6 @@ const sample = [
         status: TransactionStatus.Active,
         createdAt: '',
         updatedAt: '',
-        agreedFees: 0,
     },
 ];
 

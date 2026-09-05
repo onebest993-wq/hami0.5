@@ -8,10 +8,25 @@ import {
 } from '../../security/sessionCookie.ts';
 import { applyWifeSecurityHeaders } from '../../security/wifeSecurityHeaders.ts';
 import { deriveClientCryptoWrapCredential } from '../../security/cryptoWrapServer.ts';
+import { consumeRateLimitSlot } from '../../security/wifeRateLimitStore.ts';
 import { getWifeUserRestrictionLive } from '../../security/wifeUserStatus.ts';
 import { accountLoginDeniedPayload } from '../../security/accountRestrictionCopy.ts';
 import { resolveGoTrueUserId, revokeGoTrueSession } from '../goTrueSession.ts';
 import { recordHeadquartersConnectionSignal } from '../../security/headquartersConnectionSignal.ts';
+
+const REFRESH_WINDOW_MS = 10 * 60_000;
+/**
+ * العميل الشرعي يجدّد مرة كل ~50 دقيقة، والذيل مرتبط بالبطاقة نفسها فيقيّد الإعادة.
+ * سقف العنوان مرتفع لأن شبكات الهاتف العراقية تشترك في IP واحد (CGNAT).
+ */
+const REFRESH_MAX_PER_TOKEN = 30;
+const REFRESH_MAX_PER_IP = 600;
+
+function readClientIp(request: Request): string {
+    const forwarded = request.headers.get('x-forwarded-for');
+    const firstHop = forwarded?.split(',')[0]?.trim();
+    return firstHop || request.headers.get('x-real-ip')?.trim() || 'unknown';
+}
 
 type SupabaseRefreshResponse = {
     access_token?: string;
@@ -41,6 +56,19 @@ function jsonRefreshError(
     );
 }
 
+/** 429 لا يمسح الكوكيز: الجلسة سليمة والعميل يعيد المحاولة في الدورة التالية. */
+function refreshThrottledResponse(): Response {
+    return applyWifeSecurityHeaders(
+        new Response(JSON.stringify({ ok: false, error: 'Too many refresh attempts' }), {
+            status: 429,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Retry-After': String(Math.ceil(REFRESH_WINDOW_MS / 1000)),
+            },
+        }),
+    );
+}
+
 /** POST /api/auth/refresh — يجدّد access token من refresh cookie. */
 export async function POST(request: Request): Promise<Response> {
     const cfg = getSupabaseAuthConfigFromEnv();
@@ -48,9 +76,31 @@ export async function POST(request: Request): Promise<Response> {
         return jsonRefreshError(request, 503, 'Auth not configured', false);
     }
 
+    if (
+        !(await consumeRateLimitSlot(readClientIp(request), {
+            scope: 'auth-refresh-ip',
+            maxRequests: REFRESH_MAX_PER_IP,
+            windowMs: REFRESH_WINDOW_MS,
+            fallbackToMemory: true,
+        }))
+    ) {
+        return refreshThrottledResponse();
+    }
+
     const refreshToken = readRefreshTokenFromRequest(request);
     if (!refreshToken) {
         return jsonRefreshError(request, 401, 'No refresh session', false);
+    }
+
+    if (
+        !(await consumeRateLimitSlot(refreshToken, {
+            scope: 'auth-refresh-token',
+            maxRequests: REFRESH_MAX_PER_TOKEN,
+            windowMs: REFRESH_WINDOW_MS,
+            fallbackToMemory: true,
+        }))
+    ) {
+        return refreshThrottledResponse();
     }
 
     let authData: SupabaseRefreshResponse;

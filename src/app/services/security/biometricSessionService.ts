@@ -1,12 +1,7 @@
 import {
     clearNativeBiometricEnrollment,
-    clearNativeBiometricOnDisable,
     hasNativeBiometricEnrollment,
-    isBiometryUserCancelError,
-    probeNativeBiometricAvailability,
-    registerNativeBiometric,
-    verifyNativeBiometricUnlock,
-} from '@/app/runtime/nativeBiometricBridge';
+} from '@/app/runtime/nativeBiometricEnrollmentStore';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import {
     clearStoredBiometricCredential,
@@ -35,6 +30,10 @@ export type BiometricEnrollOutcome =
     | { status: 'unavailable' }
     | { status: 'failed' };
 
+function loadNativeBiometricBridge() {
+    return import('@/app/runtime/nativeBiometricBridge');
+}
+
 function resolveChannel(): BiometricChannel {
     if (isCapacitorNativePlatform()) return 'native';
     if (isWebAuthnLockSupported()) return 'web';
@@ -49,6 +48,7 @@ export async function probeBiometricSession(): Promise<BiometricSessionAvailabil
     const channel = resolveChannel();
 
     if (channel === 'native') {
+        const { probeNativeBiometricAvailability } = await loadNativeBiometricBridge();
         const probe = await probeNativeBiometricAvailability();
         return {
             channel: 'native',
@@ -103,6 +103,7 @@ export async function enrollBiometricSessionLock(): Promise<BiometricEnrollOutco
     const channel = resolveChannel();
 
     if (channel === 'native') {
+        const { registerNativeBiometric } = await loadNativeBiometricBridge();
         const nativeRegistered = await registerNativeBiometric();
         if (nativeRegistered === true) {
             markBiometricWorkspaceUnlocked();
@@ -121,6 +122,7 @@ export async function enrollBiometricSessionLock(): Promise<BiometricEnrollOutco
             }
             return { status: 'failed' };
         } catch (err) {
+            const { isBiometryUserCancelError } = await loadNativeBiometricBridge();
             if (isBiometryUserCancelError(err)) return { status: 'cancelled' };
             return { status: 'failed' };
         }
@@ -132,6 +134,7 @@ export async function enrollBiometricSessionLock(): Promise<BiometricEnrollOutco
 /** null = لا قناة بيومترية — يُستخدم مسار التأكيد البديل */
 export async function verifyBiometricSessionUnlock(): Promise<boolean | null> {
     if (hasNativeBiometricEnrollment()) {
+        const { verifyNativeBiometricUnlock } = await loadNativeBiometricBridge();
         const nativeOk = await verifyNativeBiometricUnlock();
         if (nativeOk === true) return true;
         if (nativeOk === false) return false;
@@ -153,7 +156,9 @@ export function clearBiometricSessionEnrollment(): void {
     clearStoredBiometricCredential();
     clearNativeBiometricEnrollment();
     clearBiometricWorkspaceUnlock();
-    void clearNativeBiometricOnDisable();
+    void loadNativeBiometricBridge()
+        .then((m) => m.clearNativeBiometricOnDisable())
+        .catch(() => undefined);
 }
 
 export function reconcileBiometricSessionLockEnabled(lockEnabled: boolean): 'ok' | 'reset' {

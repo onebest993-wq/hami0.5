@@ -33,13 +33,6 @@ export function getFieldTasksOpenToInteractiveMs(): number | null {
     return Math.round(interactive.startTime - open.startTime);
 }
 
-export function reportFieldTasksPerfIfDev(context?: string): void {
-    if (!import.meta.env.DEV) return;
-    const ms = getFieldTasksOpenToInteractiveMs();
-    if (ms == null) return;
-    debug.log(`[FieldTasksPerf] open→interactive ${ms}ms`, context ?? '');
-}
-
 export function reportFieldTasksPerf(context: { surface?: 'sheet' | 'manager' } = {}): void {
     const ms = getFieldTasksOpenToInteractiveMs();
     if (ms == null) return;

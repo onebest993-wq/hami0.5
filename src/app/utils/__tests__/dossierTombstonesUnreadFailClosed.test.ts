@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     LAWSUIT_DOSSIER_TOMBSTONES_KEY,
+    clearLawsuitDossierTombstone,
     commitLawsuitDossierTombstone,
     ensureLawsuitDossierTombstonesReadable,
     markLawsuitDossierTombstone,
+    readLawsuitDossierTombstoneIds,
 } from '@/app/utils/lawsuitDossierTombstones';
 import {
     commitExecutionDossierTombstones,
@@ -97,12 +99,10 @@ describe('شواهد الحذف unread ليست قائمة فارغة', () => {
         );
     });
 
-    it('setItemSync يرفض كتابة باردة فوق شواهد مشفّرة', () => {
-        SecureStoreService.setItemSync(LAWSUIT_DOSSIER_TOMBSTONES_KEY, 'hami_enc_v2:lawsuit-tomb-cold');
-        SecureStoreService.clearDecryptedMemoryCache();
-        expect(
-            SecureStoreService.setItemSync(LAWSUIT_DOSSIER_TOMBSTONES_KEY, '["only-new"]'),
-        ).toBe(false);
-        expect(SecureStoreService.isUnreadSync(LAWSUIT_DOSSIER_TOMBSTONES_KEY)).toBe(true);
+    it('clearLawsuitDossierTombstone يزيل الشاهد بعد الاستعادة', () => {
+        markLawsuitDossierTombstone('restored-id');
+        expect(readLawsuitDossierTombstoneIds().has('restored-id')).toBe(true);
+        expect(clearLawsuitDossierTombstone('restored-id')).toBe(true);
+        expect(readLawsuitDossierTombstoneIds().has('restored-id')).toBe(false);
     });
 });

@@ -6,5 +6,7 @@ describe('stripRepositoryHtml', () => {
         expect(stripRepositoryHtml('<p>مرحبا <strong>بالعالم</strong></p>')).toBe('مرحبا بالعالم');
         expect(stripRepositoryHtml('   ')).toBe('');
         expect(stripRepositoryHtml('نص عادي')).toBe('نص عادي');
+        expect(stripRepositoryHtml('<p>أ &amp; ب&nbsp;ج</p>')).toBe('أ & ب ج');
+        expect(stripRepositoryHtml('<script>x</script>عنوان')).toBe('x عنوان');
     });
 });

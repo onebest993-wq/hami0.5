@@ -38,18 +38,6 @@ function isWarmSeqStale(seq: number): boolean {
     return seq !== getGlobalSearchWarmSeq();
 }
 
-export function isGlobalSearchPipelineWarm(input: WarmGlobalSearchInput, profileLine: string, extrasLoaded: boolean): boolean {
-    if (!input.userId) return false;
-    const prepared = prepareGlobalSearchIndexInput({
-        ...input,
-        profileLine,
-        cases: useCaseStore.getState().cases,
-        extras: extrasLoaded ? getCachedGlobalSearchExtras(input.userId) ?? undefined : undefined,
-    });
-    const key = computeGlobalSearchIndexKey(prepared);
-    return Boolean(getCachedGlobalSearchIndex(key) && hasCachedGlobalSearchFuse(key));
-}
-
 async function warmCoreIndex(
     input: WarmGlobalSearchInput,
     seq: number,
@@ -82,7 +70,7 @@ async function warmFullIndex(
 
     let extras = getCachedGlobalSearchExtras(uid);
     if (!extras) {
-        extras = await loadGlobalSearchExtras(uid).catch(() => null);
+        extras = await loadGlobalSearchExtras(uid, { includeCommunityPosts: false }).catch(() => null);
     }
     if (isWarmSeqStale(seq) || !extras) return;
 

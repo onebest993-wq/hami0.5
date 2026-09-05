@@ -10,10 +10,12 @@ import type {
 } from '@/app/services/cloud/lawyerTransactionTypes';
 import {
     getTransactionsThreadingLocalKey,
+    mergeTransactionsThreadingStates,
     parseTransactionsThreadingState,
     peekTransactionsThreadingState,
 } from '@/app/services/transactions/transactionsThreadingMirror';
 import { sanitizeTransactionsThreadingSaveInput } from '@/app/services/transactions/sanitizeTransactionsThreadingPersist';
+import { emitTransactionsThreadingDump } from '@/app/services/transactions/transactionsThreadingDumpBridge';
 
 export type { TransactionsThreadingState, TransactionsThreadingSaveInput } from '@/app/services/cloud/lawyerTransactionTypes';
 
@@ -180,16 +182,14 @@ function kickTransactionsThreadingKvMerge(
             if (!remote || typeof remote !== 'object') return;
             const parsedRemote = parseTransactionsThreadingState(userId, remote);
             if (!parsedRemote) return;
-            const lTime =
-                localBaseline && Number.isFinite(Date.parse(localBaseline.updatedAt))
-                    ? Date.parse(localBaseline.updatedAt)
-                    : 0;
-            const rTime = Number.isFinite(Date.parse(parsedRemote.updatedAt))
-                ? Date.parse(parsedRemote.updatedAt)
-                : 0;
-            const merged = parsedRemote && rTime >= lTime ? parsedRemote : localBaseline;
+            const merged = mergeTransactionsThreadingStates(localBaseline, parsedRemote);
             if (merged) {
                 await saveLocalTransactionsThreadingState(userId, merged);
+                emitTransactionsThreadingDump(userId, {
+                    transactions: merged.transactions,
+                    tasks: merged.tasks,
+                    documents: merged.documents,
+                });
             }
         } catch {
             /* مزامنة خلفية */

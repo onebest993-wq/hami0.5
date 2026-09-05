@@ -30,7 +30,9 @@ describe('home hub empty idle honesty', () => {
         expect(live).toContain('invalidateHomeHubRadarCache');
         expect(gated).toContain('enabled ? lawyerId : null');
         expect(gated).not.toContain('peekHomeHubRadarCache');
+        const peek = src('src/app/services/alerts/homeHubRadarPeek.ts');
         const warm = src('src/app/services/alerts/homeHubRadarWarmCache.ts');
+        expect(peek).toContain('warmed.lawyerId !== lawyerId');
         expect(warm).toContain('calendarFallbackBlockedFor');
         expect(warm).toContain('warmEpoch');
     });

@@ -11,9 +11,15 @@ import { isHamiNativeShell } from '@/app/runtime/hamiNativeShell';
  * حتى لا نضاعف الرفع إذا بقي visualViewport يبلّغ عن فجوة بعد انكماش body.
  *
  * @param enabled عطّل المستمعين عندما الطبقة مغلقة/دافئة مخفية (توفير بطارية).
+ * @param options.ignoreTasksDatePickerGrace overlays أخرى (إشعارات) لا تنتظر مهلة منتقي مهام.
  */
-export function useMobileKeyboardInset(enabled = true, snap = false): number {
+export function useMobileKeyboardInset(
+    enabled = true,
+    snap = false,
+    options?: { ignoreTasksDatePickerGrace?: boolean },
+): number {
     const [inset, setInset] = useState(0);
+    const ignoreTasksDatePickerGrace = options?.ignoreTasksDatePickerGrace === true;
 
     useEffect(() => {
         if (!enabled) {
@@ -47,7 +53,7 @@ export function useMobileKeyboardInset(enabled = true, snap = false): number {
         };
 
         const updateFromViewport = () => {
-            if (isTasksDatePickerGraceActive()) return;
+            if (!ignoreTasksDatePickerGrace && isTasksDatePickerGraceActive()) return;
             /* إضافة Keyboard نشطة على الأصلي — لا تخلط مع فجوة viewport */
             if (pluginHeight > 0) {
                 commit(pluginHeight);
@@ -102,7 +108,7 @@ export function useMobileKeyboardInset(enabled = true, snap = false): number {
             }
             removePluginListeners?.();
         };
-    }, [enabled, snap]);
+    }, [enabled, ignoreTasksDatePickerGrace, snap]);
 
     return enabled ? inset : 0;
 }

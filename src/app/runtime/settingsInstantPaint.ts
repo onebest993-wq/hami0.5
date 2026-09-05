@@ -1,10 +1,5 @@
 /** كشف/إخفاء مركز الإعدادات فوراً في الـ DOM — مستقل عن إطار React */
 
-import {
-    isSettingsShellSnappedOpen,
-    snapSettingsShellClose,
-    snapSettingsShellOpen,
-} from '@/app/services/settings/settingsShellSnap';
 import { blurFocusWithin } from '@/app/utils/inertProps';
 import {
     detachSettingsInstantBridge,
@@ -27,10 +22,26 @@ import {
     SETTINGS_OVERLAY_INTERACT_CLASS,
 } from './settingsInstantPaintInteract';
 import { resolveSettingsOverlayLayer } from './settingsInstantPaintDom';
-import { suppressSettingsReopen } from './settingsInstantPaintReopen';
+import {
+    adoptSettingsOverlayHostNode,
+    isSettingsOverlayHostSectionInteractive,
+} from './settingsInstantPaintHostAdopt';
+import { isSettingsReopenSuppressed, suppressSettingsReopen } from './settingsInstantPaintReopen';
 import { armHubLayerEnter, clearHubLayerEnter } from '@/app/runtime/overlayHubLayerMotion';
 import { SETTINGS_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
+import {
+    clearSettingsOverlayPresence,
+    isSettingsForceVisible,
+    isSettingsOverlayCssExiting,
+    markSettingsOverlayRevealed,
+} from './settingsOverlayPresence';
 
+export {
+    clearSettingsForceVisible,
+    isSettingsForceVisible,
+    isSettingsLayerOpen,
+    isSettingsOverlayCssExiting,
+} from './settingsOverlayPresence';
 export {
     clearSettingsReopenSuppress,
     isSettingsReopenSuppressed,
@@ -39,6 +50,7 @@ export {
 } from './settingsInstantPaintReopen';
 export { applySettingsOpaqueChrome } from './settingsInstantPaintChrome';
 export { hasSettingsOverlayHost } from './settingsInstantPaintDom';
+export { isSettingsOverlayHostReactReady } from './settingsInstantPaintHostAdopt';
 export {
     armSettingsOverlayInteraction,
     beginSettingsOpenGesture,
@@ -47,25 +59,12 @@ export {
     isSettingsOpenGestureBlockingClose,
     isSettingsOverlayInteractionArmed,
     scheduleSettingsOverlayInteractionArm,
+    SETTINGS_GHOST_CLICK_SWALLOW_SELECTOR,
     SETTINGS_INTERACT_ARM_MS,
 } from './settingsInstantPaintInteract';
 
-let forceVisible = false;
 /** ساعة كشف الطبقة في الـ DOM — قبل التزام React بـ open=true */
 let revealedAtMs: number | null = null;
-
-export function isSettingsForceVisible(): boolean {
-    return forceVisible;
-}
-
-/** React open أو كشف DOM الفوري (force / html snap) */
-export function isSettingsLayerOpen(reactOpen: boolean): boolean {
-    return reactOpen || forceVisible || isSettingsShellSnappedOpen();
-}
-
-export function clearSettingsForceVisible(): void {
-    forceVisible = false;
-}
 
 /** لحظة كشف الطبقة (DOM) — لساعة مهلة الإغلاق دون انتظار إطار React */
 export function getSettingsShellRevealedAt(): number | null {
@@ -133,13 +132,14 @@ function cancelChromeHandoff(): void {
 }
 
 /**
- * الجسر طلاء فقط. إن بقي فوق الـ Host يمنع اللمس (كان z-index فلكي + pointer-events:auto).
- * يُزال فور وجود الطبقة الحقيقية — لا حد 120 إطاراً يتركه معلّقاً.
+ * الجسر طلاء فقط داخل طبقة الـ overlay.
+ * يُزال عندما يكون القسم الظاهر تفاعلياً — لا عند data-settings-root وحدها
+ * (كانت تترك بطاقة فارغة أو شاشة كحلية بين التحميل والمحتوى).
  */
 export function dismissSettingsInstantBridgeIfHostReady(): boolean {
     if (typeof document === 'undefined') return false;
     const host = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
-    if (!(host instanceof HTMLElement)) return false;
+    if (!(host instanceof HTMLElement) || !isSettingsOverlayHostSectionInteractive(host)) return false;
     const wasArmed = !isSettingsCloseGuarded();
     applyLayerVisible(host, true);
     removeSettingsInstantBridge();
@@ -156,19 +156,14 @@ function scheduleSettingsChromeHandoff(): void {
 
     const tick = () => {
         chromeHandoffRaf = 0;
-        if (!forceVisible) {
+        if (!isSettingsForceVisible()) {
             removeSettingsInstantBridge();
             return;
         }
         if (dismissSettingsInstantBridgeIfHostReady()) return;
         if (++ticks > 120) {
-            removeSettingsInstantBridge();
-            const host = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
-            if (host instanceof HTMLElement) {
-                applyLayerVisible(host, true);
-                armSettingsOverlayInteraction(host);
-            }
-            return;
+            /* لا تُزل الجسر على قشرة فارغة — أبقِ الانتظار حتى القسم التفاعلي */
+            if (dismissSettingsInstantBridgeIfHostReady()) return;
         }
         chromeHandoffRaf = window.requestAnimationFrame(tick);
     };
@@ -184,36 +179,37 @@ export function removeSettingsInstantBridge(): void {
 
 /**
  * طلاء فوري في لمسة الترس:
- * Host موجود → كشف الطبقة الحقيقية كوحدة واحدة.
- * وإلا جسر كروم حتى يُركَّب Host — بلا إعادة تخطيط offsetHeight.
+ * شجرة React جاهزة داخل الطبقة → كشفها.
+ * وإلا قشرة داخل نفس عقدة الـ overlay حتى يلتزم Host.
  */
 export function paintSettingsInstantChrome(): boolean {
     if (typeof document === 'undefined') return false;
+    if (isSettingsReopenSuppressed() || isSettingsOverlayCssExiting()) return false;
     setSettingsCloseGuard(true);
-    snapSettingsShellOpen();
-    forceVisible = true;
+    markSettingsOverlayRevealed();
     applySettingsThemeChrome(true);
+    const host = adoptSettingsOverlayHostNode();
     armHubLayerEnter(SETTINGS_HUB_LAYER, () => {
-        const host = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
-        return host instanceof HTMLElement ? host : null;
+        const layer = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
+        return layer instanceof HTMLElement ? layer : null;
     });
 
-    const existingHost = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
-    if (existingHost instanceof HTMLElement) {
+    if (host && isSettingsOverlayHostSectionInteractive(host)) {
         cancelChromeHandoff();
         removeSettingsInstantBridge();
-        applyLayerVisible(existingHost, true);
-        scheduleSettingsOverlayInteractionArm(existingHost);
+        applyLayerVisible(host, true);
+        scheduleSettingsOverlayInteractionArm(host);
         return true;
     }
 
     ensureSettingsInstantChromeBridge();
-    scheduleSettingsOverlayInteractionArm();
+    if (host) applyLayerVisible(host, true);
+    scheduleSettingsOverlayInteractionArm(host ?? undefined);
     scheduleSettingsChromeHandoff();
     return true;
 }
 
-export type ConcealSettingsWarmShellOptions = {
+type ConcealSettingsWarmShellOptions = {
     /**
      * كبح إعادة الفتح بعد إغلاق مستخدم حقيقي فقط.
      * الافتراضي false — وإلا priming (تركيب host مغلق) يبتلع click فتح الترس في نفس الإيماءة.
@@ -225,10 +221,9 @@ export type ConcealSettingsWarmShellOptions = {
 export function concealSettingsWarmShell(
     options: ConcealSettingsWarmShellOptions = {},
 ): void {
-    forceVisible = false;
+    clearSettingsOverlayPresence();
     cancelChromeHandoff();
     clearHubLayerEnter(SETTINGS_HUB_LAYER);
-    snapSettingsShellClose();
     if (options.suppressReopen) {
         suppressSettingsReopen();
     }

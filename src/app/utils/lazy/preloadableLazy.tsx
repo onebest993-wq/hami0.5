@@ -13,6 +13,8 @@ export type PreloadableLazyComponent<P> = React.FC<P> & {
     preload: () => Promise<void>;
     /** هل اكتمل التحميل وثُبّت المكوّن؟ */
     isPreloaded: () => boolean;
+    /** يفكّ التثبيت بعد reset كاش المحمّل — للاختبارات فقط */
+    resetForTests: () => void;
 };
 
 export function createPreloadableLazyComponent<P extends Record<string, any>>(
@@ -58,5 +60,9 @@ export function createPreloadableLazyComponent<P extends Record<string, any>>(
             () => undefined,
         );
     out.isPreloaded = () => Resolved != null;
+    out.resetForTests = () => {
+        Resolved = null;
+        modulePromise = null;
+    };
     return out;
 }

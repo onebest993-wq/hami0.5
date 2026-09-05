@@ -1,20 +1,16 @@
 import type { CommunityAttachment } from '@/app/services/lawyer-cloud';
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
 import {
-    FORUM_IDB_PREFIX,
-    buildForumIdbPath,
     getForumBlob,
-    getForumBlobObjectUrl,
-    parseForumIdbPath,
     putForumBlob,
 } from '@/app/services/forumBlobStore';
+import { FORUM_IDB_PREFIX, buildForumIdbPath, parseForumIdbPath } from '@/app/services/forumBlobPath';
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 
 export { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
+export { resolveCommunityAttachmentUrl } from '@/app/services/forum/forumAttachmentResolve';
 
 const IDB_PERSIST_TIMEOUT_MS = 4_000;
-
-void 0; // placeholder to keep line - will remove withTimeout instead
 
 function createCacheKey(): string {
     const cryptoObj = globalThis.crypto as Crypto | undefined;
@@ -39,14 +35,6 @@ function fileToDataUrl(file: File): Promise<string> {
         reader.onerror = () => reject(reader.error ?? new Error('forum-attachment-data-url-failed'));
         reader.readAsDataURL(file);
     });
-}
-
-function isEncryptedForumAttachment(
-    attachment: CommunityAttachment,
-    storagePath: string,
-): boolean {
-    if (attachment.encrypted === true) return true;
-    return /\.enc$/i.test(storagePath);
 }
 
 async function blobUrlToFile(
@@ -121,16 +109,7 @@ export async function readCommunityAttachmentFile(attachment: CommunityAttachmen
     return null;
 }
 
-/** معاينة فورية — لا تنتظر IDB أو FileReader */
-export function createInstantForumAttachmentPreview(file: File): {
-    url: string;
-    storagePath: string;
-} {
-    return {
-        url: URL.createObjectURL(file),
-        storagePath: buildForumIdbPath(`pending:${createCacheKey()}`),
-    };
-}
+export { createInstantForumAttachmentPreview } from '@/app/services/forumAttachmentPreview';
 
 /** يخزّن المرفق في IDB خلفياً — لا يُستخدم لمسار المعاينة الفورية */
 export async function persistForumAttachmentFile(file: File): Promise<string> {
@@ -207,7 +186,7 @@ async function persistLocalForumAttachment(
 }
 
 /** يرفع المرفق للسحابة قبل حفظ المنشور — يمنع اختفاء الصور بعد إعادة التحميل */
-export async function finalizeForumAttachmentForPersist(
+async function finalizeForumAttachmentForPersist(
     attachment: CommunityAttachment,
     userId: string,
 ): Promise<CommunityAttachment> {
@@ -255,64 +234,4 @@ export async function finalizeForumAttachmentForPersist(
     }
 
     return persistLocalForumAttachment(attachment, file);
-}
-
-/** @deprecated استخدم createInstantForumAttachmentPreview + persistForumAttachmentFile */
-export async function cacheForumAttachmentFile(file: File): Promise<{
-    url: string;
-    storagePath: string;
-}> {
-    const instant = createInstantForumAttachmentPreview(file);
-    const storagePath = await persistForumAttachmentFile(file);
-    return { url: instant.url, storagePath };
-}
-
-/** يُجدّد رابط المرفق (signed URL منتهٍ، blob ميت، أو idb) */
-export async function resolveCommunityAttachmentUrl(
-    attachment: CommunityAttachment | null | undefined,
-): Promise<string | null> {
-    if (!attachment) return null;
-
-    const storagePath = attachment.storagePath?.trim() ?? '';
-    if (isEncryptedForumAttachment(attachment, storagePath)) {
-        try {
-            const { resolveEncryptedForumImageUrl } = await import('@/lib/forumService.js');
-            const decrypted = await resolveEncryptedForumImageUrl(attachment);
-            if (decrypted) return decrypted;
-        } catch {
-            /* نكمل المسارات غير المشفّرة */
-        }
-    }
-
-    if (isCloudStoragePath(storagePath)) {
-        const fresh = await LawyerStorage.getSignedUrl(storagePath);
-        if (fresh) {
-            return fresh;
-        }
-    }
-
-    const idbKey = parseForumIdbPath(storagePath);
-    if (idbKey && !isEphemeralIdbKey(idbKey)) {
-        const fromIdb = await getForumBlobObjectUrl(idbKey);
-        if (fromIdb) {
-            return fromIdb;
-        }
-    }
-
-    if (attachment.url?.startsWith('data:')) {
-        return isSafeForumAttachmentUrl(attachment.url) ? attachment.url : null;
-    }
-
-    const rawUrl = attachment.url?.trim();
-    if (rawUrl && !rawUrl.startsWith('blob:') && isSafeForumAttachmentUrl(rawUrl)) {
-        return rawUrl;
-    }
-    if (rawUrl?.startsWith('blob:')) {
-        const file = await blobUrlToFile(rawUrl, attachment.name || 'attachment', attachment.mimeType);
-        if (file) {
-            return URL.createObjectURL(file);
-        }
-    }
-
-    return null;
 }

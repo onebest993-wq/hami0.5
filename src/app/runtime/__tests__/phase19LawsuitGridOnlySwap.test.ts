@@ -45,7 +45,9 @@ describe('phase-19 lawsuit grid-only swap inside InstantShell', () => {
         expect(shell).toContain(
             "from '@/app/components/lawyer/ArchivePortal/lawsuitArchiveInstantLayout'",
         );
-        expect(shell).toContain('جاري تجهيز الإضابير');
+        expect(shell).toContain('data-testid="lawsuit-vault-quiet-status"');
+        expect(shell).toContain('min-h-[44px]');
+        expect(shell).not.toContain('جاري تجهيز الإضابير');
         expect(shell).not.toContain('LawsuitVaultSnapshotGrid');
     });
 

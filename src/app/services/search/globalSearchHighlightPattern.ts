@@ -50,10 +50,3 @@ export function buildSafeHighlightPattern(query: string): RegExp | null {
         return null;
     }
 }
-
-export function queryHasHighlightableMatch(text: string, query: string): boolean {
-    const normText = normalizeArabicSearch(text).toLowerCase();
-    const tokens = tokenizeHighlightQuery(query).filter((t) => t.length >= 2 || /\d/u.test(t));
-    if (!tokens.length) return false;
-    return tokens.some((t) => normText.includes(t));
-}

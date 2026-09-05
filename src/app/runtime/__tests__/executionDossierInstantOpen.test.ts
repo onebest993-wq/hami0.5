@@ -40,6 +40,7 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         expect(portal).toContain('execution-dashboard-portal-open');
         expect(portal).not.toContain('execution-dashboard-portal-keepalive');
         expect(portal).toContain('createPortal(layer, document.body)');
+        expect(portal).toContain('useOverlayGhostClickShield');
     });
 
     it('OverlayHosts يعرض توأم هندسي فوراً بدل فراغ Suspense', () => {
@@ -60,6 +61,7 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         expect(frame).not.toContain('ExecutionDossierHeaderNavButtons');
         expect(frame).toContain('EXECUTION_DOSSIER_TEST_IDS.close');
         expect(frame).toContain('min-h-[44px]');
+        expect(frame).toContain('useOverlayGhostClickShield');
         const shell = readFileSync(
             join(
                 root,

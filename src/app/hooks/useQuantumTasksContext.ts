@@ -1,5 +1,4 @@
 import { useContext, useSyncExternalStore } from 'react';
-import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     QuantumTasksActionsContext,
     QuantumTasksContext,
@@ -10,9 +9,7 @@ import {
 } from '@/app/context/quantumTasksContext';
 import {
     getPendingFieldTasksCountSnapshot,
-    getQuantumPendingSnapshot,
     getQuantumTasksFingerprint,
-    getQuantumTasksSnapshot,
     subscribePendingFieldTasksCount,
     subscribeQuantumTasksFingerprint,
 } from '@/app/utils/quantumTasksMetrics';
@@ -58,15 +55,3 @@ export function useQuantumTasksFingerprint(): string {
         getQuantumTasksFingerprint,
     );
 }
-
-export function useQuantumPendingSnapshot(): LegalTask[] {
-    useQuantumTasksFingerprint();
-    return getQuantumPendingSnapshot();
-}
-
-export function useQuantumTasksSnapshot(): LegalTask[] {
-    useQuantumTasksFingerprint();
-    return getQuantumTasksSnapshot();
-}
-
-export { getQuantumPendingSnapshot, getQuantumTasksSnapshot };

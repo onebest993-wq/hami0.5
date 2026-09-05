@@ -1,7 +1,7 @@
 import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { SearchLifecycle } from '@/app/services/searchLifecycle';
 import type { GlobalSearchEntry, PreparedDocsVaultDoc } from '@/app/services/globalSearchIndex';
-import { blob, norm, withLifecycle } from '@/app/services/search/globalSearchIndexPureHelpers';
+import { blob, clipSearchHaystack, norm, withLifecycle } from '@/app/services/search/globalSearchIndexPureHelpers';
 
 const LIFECYCLE_ACTIVE: SearchLifecycle = 'active';
 
@@ -15,7 +15,11 @@ export type GlobalNoteRow = {
 };
 
 export function vaultToEntry(d: SmartVaultDoc): GlobalSearchEntry {
-    const text = `${d.title} ${d.fileName} ${d.tags.join(' ')} ${d.aiSummary || ''} ${d.customCategory || ''}`;
+    const text = clipSearchHaystack(
+        [d.title, d.fileName, d.tags.join(' '), d.aiSummary || '', d.customCategory || '', d.lawyerNote || ''].join(
+            ' ',
+        ),
+    );
     return withLifecycle(
         {
             id: `vault-${d.id}`,

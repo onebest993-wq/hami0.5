@@ -72,6 +72,8 @@ export function useIncomingNotificationPopups(options: {
             if (fresh.length === 0) return;
             const newest = fresh[0];
             if (newest) announceIncomingNotificationArrival(newest);
+            const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+            if (hidden) return;
             setQueue((prev) => mergeIncomingPopupQueue(prev, fresh, INCOMING_POPUP_MAX_VISIBLE));
         },
         [],

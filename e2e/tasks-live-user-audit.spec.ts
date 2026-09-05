@@ -10,6 +10,7 @@ import {
     fillTasksFormField,
     openTasksManagerFromSheet,
     prepareTasksE2E,
+    revealWeekAddOptionalFields,
     seedQuantumTasks,
     teardownTasksE2E,
     waitForFieldTasksSheetReady,
@@ -57,11 +58,11 @@ async function openWeekAddForm(manager: Locator) {
         addBtn = (await futureAdds.count()) > 0 ? futureAdds.last() : todayAdd;
     }
     await expect(addBtn).toBeVisible({ timeout: 12_000 });
-    const details = manager.getByTestId('tasks-week-form-details');
-    if (!(await details.isVisible().catch(() => false))) {
+    const form = manager.getByTestId('tasks-week-add-form');
+    if (!(await form.isVisible().catch(() => false))) {
         await addBtn.click({ force: true, noWaitAfter: true });
     }
-    await expect(details).toBeVisible({ timeout: 8_000 });
+    await expect(form).toBeVisible({ timeout: 8_000 });
     return addBtn;
 }
 
@@ -137,12 +138,14 @@ test.describe('تدقيق حي — بلاطة مهام وكل الأقسام', (
         const saveBtn = manager.getByTestId('tasks-week-save');
         await expect(saveBtn).toBeDisabled();
 
+        await revealWeekAddOptionalFields(manager, ['details']);
         await fillTasksFormField(manager, 'tasks-week-form-details', LIVE_DETAILS);
-        await expect(saveBtn).toBeDisabled();
+        await expect(saveBtn).toBeEnabled();
         await manager.getByTestId('tasks-week-cancel').click();
         await expect(manager.getByTestId('tasks-week-add-form')).toBeHidden();
 
         await openWeekAddForm(manager);
+        await revealWeekAddOptionalFields(manager, ['details', 'location']);
         await expect(manager.getByTestId('tasks-week-form-details')).toBeEditable();
         await expect(manager.getByTestId('tasks-week-form-location')).toBeEditable();
         await fillTasksFormField(manager, 'tasks-week-form-details', LIVE_DETAILS);
@@ -282,6 +285,7 @@ test.describe('تدقيق حي — بلاطة مهام وكل الأقسام', (
         const sheet = await openFieldTasksFromHubTile(page);
         const manager = await openTasksManagerFromSheet(page, sheet);
         await openWeekAddForm(manager);
+        await revealWeekAddOptionalFields(manager, ['details', 'location']);
         await fillTasksFormField(manager, 'tasks-week-form-details', LIVE_DETAILS);
         await fillTasksFormField(manager, 'tasks-week-form-location', LIVE_LOCATION);
         await manager.getByTestId('tasks-week-save').click();

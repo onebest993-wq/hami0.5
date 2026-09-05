@@ -6,7 +6,7 @@ import {
 
 const MARK_PREFIX = 'hami:notifications:';
 
-export type NotificationPerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
+type NotificationPerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
 
 export type { NotificationPerfReportContext };
 

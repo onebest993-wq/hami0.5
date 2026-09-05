@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 
 describe('phase-15 section-first-open cuts', () => {
-    it('tabBundle يفتح الدعاوى بلا secondary عاجل', () => {
+    it('tabBundle يفتح الدعاوى بلا secondary عاجل؛ التنفيذ يسخّن الإضبارة والإنشاء عند الفتح', () => {
         const src = readFileSync(
             join(root, 'src/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle.ts'),
             'utf8',
@@ -14,7 +14,8 @@ describe('phase-15 section-first-open cuts', () => {
         expect(src).not.toContain("from '@/app/utils/lazyComponentsIntent'");
         expect(src).toContain('includeSecondary: false');
         expect(src).toMatch(/warmLawsuitWorkspaceIntent\(\{[^}]*includeSecondary:\s*false/);
-        expect(src).toMatch(/warmExecutionWorkspaceIntent\(\{[^}]*includeSecondary:\s*false/);
+        expect(src).toMatch(/warmExecutionWorkspaceIntent\(\{[^}]*includeSecondary:\s*true/);
+        expect(src).toMatch(/prefetchExecutionOverlayEntries\(\{\s*parallel:\s*true\s*\}\)/);
     });
 
     it('LawsuitsWorkspaceHost: أرشيف على active فوراً؛ NewCase بعد FAB؛ SmartFile عند المساحة الظاهرة', () => {

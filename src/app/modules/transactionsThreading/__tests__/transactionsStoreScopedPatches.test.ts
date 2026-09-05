@@ -69,7 +69,6 @@ describe('transactions store scoped patches', () => {
           clientName: 'موكل',
           targetDepartment: 'دائرة',
           status: TransactionStatus.Active,
-          agreedFees: 0,
           createdAt: now,
           updatedAt: now,
         },

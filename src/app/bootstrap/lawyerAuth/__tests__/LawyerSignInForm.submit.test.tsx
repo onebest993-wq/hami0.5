@@ -19,6 +19,7 @@ vi.mock('@/app/utils/bffAuthFlags', () => ({
 }));
 
 vi.mock('@/app/services/auth/authOtpClient', () => ({
+    AUTH_OTP_CODE_LENGTH: 6,
     previewAuthOtpAccount: (...args: unknown[]) => previewAuthOtpAccount(...args),
     requestAuthOtp: (...args: unknown[]) => requestAuthOtp(...args),
     completeAuthOtp: vi.fn(),
@@ -36,7 +37,7 @@ describe('LawyerSignInForm submit', () => {
         previewAuthOtpAccount.mockReset();
         requestAuthOtp.mockReset();
         previewAuthOtpAccount.mockResolvedValue({
-            phoneTail: '24',
+            phoneTail: null,
             hasWhatsAppNumber: true,
             emailReady: true,
             whatsappSendReady: false,

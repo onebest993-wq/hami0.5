@@ -8,7 +8,7 @@ export function applyDebtorDeathFollowupOverlay<T extends object>(
         ...flags,
         hidePersonalCoerciveFollowupTab: true,
         hideFollowupCoerciveTab: true,
-        hideFollowupSeizureRequestsTab: true,
+        // لا نُخفي تبويب الحجز عند الوفاة — تُقيَّد أدوات الراتب في واجهة التبويب فقط
         suppressHiddenPersonalCoerciveRequests: true,
         hidePersonalForcedBringActivation: true,
         hidePersonalJudgePresentation: true,

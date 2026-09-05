@@ -1,7 +1,7 @@
 /** فتح البحث الشامل من هيدر اللوحة */
 export const GLOBAL_SEARCH_SHELL_FEATURE = 'البحث الشامل';
 
-export type OpenGlobalSearchShellInput = {
+type OpenGlobalSearchShellInput = {
     signedIn: boolean;
     seed?: string;
     onOpen: (seed: string) => void;

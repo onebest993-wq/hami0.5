@@ -12,7 +12,7 @@ import {
     MAX_VOICE_TRANSCRIPT_LENGTH,
 } from '@/app/services/tasks/taskInputGuard';
 
-export type TaskVoiceFields = {
+type TaskVoiceFields = {
     voiceRef: string | null;
     voiceTranscript: string | null;
     voiceDurationSec: number | null;

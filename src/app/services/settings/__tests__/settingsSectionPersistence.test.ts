@@ -37,5 +37,7 @@ describe('settingsSectionPersistence', () => {
             'data',
             'account',
         ]);
+        expect(SETTINGS_NAV.every((item) => item.label.length > 0)).toBe(true);
+        expect(SETTINGS_NAV.some((item) => 'labelEn' in item)).toBe(false);
     });
 });

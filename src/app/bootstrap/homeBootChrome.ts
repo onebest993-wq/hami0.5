@@ -103,8 +103,18 @@ async function prepareIdentityChrome(): Promise<void> {
     const avatarUrl = sanitizeProfileMediaUrl(cached?.header?.profileImage) ?? '';
     const displayName =
         resolveFirstPaintLawyerDisplayName(cached?.header?.name, uid, session?.userMetadata) || '';
+    /* لقطة ذرّية من peek — بلا انتظار img ولا فك الملف. الاسم الفارغ حساب جديد جاهز للحرف. */
+    const settledName = displayName.trim();
+    publishUserIdentityUiState({
+        userId: uid,
+        displayName: settledName,
+        avatarUrl,
+        profileInitial: resolveProfileHeaderInitial(settledName || 'م'),
+        isLoaded: true,
+    });
+    notifyProfileChromeUpdated(uid);
     if (avatarUrl) {
-        await Promise.race([
+        void Promise.race([
             import('@/app/services/profile/resolveProfileAvatarDisplaySrc').then((avatarMod) =>
                 avatarMod.resolveProfileAvatarDisplaySrc(
                     avatarUrl,
@@ -116,16 +126,6 @@ async function prepareIdentityChrome(): Promise<void> {
             }),
         ]).catch(() => undefined);
     }
-    /* لقطة ذرّية بعد انتظار الملف المحلي — بلا بذرة «المحامي». الاسم الفارغ حساب جديد جاهز للحرف. */
-    const settledName = displayName.trim();
-    publishUserIdentityUiState({
-        userId: uid,
-        displayName: settledName,
-        avatarUrl,
-        profileInitial: resolveProfileHeaderInitial(settledName || 'م'),
-        isLoaded: true,
-    });
-    notifyProfileChromeUpdated(uid);
 }
 
 async function prepareCriticalUiFonts(): Promise<void> {
@@ -146,10 +146,10 @@ async function prepareCriticalUiFonts(): Promise<void> {
 
 async function prepareLiveHomeModules(): Promise<void> {
     kickHomeHubRadarWarm();
+    void loadLawyerHomeHubCardModule().catch(() => undefined);
     await Promise.all([
         loadHomeTabContent().catch(() => undefined),
         loadCommandHubTiles().catch(() => undefined),
-        loadLawyerHomeHubCardModule().catch(() => undefined),
     ]);
 }
 
@@ -171,18 +171,14 @@ function markPrepared(): void {
 
 /**
  * يُستدعى من preamble بعد بدء تسخين الملف — لا بعد انتهائه.
- * مقاطع المنزل تُحمَّل فوراً تحت الغطاء بينما تكتمل لقطة الهوية.
- * الكشف: بلاطات حية + كروم مركز (هيكل مكتمل أو بطاقة) + اسم الهوية — بلا انتظار img.
+ * مقاطع المنزل تُحمَّل فوراً تحت الغطاء بينما تُنشر لقطة الهوية من peek.
+ * فك الملف المحلي يُغني الاسم بعد الكشف. بطاقة المركز تُسخَّن دون حجب الكروم.
  */
 export function prepareHomeBootChrome(): Promise<void> {
     if (isHomeBootChromePrepared()) return Promise.resolve();
     if (!preparePromise) {
         preparePromise = (async () => {
             const liveModules = prepareLiveHomeModules();
-            await Promise.all([
-                waitWhileProfileWarmPending(BOOT_PROFILE_WARM_BUDGET_MS),
-                waitWhileLocalProfileUnread(BOOT_PROFILE_WARM_BUDGET_MS),
-            ]);
             await Promise.race([
                 Promise.all([
                     prepareIdentityChrome(),
@@ -194,6 +190,12 @@ export function prepareHomeBootChrome(): Promise<void> {
                 }),
             ]);
             markPrepared();
+            void Promise.all([
+                waitWhileProfileWarmPending(BOOT_PROFILE_WARM_BUDGET_MS),
+                waitWhileLocalProfileUnread(BOOT_PROFILE_WARM_BUDGET_MS),
+            ]).then(() => {
+                void prepareIdentityChrome();
+            });
         })()
             .catch(async () => {
                 markPrepared();

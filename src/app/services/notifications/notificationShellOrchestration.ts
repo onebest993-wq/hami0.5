@@ -1,5 +1,5 @@
 /** إغلاق overlays المتنافسة قبل فتح لوحة الإشعارات — نفس نمط البحث/الإعدادات */
-export type CloseOverlaysBeforeNotificationsInput = {
+type CloseOverlaysBeforeNotificationsInput = {
     closeGlobalSearch: () => void;
     closeSettings: () => void;
     closeVault: () => void;

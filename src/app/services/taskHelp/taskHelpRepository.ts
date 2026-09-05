@@ -126,7 +126,7 @@ function canView(record: TaskHelpRequest, userId: string): boolean {
     return false;
 }
 
-export type CreateTaskHelpParams = {
+type CreateTaskHelpParams = {
     sourceTaskId: string;
     requesterId: string;
     requesterName?: string;

@@ -33,8 +33,3 @@ export async function resolveForumNotificationDb(): Promise<ForumNotificationDb>
     }
     return clientDbPromise;
 }
-
-export function resetForumNotificationDbResolverForTests(): void {
-    clientDbPromise = null;
-    serverDbPromise = null;
-}

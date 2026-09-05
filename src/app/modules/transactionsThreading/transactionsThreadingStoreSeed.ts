@@ -3,7 +3,6 @@ import type { Transaction, TransactionDocument, TransactionTask } from './types'
 export type ThreadingRepositorySeed = {
     transactions?: Transaction[];
     tasks?: TransactionTask[];
-    financeRecords?: unknown[];
     documents?: TransactionDocument[];
 };
 

@@ -34,13 +34,21 @@ describe('native privacy + biometric honesty', () => {
     it('ضبابية الخصوصية تربط الغطاء الأصلي ولا تعلن العجز عن شاشة المهام', () => {
         const runtime = read('src/app/runtime/privacyBlurRuntime.ts');
         expect(runtime).toContain('applyNativePrivacyGuard');
+        expect(runtime).toContain('غطاء نافذة + FLAG_SECURE لشاشة المهام');
         expect(runtime).not.toContain('setTimeout');
+        expect(runtime).toContain('HAMI_APP_STATE_EVENT');
         const section = read('src/app/components/lawyer/HamiSettings/security/SecuritySection.tsx');
         expect(section).not.toContain('لا تغطي شاشة المهام');
-        expect(section).toContain('تغطية شاشة المهام');
-        const toggles = read('src/app/components/lawyer/HamiSettings/security/securitySectionToggles.ts');
-        expect(toggles).toContain('applyNativePrivacyGuard');
-        expect(toggles).not.toContain('تبقى خارج سيطرة التطبيق');
+        expect(section).not.toContain('تبقى خارج سيطرة التطبيق');
+        const bindings = read('src/app/context/lawyerSettings/useLawyerSettingsSecurityBindings.ts');
+        expect(bindings).toContain('privacyBlurRuntime');
+        expect(bindings).toContain('bindPrivacyBlur');
+        const screenshot = read('src/app/runtime/screenshotDeterrentRuntime.ts');
+        expect(screenshot).toContain('applyNativePrivacyGuard');
+        expect(screenshot).not.toContain('تبقى خارج سيطرة التطبيق');
+        const guard = read('src/app/runtime/nativePrivacyGuard.ts');
+        expect(guard).toContain('غطاء شاشة المهام');
+        expect(guard).toContain('FLAG_SECURE');
     });
 
     it('القفل البيومتري يعزل نافذة المصادقة عن قفل الخلفية', () => {

@@ -182,11 +182,13 @@ describe('execution section scenario coverage honesty', () => {
         const seizureProbe = read('.cursor/probe-seizure-workflow.mjs');
         expect(seizureProbe).toContain("c.name === 'مسار الحجز'");
         expect(seizureProbe).toContain('probe-execution-storage-seed');
-        const salaryThirdPartyFooter = read(
-            'src/app/components/lawyer/ExecutionDashboard/components/unifiedSeizureLogEntryFooter/renderSalaryThirdPartySeizureLogFooterBranches.tsx',
+        const seizureBare = read(
+            'src/app/components/lawyer/ExecutionDashboard/components/SeizurePropertyRequestBlock.tsx',
         );
-        expect(salaryThirdPartyFooter).toContain('requireDecisionsStorageExecutionId');
-        expect(salaryThirdPartyFooter).toContain('resolveThirdPartySeizureForLog');
+        expect(seizureBare).toContain('طلب حجز عقار');
+        expect(seizureBare).toContain('submitBasicSeizureRequest');
+        expect(seizureBare).not.toContain('SeizureLogNavigateBadge');
+        expect(seizureBare).not.toContain('ExecutionInlineAccordion');
         const secureStore = read('src/app/services/SecureStoreService.ts');
         expect(secureStore).toMatch(/WEB_MIGRATION_PREFIXES[\s\S]*'executionFiles'/);
         const criticalPaths = read('e2e/execution-critical-paths.spec.ts');

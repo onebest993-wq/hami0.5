@@ -30,7 +30,6 @@ import {
 } from './builtInBehavior';
 
 export { flushPendingBootTypography } from '@/app/bootstrap/bootTypographyFlush';
-export { resolveThemeMode } from './resolveThemeMode';
 
 const WALLPAPER_KEY = 'lawyer_wallpaper';
 

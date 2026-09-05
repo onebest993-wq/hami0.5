@@ -2,8 +2,6 @@ export * from './types';
 export * from './defaults';
 export * from './migrate';
 export * from './apply';
-export { resolveThemeMode } from './apply';
-export { settingWiringHint } from './settingsCapabilities';
 export * from './homeLayout';
 export * from './homeBlockOverrideSync';
 export * from './homeBlockLabels';

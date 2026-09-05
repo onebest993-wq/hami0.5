@@ -33,9 +33,3 @@ export function clearPendingCalendarAlarmEventId(): void {
         /* ignore */
     }
 }
-
-export function consumePendingCalendarAlarmEventId(): string | null {
-    const value = peekPendingCalendarAlarmEventId();
-    if (value) clearPendingCalendarAlarmEventId();
-    return value;
-}

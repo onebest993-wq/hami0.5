@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import { CommunityScreen, type CommunityScreenProps } from '@/app/components/lawyer/CommunityScreen';
 
-export type CommunityScreenComponent = ComponentType<CommunityScreenProps>;
+type CommunityScreenComponent = ComponentType<CommunityScreenProps>;
 
 /** المنتدى متزامن في stem — لا chunk منفصل للفتح */
 const cachedCommunityScreen: CommunityScreenComponent = CommunityScreen;
@@ -17,10 +17,6 @@ export {
     prefetchCommunityScreenModule,
     resetCommunityHubModuleCacheForTests,
 } from '@/app/runtime/communityHubReadiness';
-
-export function getCachedCommunityScreen(): CommunityScreenComponent {
-    return cachedCommunityScreen;
-}
 
 export function loadCommunityScreenModule(): Promise<{ CommunityScreen: CommunityScreenComponent }> {
     return Promise.resolve({ CommunityScreen: cachedCommunityScreen });

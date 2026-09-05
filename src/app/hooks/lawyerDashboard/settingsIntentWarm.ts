@@ -1,32 +1,26 @@
-import { prefetchSecondarySettingsSections } from '@/app/components/lawyer/HamiSettings/settingsSectionLoad';
 import { prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
 import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { shouldAllowIntentWarmFromDom } from '@/app/services/settings/intentWarmGate';
 
-/** Entry + شِل + كل تبويبات المركز — بلا انتظار بعد أول طلاء */
-function prefetchSettingsOpenChain(): void {
+/** بوابة + شِل فقط — بلا تبويبات ثانوية حتى لا تزاحم طلاء الأمن */
+function prefetchSettingsShellChain(): void {
     prefetchSettingsOverlayEntry();
     prefetchHamiSettingsModule();
-    prefetchSecondarySettingsSections();
 }
 
-/** hover/لمس أيقونة الإعدادات — بوابة + shell فقط (لا تسخين أقسام وهمي) */
+/** hover/لمس أيقونة الإعدادات — بوابة + shell فقط */
 export function warmSettingsOnHover(): void {
     if (typeof window === 'undefined') return;
-    if (!shouldAllowIntentWarmFromDom() || isLitePerformanceActive()) {
-        prefetchSettingsOverlayEntry();
-        prefetchHamiSettingsModule();
-        return;
-    }
-    prefetchSettingsOpenChain();
+    prefetchSettingsShellChain();
 }
 
 export function warmSettingsOnOpen(): void {
-    prefetchSettingsOpenChain();
+    void import('@/app/runtime/sectionChunkRecency')
+        .then((m) => m.rememberOpenedSectionChunk('settings'))
+        .catch(() => undefined);
+    prefetchSettingsShellChain();
 }
 
-/** pointerdown — نفس سلسلة الفتح */
+/** pointerdown — جذع الفتح فقط؛ المنظر عند نية تبويبه */
 export function primeSettingsShellForOpen(): void {
-    prefetchSettingsOpenChain();
+    prefetchSettingsShellChain();
 }

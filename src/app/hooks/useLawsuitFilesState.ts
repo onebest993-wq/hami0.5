@@ -35,6 +35,12 @@ import {
     LAWSUIT_FILES_ARCHIVED_KEY,
     LAWSUIT_FILES_TRASH_KEY,
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import {
+    executeLawsuitLifecycleTransaction,
+    type LawsuitLifecycleMutationKind,
+} from '@/app/domain/lawsuit/lawsuitLifecycleTransaction';
+import { beginLawsuitLifecycleMutationFence } from '@/app/domain/lawsuit/lawsuitLifecycleMutationFence';
+import { recordLawsuitLifecycleE2e } from '@/app/runtime/lawsuitLifecycleE2eProbe';
 
 type UseLawsuitFilesStateOptions = {
     localAutoSave?: boolean;
@@ -67,18 +73,24 @@ export function useLawsuitFilesState({
     segmentsRef.current = segments;
     const hydrateGenRef = useRef(0);
     const prevAutoSaveRef = useRef(localAutoSave);
+    const lifecycleMutationChainRef = useRef<Promise<void>>(Promise.resolve());
 
-    const persistWorkspace = useCallback((next: LawsuitFileSegments) => {
+    const persistWorkspace = useCallback((next: LawsuitFileSegments, prevActiveCount?: number) => {
         if (!autoSaveRef.current) return;
         /* لا تُثبّت قائمة نشطة فارغة من مسار autosave — الأرشفة/السلة تكتب بـ allowShrink */
         if (next.active.length === 0) return;
         if (!lawsuitStorageHydratedRef.current) return;
         if (shouldBlockEmptyLawsuitPersist(next)) return;
+        const shrunk =
+            typeof prevActiveCount === 'number' && next.active.length < prevActiveCount;
         const result = persistLawsuitActiveBundle({
             active: next.active,
             index: next.index,
             archived: next.archived,
             trash: next.trash,
+            options: shrunk
+                ? { allowShrink: true, allowVerifiedEmpty: next.active.length === 0 }
+                : undefined,
         });
         if (result.ok) {
             scheduleFinalizeLawsuitDurabilityAfterCommit(
@@ -269,22 +281,89 @@ export function useLawsuitFilesState({
                         (nextArch > prevArch ||
                             next.index.counts.archived > prev.index.counts.archived);
                     /*
-                     * مسح النشط مسموح فقط عند انتقال صريح للأرشيف/السلة.
-                     * غير ذلك = واجهة فارغة كاذبة مع بقاء القرص.
+                     * حذف نهائي: النشط قد يُفرَّغ أيضاً إن كان المعرّف مكرراً،
+                     * والسلة تتقلّص — لا تُحظر كمسح كاذب.
                      */
-                    if (!movedToTrash && !movedToArchive) {
+                    const permanentDeleteShrink =
+                        (next.trash != null && nextTrash < prevTrash) ||
+                        next.index.counts.trash < prev.index.counts.trash;
+                    if (!movedToTrash && !movedToArchive && !permanentDeleteShrink) {
                         return prev;
                     }
                 }
                 /*
                  * apply* يكتب القرص بنفسه؛ إن وُضع updater خام بدون persist
                  * كانت React تتقدّم والقرص يتخلف. ثبّت عند autosave.
+                 * عند تقلّص النشط (أرشيف/سلة) مرّر allowShrink وإلا يُعاد المحذوف بالدمج.
                  */
-                persistWorkspace(next);
+                persistWorkspace(next, prev.active.length);
                 return next;
             });
         },
         [persistWorkspace],
+    );
+
+    /**
+     * عمليات دورة الحياة تُصفّ تسلسلياً وتحدّث React بعد COMMIT القرص فقط.
+     * لا آثار جانبية داخل setState updater، ولا نجاح متفائل قبل IndexedDB.
+     */
+    const commitLawsuitLifecycleMutation = useCallback(
+        (
+            kind: LawsuitLifecycleMutationKind,
+            ids: readonly (string | number)[],
+        ): Promise<LawsuitFileSegments | null> => {
+            const execute = async (): Promise<LawsuitFileSegments | null> => {
+                const target =
+                    kind === 'restore-trash' || kind === 'restore-archive'
+                        ? 'active'
+                        : kind === 'archive'
+                          ? 'archived'
+                          : kind === 'trash'
+                            ? 'deleted'
+                            : 'permanent';
+                const releaseFence = beginLawsuitLifecycleMutationFence(ids, target);
+                try {
+                    const result = await executeLawsuitLifecycleTransaction(
+                        segmentsRef.current,
+                        kind,
+                        ids,
+                    );
+                    recordLawsuitLifecycleE2e('commit-result', {
+                        kind,
+                        reason: result.ok ? 'ok' : (result.reason ?? 'no-next'),
+                        ids: ids.join(','),
+                        extra: `active=${segmentsRef.current.active.length}`,
+                    });
+                    if (!result.ok || !result.next) {
+                        if (typeof console !== 'undefined') {
+                            console.warn(
+                                '[lawsuit-lifecycle]',
+                                kind,
+                                result.reason ?? 'no-next',
+                                ids.join(','),
+                            );
+                        }
+                        return null;
+                    }
+                    const { invalidateLawsuitFilesEagerHydrateCache } = await import(
+                        '@/app/runtime/lawsuitFilesEagerHydrate'
+                    );
+                    invalidateLawsuitFilesEagerHydrateCache();
+                    segmentsRef.current = result.next;
+                    setSegments(result.next);
+                    return result.next;
+                } finally {
+                    releaseFence();
+                }
+            };
+            const pending = lifecycleMutationChainRef.current.then(execute, execute);
+            lifecycleMutationChainRef.current = pending.then(
+                () => undefined,
+                () => undefined,
+            );
+            return pending;
+        },
+        [],
     );
 
     const ensureLawsuitArchivedLoaded = useCallback(async () => {
@@ -336,6 +415,7 @@ export function useLawsuitFilesState({
         setFiles,
         lawsuitSegments: segments,
         setLawsuitSegments,
+        commitLawsuitLifecycleMutation,
         lawsuitLifecycleCounts: segments.index.counts,
         lawsuitArchivedFiles: segments.archived,
         lawsuitTrashFiles: segments.trash,

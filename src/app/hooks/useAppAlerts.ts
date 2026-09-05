@@ -15,6 +15,7 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import { debug } from '@/app/utils/debug';
 import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 
 function loadCalendarDossierSync() {
     return import('@/app/services/calendarDossierSync');
@@ -190,25 +191,36 @@ export function useAppAlerts(params: {
                 calendarInterval = null;
             }
         };
-        const isVisible = () =>
-            typeof document === 'undefined' || document.visibilityState !== 'hidden';
-        if (isVisible()) startInterval();
+        const isForeground = () => {
+            if (typeof document === 'undefined') return true;
+            if (document.hidden || document.visibilityState === 'hidden') return false;
+            return document.documentElement.dataset.hamiAppActive !== '0';
+        };
+        if (isForeground()) startInterval();
 
         const onCalendar = () => scheduleRefresh({ syncCalendar: false });
         const onQuantumTasks = () => {
             fieldTasksRef.current = getQuantumPendingSnapshot();
             scheduleRefresh({ syncCalendar: false });
         };
-        const onVisibilityChange = () => {
-            if (isVisible()) {
+        const applyForeground = (foreground: boolean) => {
+            if (foreground) {
                 scheduleRefresh({ syncCalendar: false });
                 startInterval();
             } else {
                 stopInterval();
             }
         };
+        const onVisibilityChange = () => applyForeground(isForeground());
+        const onPageHide = () => applyForeground(false);
+        const onAppState = (event: Event) => {
+            const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+            applyForeground(detail?.isActive !== false && !document.hidden);
+        };
         window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendar);
         window.addEventListener(QUANTUM_TASKS_CHANGED_EVENT, onQuantumTasks);
+        window.addEventListener('pagehide', onPageHide);
+        window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
         if (typeof document !== 'undefined') {
             document.addEventListener('visibilitychange', onVisibilityChange);
         }
@@ -218,6 +230,8 @@ export function useAppAlerts(params: {
             stopInterval();
             window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendar);
             window.removeEventListener(QUANTUM_TASKS_CHANGED_EVENT, onQuantumTasks);
+            window.removeEventListener('pagehide', onPageHide);
+            window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
             if (typeof document !== 'undefined') {
                 document.removeEventListener('visibilitychange', onVisibilityChange);
             }

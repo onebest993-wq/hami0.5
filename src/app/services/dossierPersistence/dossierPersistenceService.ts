@@ -7,6 +7,9 @@ import {
 } from './dossierStorageKeys';
 import { readLatestDossierBackup, writeDossierBackup } from './dossierBackupStore';
 import { shouldRejectDossierWipe } from './dossierWipeGuard';
+import { isCanonicalEmptyDossierPrimary } from './dossierPrimaryEmpty';
+import { mergeDossierRowsById, resolveLoadedDossierPrimary } from './dossierKeyLoad';
+import { filterTombstonedLawsuitSyncRows } from '@/app/utils/lawsuitDossierTombstones';
 import { debug } from '@/app/utils/debug';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import type { DossierCloudSyncOp, DossierDomain } from './dossierPersistenceTypes';
@@ -48,19 +51,42 @@ function parseArray(raw: string | null): unknown[] | null {
     }
 }
 
-function mergeUniqueById(primary: unknown[], incoming: unknown[]): unknown[] {
-    const out: unknown[] = [];
-    const seen = new Set<string>();
-    const add = (v: unknown) => {
-        if (!v || typeof v !== 'object' || Array.isArray(v)) return;
-        const id = String((v as { id?: unknown }).id ?? '').trim();
-        if (!id || seen.has(id)) return;
-        seen.add(id);
-        out.push(v);
+function decidePrimaryLoad(config: DomainConfig, primary: unknown[] | null) {
+    try {
+        return resolveLoadedDossierPrimary({
+            primary,
+            unread: SecureStoreService.isUnreadSync(config.primaryKey),
+            occupied: SecureStoreService.hasItemSync(config.primaryKey),
+        });
+    } catch {
+        return resolveLoadedDossierPrimary({
+            primary,
+            unread: false,
+            occupied: false,
+        });
+    }
+}
+
+function sanitizeDossierPayload(
+    domain: DossierDomain,
+    next: unknown[],
+): { payload: unknown[]; emptiedByTombstone: boolean } {
+    const incoming = Array.isArray(next) ? next : [];
+    if (domain !== 'lawsuit') return { payload: incoming, emptiedByTombstone: false };
+    const payload = filterTombstonedLawsuitSyncRows(incoming);
+    return {
+        payload,
+        emptiedByTombstone: incoming.length > 0 && payload.length === 0,
     };
-    primary.forEach(add);
-    incoming.forEach(add);
-    return out;
+}
+
+function writeOptionsForPayload(emptiedByTombstone: boolean): {
+    allowVerifiedEmptyOverwrite?: boolean;
+    allowShrink?: boolean;
+} {
+    return emptiedByTombstone
+        ? { allowVerifiedEmptyOverwrite: true, allowShrink: true }
+        : {};
 }
 
 function readRevision(config: DomainConfig): number {
@@ -94,25 +120,41 @@ async function readRawAsync(key: string): Promise<string | null> {
     return SecureStoreService.getItem(key);
 }
 
-function writeRawGuarded(key: string, payload: unknown[]): void {
+function writeRawGuarded(
+    key: string,
+    payload: unknown[],
+    options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
+): void {
     const serialized = JSON.stringify(payload);
     const existing = readRawSync(key);
-    if (existing && shouldRejectDossierWipe(key, serialized, existing)) {
+    if (
+        existing &&
+        !options.allowVerifiedEmptyOverwrite &&
+        shouldRejectDossierWipe(key, serialized, existing)
+    ) {
         debug.warn(`[DossierPersistence] رفض مسح "${key}" — البيانات الحالية محفوظة.`);
         return;
     }
-    SecureStoreService.setItemSync(key, serialized);
+    SecureStoreService.setItemSync(key, serialized, options);
     clearLegacyPlaintextMirror(key);
 }
 
-async function writeRawGuardedAsync(key: string, payload: unknown[]): Promise<void> {
+async function writeRawGuardedAsync(
+    key: string,
+    payload: unknown[],
+    options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
+): Promise<void> {
     const serialized = JSON.stringify(payload);
     const existing = await readRawAsync(key);
-    if (existing && shouldRejectDossierWipe(key, serialized, existing)) {
+    if (
+        existing &&
+        !options.allowVerifiedEmptyOverwrite &&
+        shouldRejectDossierWipe(key, serialized, existing)
+    ) {
         debug.warn(`[DossierPersistence] رفض مسح "${key}" — البيانات الحالية محفوظة.`);
         return;
     }
-    await SecureStoreService.setItem(key, serialized);
+    await SecureStoreService.setItem(key, serialized, options);
     clearLegacyPlaintextMirror(key);
 }
 
@@ -121,24 +163,47 @@ async function restoreFromBackupIfNeeded(
     loaded: unknown[],
 ): Promise<unknown[]> {
     if (loaded.length > 0) return loaded;
+    try {
+        if (
+            SecureStoreService.hasItemSync(config.primaryKey) &&
+            SecureStoreService.isUnreadSync(config.primaryKey)
+        ) {
+            return loaded;
+        }
+        const primary = parseArray(await readRawAsync(config.primaryKey));
+        if (
+            isCanonicalEmptyDossierPrimary(
+                primary,
+                SecureStoreService.isUnreadSync(config.primaryKey),
+            )
+        ) {
+            return loaded;
+        }
+    } catch {
+        /* إن تعذّر التمييز نكمل مسار النسخة الاحتياطية القديم */
+    }
     const backup = await readLatestDossierBackup(config.domain);
     if (!backup || backup.payload.length === 0) return loaded;
-        debug.warn(
-            `[DossierPersistence] استعادة ${backup.payload.length} إضبارة من النسخة الاحتياطية (${config.domain})`,
-        );
-    await persistDossierCollection(config.domain, backup.payload, { skipBackup: true, skipCloudQueue: true });
-    return backup.payload;
+    const { payload } = sanitizeDossierPayload(config.domain, backup.payload);
+    if (payload.length === 0) return loaded;
+    debug.warn(
+        `[DossierPersistence] استعادة ${payload.length} إضبارة من النسخة الاحتياطية (${config.domain})`,
+    );
+    await persistDossierCollection(config.domain, payload, { skipBackup: true, skipCloudQueue: true });
+    return payload;
 }
 
 function loadFromAllKeysSync(config: DomainConfig): unknown[] {
     const primary = parseArray(readRawSync(config.primaryKey));
-    if (primary !== null && primary.length > 0) return primary;
+    const decision = decidePrimaryLoad(config, primary);
+    if (decision === 'unread' || decision === 'canonical-empty') return [];
+    if (decision === 'use-primary') return primary ?? [];
 
     let merged: unknown[] = primary ?? [];
     for (const legacyKey of config.legacyKeys) {
         const legacy = parseArray(readRawSync(legacyKey));
         if (legacy !== null && legacy.length > 0) {
-            merged = mergeUniqueById(merged, legacy);
+            merged = mergeDossierRowsById(merged, legacy);
         }
     }
     return merged;
@@ -146,13 +211,15 @@ function loadFromAllKeysSync(config: DomainConfig): unknown[] {
 
 async function loadFromAllKeysAsync(config: DomainConfig): Promise<unknown[]> {
     const primary = parseArray(await readRawAsync(config.primaryKey));
-    if (primary !== null && primary.length > 0) return primary;
+    const decision = decidePrimaryLoad(config, primary);
+    if (decision === 'unread' || decision === 'canonical-empty') return [];
+    if (decision === 'use-primary') return primary ?? [];
 
     let merged: unknown[] = primary ?? [];
     for (const legacyKey of config.legacyKeys) {
         const legacy = parseArray(await readRawAsync(legacyKey));
         if (legacy !== null && legacy.length > 0) {
-            merged = mergeUniqueById(merged, legacy);
+            merged = mergeDossierRowsById(merged, legacy);
         }
     }
     return merged;
@@ -187,21 +254,28 @@ export async function persistDossierCollection(
     next: unknown[],
     options?: PersistDossierOptions,
 ): Promise<unknown[]> {
-    const payload = Array.isArray(next) ? next : [];
+    const { payload, emptiedByTombstone } = sanitizeDossierPayload(domain, next);
     const config = DOMAIN_CONFIG[domain];
+    const writeOptions = writeOptionsForPayload(emptiedByTombstone);
 
     if (!options?.skipBackup && payload.length > 0) {
         const rev = bumpRevision(config);
         void writeDossierBackup(config.domain, payload, rev);
     }
 
-    await writeRawGuardedAsync(config.primaryKey, payload);
+    await writeRawGuardedAsync(config.primaryKey, payload, writeOptions);
     const serialized = JSON.stringify(payload);
     for (const legacyKey of config.legacyKeys) {
         try {
             const existing = await readRawAsync(legacyKey);
-            if (existing && shouldRejectDossierWipe(legacyKey, serialized, existing)) continue;
-            await SecureStoreService.setItem(legacyKey, serialized);
+            if (
+                existing &&
+                !writeOptions.allowVerifiedEmptyOverwrite &&
+                shouldRejectDossierWipe(legacyKey, serialized, existing)
+            ) {
+                continue;
+            }
+            await SecureStoreService.setItem(legacyKey, serialized, writeOptions);
         } catch {
             /* ignore legacy mirror errors */
         }
@@ -226,21 +300,28 @@ export function persistDossierCollectionSync(
     next: unknown[],
     options?: PersistDossierOptions,
 ): unknown[] {
-    const payload = Array.isArray(next) ? next : [];
+    const { payload, emptiedByTombstone } = sanitizeDossierPayload(domain, next);
     const config = DOMAIN_CONFIG[domain];
+    const writeOptions = writeOptionsForPayload(emptiedByTombstone);
 
     if (!options?.skipBackup && payload.length > 0) {
         const rev = bumpRevision(config);
         void writeDossierBackup(config.domain, payload, rev);
     }
 
-    writeRawGuarded(config.primaryKey, payload);
+    writeRawGuarded(config.primaryKey, payload, writeOptions);
     const serialized = JSON.stringify(payload);
     config.legacyKeys.forEach((legacyKey) => {
         try {
             const existing = readRawSync(legacyKey);
-            if (existing && shouldRejectDossierWipe(legacyKey, serialized, existing)) return;
-            SecureStoreService.setItemSync(legacyKey, serialized);
+            if (
+                existing &&
+                !writeOptions.allowVerifiedEmptyOverwrite &&
+                shouldRejectDossierWipe(legacyKey, serialized, existing)
+            ) {
+                return;
+            }
+            SecureStoreService.setItemSync(legacyKey, serialized, writeOptions);
         } catch {
             /* ignore */
         }

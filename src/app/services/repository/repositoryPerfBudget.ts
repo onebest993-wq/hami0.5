@@ -9,5 +9,3 @@ export const REPOSITORY_PERF_BUDGET = {
     },
     sentryMetric: 'repository.open_to_interactive_ms',
 } as const;
-
-export type RepositoryPerfBudgetKey = keyof typeof REPOSITORY_PERF_BUDGET.openToInteractiveMs;

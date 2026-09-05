@@ -273,6 +273,19 @@
   color: rgba(244, 240, 232, 0.42);
 }
 
+.hq-state-bone {
+  min-height: 44px;
+  margin: 0.5rem auto 0;
+  max-width: 16rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(230, 198, 115, 0.15);
+  background: rgba(230, 198, 115, 0.08);
+}
+
+.hq-state-bone:first-child {
+  margin-top: 0;
+}
+
 .hq-metric {
   position: relative;
   display: flex;

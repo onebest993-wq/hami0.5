@@ -23,7 +23,11 @@ vi.mock('@/app/utils/executionFilesStorage', () => ({
 }));
 
 const { pushWorkCloudCheckpointNow } = vi.hoisted(() => ({
-    pushWorkCloudCheckpointNow: vi.fn(async () => true),
+    pushWorkCloudCheckpointNow: vi.fn(async () => ({
+        pushed: true,
+        skipped: false,
+        failed: false,
+    })),
 }));
 
 vi.mock('@/app/services/cloud/workCloudCheckpoint', () => ({
@@ -68,9 +72,65 @@ describe('runCloudSyncAllNow', () => {
         expect(dispatchSpy).toHaveBeenCalledWith(
             expect.objectContaining({ type: 'hami:data-imported' }),
         );
-        await vi.waitFor(() => {
-            expect(pushWorkCloudCheckpointNow).toHaveBeenCalled();
-        });
+        expect(pushWorkCloudCheckpointNow).toHaveBeenCalled();
         dispatchSpy.mockRestore();
+    });
+
+    it('فشل نقطة الحفظ يُعلن فشل المزامنة الشاملة', async () => {
+        pushWorkCloudCheckpointNow.mockResolvedValueOnce({
+            pushed: false,
+            skipped: false,
+            failed: true,
+        });
+        const summary = await runCloudSyncAllNow({
+            ...LAWYER_SETTINGS_V2_DEFAULTS,
+            security: { ...LAWYER_SETTINGS_V2_DEFAULTS.security, localOnlyMode: false },
+            data: {
+                ...LAWYER_SETTINGS_V2_DEFAULTS.data,
+                cloudSync: true,
+                syncNotes: true,
+                syncFiles: true,
+                syncExecution: true,
+            },
+        });
+        expect(summary).toEqual({ ok: false, skipped: false, failed: true });
+    });
+
+    it('تخطي نقطة فارغة لا يُفشل السلال الناجحة', async () => {
+        pushWorkCloudCheckpointNow.mockResolvedValueOnce({
+            pushed: false,
+            skipped: true,
+            failed: false,
+        });
+        const summary = await runCloudSyncAllNow({
+            ...LAWYER_SETTINGS_V2_DEFAULTS,
+            security: { ...LAWYER_SETTINGS_V2_DEFAULTS.security, localOnlyMode: false },
+            data: {
+                ...LAWYER_SETTINGS_V2_DEFAULTS.data,
+                cloudSync: true,
+                syncNotes: true,
+                syncFiles: true,
+                syncExecution: true,
+            },
+        });
+        expect(summary.ok).toBe(true);
+        expect(summary.failed).toBe(false);
+    });
+
+    it('بلا سلال — تُدفع نقطة التقويم إن المزامنة حيّة', async () => {
+        const summary = await runCloudSyncAllNow({
+            ...LAWYER_SETTINGS_V2_DEFAULTS,
+            security: { ...LAWYER_SETTINGS_V2_DEFAULTS.security, localOnlyMode: false },
+            data: {
+                ...LAWYER_SETTINGS_V2_DEFAULTS.data,
+                cloudSync: true,
+                syncNotes: false,
+                syncFiles: false,
+                syncExecution: false,
+            },
+        });
+        expect(performCloudSyncBuckets).not.toHaveBeenCalled();
+        expect(pushWorkCloudCheckpointNow).toHaveBeenCalled();
+        expect(summary).toEqual({ ok: true, skipped: false, failed: false });
     });
 });

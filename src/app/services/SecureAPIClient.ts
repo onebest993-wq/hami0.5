@@ -1,4 +1,3 @@
-import { supabase } from '@/app/lib/supabase-client';
 import { readCsrfTokenFromDocument } from '@/app/security/csrfSession';
 import { fetchKvProxyGuarded, isKvProxyUrl } from './kvProxyGuard';
 import { assertNetworkAllowed } from '@/app/services/settings/localOnlyGuard';
@@ -134,6 +133,7 @@ function isSameOriginApiRoute(resolved: URL): boolean {
  * ثم جلسة الشِل/الضيف عند فتح الواجهة محلياً. لا يخلط HMAC العميل مع BFF.
  */
 export async function getCurrentAccessToken(): Promise<string | null> {
+    const { supabase } = await import('@/app/lib/supabase-client');
     const { data } = await supabase.auth.getSession();
     const live = data.session?.access_token?.trim() ?? '';
     if (live) return live;

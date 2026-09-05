@@ -1,12 +1,17 @@
+/**
+ * CalendarDB — جدول المواعيد على الجهاز فقط (SecureStore مشفّر).
+ * لا شبكة ولا KV. مواعيد الإضبارة تُبنى محلياً عبر dossierSync.
+ * اسم الملف ومسار calendarCloudLoader→Runtime يبقيان hop مزدوجاً عمداً (صدق melt/الجذع).
+ */
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { lawyerCloudKv, fetchPrefixOnceInTick } from '@/app/services/cloud/lawyerCloudKv';
 import {
     dedupeCalendarGetEvents,
     invalidateCalendarEventsCache,
 } from '@/app/services/calendar/calendarEventsCache';
 import { notifyCalendarUpdated } from '@/app/services/calendar/bridge/core';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import { isUsableCalendarEventRecord } from '@/app/services/calendar/calendarEventRecord';
+import { CALENDAR_EVENTS_STORAGE_KEY as CALENDAR_LOCAL_KEY } from '@/app/services/calendar/calendarStorageKeys';
 import {
     persistSecurePayloadWhenReady,
     readSecureOrDrainLegacySync,
@@ -14,8 +19,6 @@ import {
 } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export type { CalendarEventType, CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-
-const CALENDAR_LOCAL_KEY = 'hami:calendar:events:v1';
 
 function loadCalendarLocalSnapshot() {
     return import('@/app/services/calendar/calendarLocalSnapshot');
@@ -26,7 +29,7 @@ function parseCalendarEventsRaw(raw: string | null | undefined): CalendarEvent[]
     try {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed as CalendarEvent[];
+        return parsed.filter(isUsableCalendarEventRecord);
     } catch {
         return null;
     }
@@ -94,10 +97,10 @@ async function saveLocalCalendarEvents(
     snapshot.clearCalendarEventsLocalStorageMirror();
 }
 
-function mergeCalendarEvents(local: CalendarEvent[], remote: CalendarEvent[]): CalendarEvent[] {
+function mergeCalendarEvents(local: CalendarEvent[], incoming: CalendarEvent[]): CalendarEvent[] {
     const map = new Map<string, CalendarEvent>();
     for (const e of local) map.set(e.id, e);
-    for (const e of remote) {
+    for (const e of incoming) {
         const prev = map.get(e.id);
         if (!prev) {
             map.set(e.id, e);
@@ -110,6 +113,15 @@ function mergeCalendarEvents(local: CalendarEvent[], remote: CalendarEvent[]): C
     return Array.from(map.values());
 }
 
+function createdAtMs(event: CalendarEvent): number {
+    const ms = Date.parse(event.createdAt);
+    return Number.isFinite(ms) ? ms : 0;
+}
+
+function sortEventsNewestFirst(events: CalendarEvent[]): CalendarEvent[] {
+    return events.sort((a, b) => createdAtMs(b) - createdAtMs(a));
+}
+
 async function fetchCalendarEventsForUser(userId: string): Promise<CalendarEvent[]> {
     const tombstonesPromise = (async (): Promise<Set<string>> => {
         try {
@@ -120,34 +132,9 @@ async function fetchCalendarEventsForUser(userId: string): Promise<CalendarEvent
         }
     })();
     const [local, tombstones] = await Promise.all([loadLocalCalendarEvents(), tombstonesPromise]);
-    const userLocal = local.filter((e) => e.userId === userId && !tombstones.has(e.id));
-
-    if (!isLawyerWorkCloudLive()) {
-        return userLocal.sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-    }
-
-    try {
-        const res = await fetchPrefixOnceInTick(`calendar:${userId}:`);
-        const remote = res.filter((e): e is CalendarEvent => {
-            if (!e || typeof e !== 'object') return false;
-            const o = e as Record<string, unknown>;
-            if (typeof o.id !== 'string' || typeof o.title !== 'string') return false;
-            return !tombstones.has(o.id);
-        });
-        const mergedForUser = mergeCalendarEvents(userLocal, remote).sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-        const others = local.filter((e) => e.userId !== userId);
-        const fullLocal = mergeCalendarEvents(others, mergedForUser);
-        await saveLocalCalendarEvents(fullLocal, { silent: true });
-        return mergedForUser;
-    } catch {
-        return userLocal.sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-    }
+    return sortEventsNewestFirst(
+        local.filter((e) => e.userId === userId && !tombstones.has(e.id)),
+    );
 }
 
 export const CalendarDB = {
@@ -177,9 +164,6 @@ export const CalendarDB = {
         const merged = mergeCalendarEvents(local, [event]);
         await saveLocalCalendarEvents(merged);
         invalidateCalendarEventsCache(event.userId);
-        if (isLawyerWorkCloudLive()) {
-            void lawyerCloudKv.set(`calendar:${event.userId}:${event.id}`, event).catch(() => undefined);
-        }
     },
 
     async saveEventsBatch(events: CalendarEvent[]): Promise<void> {
@@ -191,9 +175,6 @@ export const CalendarDB = {
         const merged = mergeCalendarEvents(local, valid);
         await saveLocalCalendarEvents(merged);
 
-        if (isLawyerWorkCloudLive()) {
-            await Promise.allSettled(valid.map((e) => lawyerCloudKv.set(`calendar:${e.userId}:${e.id}`, e)));
-        }
         for (const e of valid) invalidateCalendarEventsCache(e.userId);
     },
 
@@ -207,15 +188,11 @@ export const CalendarDB = {
             /* غير حاسم */
         }
 
-        if (isLawyerWorkCloudLive()) {
-            try {
-                await lawyerCloudKv.del(`calendar:${userId}:${eventId}`);
-            } catch {
-                // Cloud-First
-            }
-        }
         const local = await loadLocalCalendarEvents();
-        if (!local.some((e) => e.id === eventId)) return;
+        if (!local.some((e) => e.id === eventId)) {
+            invalidateCalendarEventsCache(userId);
+            return;
+        }
         const next = local.filter((e) => e.id !== eventId);
         await saveLocalCalendarEvents(next, { mode: 'replace' });
         invalidateCalendarEventsCache(userId);

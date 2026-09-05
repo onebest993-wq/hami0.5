@@ -86,10 +86,13 @@ export function hydrateCommunityShellForInstantOpen(force = false): Promise<bool
     }
     if (hydrateInflight) return hydrateInflight;
 
+    /* المنشورات مع تحليل الشيفرة — لا بعد اكتمال الكِسرة */
+    const postsWarm = maybeWarmPosts();
+
     hydrateInflight = hydrateCommunityScreenForInstantOpen()
         .then(async (ok) => {
             if (ok) {
-                await maybeWarmPosts().catch(() => undefined);
+                await postsWarm.catch(() => undefined);
                 void ensureDeferredFeatureStylesLoaded();
                 prefetchCommunityCloudModule();
                 dispatchHydratedOnce();

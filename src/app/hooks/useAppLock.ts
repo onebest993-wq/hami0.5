@@ -4,6 +4,7 @@ import { whenNativeCapacitorBootComplete } from '@/app/runtime/nativeCapacitorBo
 import { snapAppLockClose, snapAppLockOpen } from '@/app/runtime/appLockInstantPaint';
 import { HAMI_APP_STATE_EVENT } from '@/app/runtime/appStateEvents';
 import { isNativeSensitivePromptActive } from '@/app/runtime/nativeSensitivePrompt';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import '@/app/components/lawyer/appLockOverlay.css';
 import {
     hasBiometricSessionEnrollment,
@@ -71,6 +72,14 @@ export function useAppLock(security: SecuritySettings) {
         if (!locked) lastActivityRef.current = Date.now();
     }, [locked]);
 
+    useVisibilityAwareInterval(() => {
+        if (locked || !idleLockEnabled) return;
+        const delay = lockDelayMs(security.autoLockMinutes);
+        if (delay > 0 && Date.now() - lastActivityRef.current >= delay) {
+            setLocked(true);
+        }
+    }, TICK_MS, sessionGuardEnabled);
+
     const lockNow = useCallback(() => {
         setLocked(true);
     }, []);
@@ -93,14 +102,6 @@ export function useAppLock(security: SecuritySettings) {
         for (const ev of ACTIVITY_EVENTS) {
             window.addEventListener(ev, onActivity, { passive: true });
         }
-
-        const tick = window.setInterval(() => {
-            if (locked || !idleLockEnabled) return;
-            const delay = lockDelayMs(security.autoLockMinutes);
-            if (delay > 0 && Date.now() - lastActivityRef.current >= delay) {
-                setLocked(true);
-            }
-        }, TICK_MS);
 
         const onVisibility = () => {
             if (document.hidden) {
@@ -143,7 +144,6 @@ export function useAppLock(security: SecuritySettings) {
             for (const ev of ACTIVITY_EVENTS) {
                 window.removeEventListener(ev, onActivity);
             }
-            window.clearInterval(tick);
             document.removeEventListener('visibilitychange', onVisibility);
             window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
         };

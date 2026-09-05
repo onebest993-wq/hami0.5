@@ -26,7 +26,8 @@ describe('perceived boot wait cut honesty', () => {
         );
         const gate = fs.readFileSync(path.join(root, 'src/app/bootstrap/homeMainGridPaintGate.ts'), 'utf8');
         expect(gate).toContain('ensureDeferredAppStylesLoaded');
-        expect(gate).toContain('DEFERRED_STYLE_HANG_MS');
+        expect(gate).not.toContain('waitForDeferredStylesThenUncover');
+        expect(gate).not.toContain('DEFERRED_STYLE_HANG_MS');
         expect(gate).not.toContain('DEFERRED_STYLE_SETTLE_MS');
     });
 
@@ -513,6 +514,40 @@ describe('perceived boot wait cut honesty', () => {
         expect(src).toContain("import('@/app/runtime/nativeBiometricBridge')");
         expect(src).toContain('HAMI_APP_STATE_EVENT');
         expect(src).toContain('isBiometricWorkspaceUnlocked');
+        const session = fs.readFileSync(
+            path.join(root, 'src/app/services/security/biometricSessionService.ts'),
+            'utf8',
+        );
+        expect(session).toContain("from '@/app/runtime/nativeBiometricEnrollmentStore'");
+        expect(session).not.toMatch(
+            /from ['"]@\/app\/runtime\/nativeBiometricBridge['"]/,
+        );
+        expect(session).toContain("import('@/app/runtime/nativeBiometricBridge')");
+    });
+
+    it('جذع الدعاوى خارج إغلاق المنزل الأول — Provider بلا useLawsuitFilesState', () => {
+        const provider = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceProvider.tsx'),
+            'utf8',
+        );
+        expect(provider).toContain("import('@/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceStemLayer')");
+        expect(provider).toContain('createLawyerDashboardWorkspaceStemStubs');
+        expect(provider).not.toContain('useLawsuitFilesState');
+        expect(provider).not.toMatch(
+            /import \{[^}]*useLawyerDashboardWorkspaceStem[^}]*\} from/,
+        );
+        expect(provider).toContain('lawyerDashboardWorkspaceStem.types');
+        const layer = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceStemLayer.tsx'),
+            'utf8',
+        );
+        expect(layer).toContain('useLawyerDashboardWorkspaceStem');
+        expect(layer).not.toContain('useLawsuitFilesState');
+        const stem = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceStem.ts'),
+            'utf8',
+        );
+        expect(stem).toContain('useLawsuitFilesState');
     });
 
     it('حدث quantum لا يُعاد تصديره من useIncrementalCalendarSync (كان يسمّم Runtime)', () => {

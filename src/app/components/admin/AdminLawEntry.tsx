@@ -395,9 +395,10 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                     void loadBrowseArticles();
                                 }}
                                 disabled={browseLoading}
+                                aria-busy={browseLoading || undefined}
                                 className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-white/80 hover:bg-white/5 disabled:opacity-60"
                             >
-                                {browseLoading ? "جاري التحديث…" : "تحديث الجدول"}
+                                تحديث الجدول
                             </button>
                         </div>
 
@@ -530,9 +531,14 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                 </span>
                             </div>
                             {browseLoading ? (
-                                <p className="px-4 py-6 text-center text-sm text-gray-400">
-                                    جاري تحميل المواد…
-                                </p>
+                                <div
+                                    className="px-4 py-6 space-y-2"
+                                    aria-busy="true"
+                                    aria-label="المواد"
+                                >
+                                    <div className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.04]" aria-hidden />
+                                    <div className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.04]" aria-hidden />
+                                </div>
                             ) : !activeHierarchyFilter ? (
                                 <p className="px-4 py-6 text-center text-sm text-gray-400">
                                     اختر زر تصنيف خاص لعرض المواد ضمن النطاق العددي.
@@ -715,14 +721,9 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         "hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E6C673]",
                         (singleLoading || bulkLoading) && "cursor-not-allowed opacity-70",
                     )}
+                    aria-busy={singleLoading || bulkLoading || undefined}
                 >
-                    {singleLoading || bulkLoading
-                        ? activeTab === "single"
-                            ? "جاري الحفظ…"
-                            : "جاري الرفع الجماعي…"
-                        : activeTab === "single"
-                        ? "حفظ المادة"
-                        : "بدء الرفع الجماعي"}
+                    {activeTab === "single" ? "حفظ المادة" : "بدء الرفع الجماعي"}
                 </button>
                 ) : null}
 
@@ -767,10 +768,9 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         (singleLoading || bulkLoading || clearLoading) &&
                             "cursor-not-allowed opacity-70",
                     )}
+                    aria-busy={clearLoading || undefined}
                 >
-                    {clearLoading
-                        ? "جاري تنظيف قاعدة البيانات…"
-                        : clearArticleFrom.trim() && clearArticleTo.trim()
+                    {clearArticleFrom.trim() && clearArticleTo.trim()
                         ? "حذف نطاق المواد المحدد"
                         : "حذف جميع المواد القانونية"}
                 </button>

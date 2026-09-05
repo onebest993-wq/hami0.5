@@ -4,11 +4,13 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     countPendingFieldTasks,
     deserializeQuantumTasks,
+    invalidateQuantumTasksDiskWarmCache,
     persistQuantumTasksSync,
     readQuantumTasksFromDiskSync,
     serializeQuantumTasks,
     QUANTUM_TASKS_STORAGE_KEY,
 } from '../quantumTasksStorage';
+import { getQuantumPendingSnapshot, resetQuantumTasksMetricsMemory } from '../quantumTasksMetrics';
 
 describe('deserializeQuantumTasks', () => {
     it('returns empty array for invalid blob', () => {
@@ -132,6 +134,8 @@ describe('countPendingFieldTasks', () => {
 
 describe('persistQuantumTasksSync / readQuantumTasksFromDiskSync', () => {
     beforeEach(() => {
+        invalidateQuantumTasksDiskWarmCache();
+        resetQuantumTasksMetricsMemory();
         localStorage.clear();
         try {
             SecureStoreService.deleteItemSync(QUANTUM_TASKS_STORAGE_KEY);
@@ -154,6 +158,11 @@ describe('persistQuantumTasksSync / readQuantumTasksFromDiskSync', () => {
         const raw = SecureStoreService.getItemSync(QUANTUM_TASKS_STORAGE_KEY);
         expect(raw).toContain('persist-1');
         expect(raw).toContain('بغداد');
+        const restored = readQuantumTasksFromDiskSync(new Date(2026, 5, 21));
+        expect(restored).toHaveLength(1);
+        expect(restored[0]!.id).toBe('persist-1');
+        expect(restored[0]!.location).toBe('بغداد');
+        expect(getQuantumPendingSnapshot().some((t) => t.id === 'persist-1')).toBe(true);
     });
 
     it('قراءة الستارة المتزامنة تقرأ leftover localStorage دون محوه (أول إطار)', () => {

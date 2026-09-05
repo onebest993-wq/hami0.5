@@ -5,9 +5,9 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import {
     canSendPushNotifications,
     filterAlertsByNotificationSettings,
-    alertNotificationChannel,
 } from '@/app/services/settings/settingsRuntime';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
+import { alertNotificationChannel } from '@/app/services/notifications/notificationAlertPolicy';
 import { showHamiNotification } from '@/app/services/notifications/HamiNotificationBridge';
 import { debug } from '@/app/utils/debug';
 
@@ -84,6 +84,7 @@ const PUSH_SUB_ATTEMPTED = 'hami:push-sub-attempted';
 
 async function persistPushSubscription(lawyerId: string | null): Promise<void> {
     if (!lawyerId) return;
+    if (isCapacitorNativePlatform()) return;
     try {
         if (sessionStorage.getItem(PUSH_SUB_ATTEMPTED) === lawyerId) return;
         const sub = await PushNotificationService.subscribeToPush();

@@ -42,13 +42,14 @@ describe('bootWorthySurface', () => {
         root.appendChild(skeleton);
         expect(isHubChromePaintWorthy(root)).toBe(true);
         expect(isLiveHubPaintWorthy(root)).toBe(false);
+        expect(hasLiveCommandTiles(root)).toBe(false);
         expect(isWorthyBootSurface(root)).toBe(false);
 
         const tile = document.createElement('button');
         tile.setAttribute('data-testid', 'hub-archive-lawsuit');
         root.appendChild(tile);
         expect(hasLiveCommandTiles(root)).toBe(true);
-        expect(isWorthyBootSurface(root)).toBe(false);
+        expect(isWorthyBootSurface(root)).toBe(true);
     });
 
     it('ينتظر استقرار الاسم وإن اكتمل المركز الحي', () => {

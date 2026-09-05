@@ -40,10 +40,11 @@ describe('secureApiNetworkFeatures', () => {
         expect(res?.status).toBe(403);
     });
 
-    it('يرفض calendar/tombstones عندما الميزات الشبكية مغلقة', () => {
-        const res = resolveDeniedNetworkFeatureResponse('/api/calendar/tombstones');
-        expect(res).not.toBeNull();
-        expect(res?.status).toBe(403);
+    it('يرفض استشارة الزميل وطلب العون عندما الميزات الشبكية مغلقة', () => {
+        expect(resolveDeniedNetworkFeatureResponse('/api/case-share')?.status).toBe(403);
+        expect(resolveDeniedNetworkFeatureResponse('/api/case-share/detail')?.status).toBe(403);
+        expect(resolveDeniedNetworkFeatureResponse('/api/task-help/list')?.status).toBe(403);
+        expect(resolveDeniedNetworkFeatureResponse('/api/task-help/create')?.status).toBe(403);
     });
 
     it('يمرّر مسار المنتدى لمدير المنصّة حتى لو KYC مغلق', () => {

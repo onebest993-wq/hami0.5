@@ -1,13 +1,15 @@
 import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync/incrementalSync';
-import { isCassationCorrectionStageName } from '@/app/components/lawyer/smart-modal/smartFile/extraordinaryAppealGateway';
 import {
+    formatPersonalStatusStageDisplayName,
     isPersonalStatusAppealContext,
     isPersonalStatusDossierFromStages,
-    formatPersonalStatusStageDisplayName,
-} from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
-import { isCassationStageName } from '@/app/components/lawyer/smart-modal/smartFile/judgmentTypes';
+} from '@/app/components/lawyer/personal-status/personalStatusAppealStageHelpers';
+import {
+    isCassationCorrectionStageName,
+    isCassationStageName,
+} from '@/app/components/lawyer/smart-modal/smartFile/judgmentStageNames';
 
 export const LAWSUIT_CAL_APPT = {
     sessionNext: (sessionId: string) => `appt_session_next_${sessionId}`,
@@ -132,14 +134,17 @@ function shouldMirrorAppealDeadline(stage: CaseStage): boolean {
 
 function shouldMirrorCassationDeadline(stage: CaseStage): boolean {
     if (isCassationCorrectionStageName(stage.stageName)) return false;
+    /* التمييز آخر درجة — لا مهلة «تمييز على التمييز» */
+    if (isCassationStageName(stage.stageName)) return false;
     const degree = stageDegreeLabel(stage.stageName);
-    return degree === 'first_instance' || degree === 'appeal' || degree === 'cassation';
+    return degree === 'first_instance' || degree === 'appeal';
 }
 
 function shouldMirrorExtraordinaryDeadline(stage: CaseStage): boolean {
     if (isCassationCorrectionStageName(stage.stageName)) return false;
+    /* الطعون الاستثنائية بعد التمييز ممكنة؛ تُدار من مساراتها لا من مرآة مهلة التمييز */
     const degree = stageDegreeLabel(stage.stageName);
-    return degree === 'first_instance' || degree === 'appeal' || degree === 'cassation';
+    return degree === 'first_instance' || degree === 'appeal';
 }
 
 function resolveAppealDeadlineMirrorMeta(stage: CaseStage): { title: string; details?: string } {

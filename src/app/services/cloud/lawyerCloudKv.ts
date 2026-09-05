@@ -5,12 +5,14 @@ import {
     isLawyerWorkCloudLive,
     isWorkLocalKvMaterial,
 } from '@/app/services/settings/lawyerWorkCloudGate';
+import { isCalendarNeverCloudKvMaterial } from '@/app/security/kvProxyKeyOwnership';
 import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 
 const CLOUD_KV_TIMEOUT_MS = 6_000;
 const KV_PROXY_URL = '/api/kv-proxy';
 
 function assertKvServerSession(material: string): void {
+    if (isCalendarNeverCloudKvMaterial(material)) throw new KvLocalOnlyError();
     if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
     if (!canUseServerBackedNetworkFeatures(getLiveAuthUserId())) throw new KvLocalOnlyError();
     if (isWorkLocalKvMaterial(material) && !isLawyerWorkCloudLive()) {
@@ -89,32 +91,5 @@ export const lawyerCloudKv = {
     },
 };
 
-export function uuidv4(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-}
+export { uuidv4 } from '@/app/utils/uuidv4';
 
-const inFlightPrefixFetches = new Map<string, Promise<unknown[]>>();
-
-/** dedup لـ getByPrefix داخل نفس tick — calendar sync */
-export function fetchPrefixOnceInTick(prefix: string): Promise<unknown[]> {
-    const existing = inFlightPrefixFetches.get(prefix);
-    if (existing) return existing;
-    const p = (async (): Promise<unknown[]> => {
-        try {
-            const res = await lawyerCloudKv.getByPrefix(prefix);
-            return Array.isArray(res) ? res : [];
-        } catch {
-            return [];
-        }
-    })();
-    inFlightPrefixFetches.set(prefix, p);
-    p.finally(() => {
-        if (inFlightPrefixFetches.get(prefix) === p) {
-            inFlightPrefixFetches.delete(prefix);
-        }
-    });
-    return p;
-}

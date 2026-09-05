@@ -15,6 +15,9 @@ describe('lawsuit archive trash dialog identity', () => {
         expect(lawsuit).toContain('LAWSUIT_VAULT_TEST_IDS.permanentDeleteDialog');
         expect(lawsuit).toContain('LAWSUIT_VAULT_TEST_IDS.permanentDeleteConfirm');
         expect(lawsuit).toContain('titleId="lawsuit-trash-confirm-title"');
+        expect(lawsuit).toContain('beginLawsuitVaultCommitHold');
+        expect(lawsuit).toContain('result !== true');
+        expect(lawsuit).toContain('commitPhase={trashCommitPhase}');
         expect(lawsuit).not.toContain('execution-trash-confirm-dialog');
         expect(lawsuit).not.toContain('execution-permanent-delete-dialog');
     });

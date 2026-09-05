@@ -1,22 +1,10 @@
-import {
-    markNotificationPanelModuleResolved,
-    resetNotificationPanelModuleStateForTests,
-} from '@/app/runtime/notificationPanelModuleState';
+import { markNotificationPanelModuleResolved } from '@/app/runtime/notificationPanelModuleState';
 
-export {
-    isNotificationPanelModuleResolved,
-    resetNotificationPanelModuleStateForTests,
-} from '@/app/runtime/notificationPanelModuleState';
+export { isNotificationPanelModuleResolved } from '@/app/runtime/notificationPanelModuleState';
 
 type NotificationPanelModule = typeof import('@/app/components/lawyer/NotificationPanel');
 
 let panelModulePromise: Promise<NotificationPanelModule> | null = null;
-
-/** للاختبارات */
-export function resetNotificationPanelModuleCacheForTests(): void {
-    panelModulePromise = null;
-    resetNotificationPanelModuleStateForTests();
-}
 
 function ensurePanelModulePromise(): Promise<NotificationPanelModule> {
     if (!panelModulePromise) {

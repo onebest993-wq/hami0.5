@@ -27,6 +27,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { RealtimeService, RealtimeCallback } from '@/app/services/RealtimeService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { useAppForeground } from '@/app/hooks/useAppForeground';
 import { debug } from '@/app/utils/debug';
 
 // =====================================================
@@ -67,6 +68,13 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
     lastUpdate: null,
     updateCount: 0
   });
+
+  /*
+   * قناة WebSocket مفتوحة تُبقي راديو الهاتف مستيقظاً بنبضات دورية. في الخلفية لا
+   * مستفيد من التحديث الفوري: المزامنة السحابية تلحق ما فات عند العودة، والتنبيه
+   * العاجل يأتي عبر دفع FCM. فالاشتراك يُفكَّك ويُعاد بتنظيف الأثر نفسه.
+   */
+  const foreground = useAppForeground();
 
   const subscriptionsRef = useRef<string[]>([]);
   const callbacksRef = useRef({ onExecutionUpdate, onLawsuitUpdate, onNoteUpdate, showToasts });
@@ -120,7 +128,7 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
    * الاشتراك في التحديثات - deps: enabled, userId فقط (callbacks عبر ref)
    */
   useEffect(() => {
-    if (!enabled || !userId) {
+    if (!enabled || !userId || !foreground) {
       if (enabled && !userId) {
         debug.log('[useRealtime] في انتظار معرف المستخدم...');
       }
@@ -149,7 +157,7 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
       subscriptionsRef.current = [];
       // لا نستدعي setState هنا - المكوّن سيفكك فوراً
     };
-  }, [enabled, userId, wrappedExecutionCallback, wrappedLawsuitCallback, wrappedNoteCallback]);
+  }, [enabled, userId, foreground, wrappedExecutionCallback, wrappedLawsuitCallback, wrappedNoteCallback]);
 
   // =====================================================
   // Return

@@ -66,6 +66,8 @@ describe('lawsuit open-path performance contracts', () => {
         expect(hydrate).toContain('const EAGER_HYDRATE_TIMEOUT_MS = 2_500');
         expect(hydrate).not.toContain('6_000');
         expect(cycle).toContain('awaitLawsuitFilesEagerHydrate(2_500)');
+        expect(cycle).toContain('resolveLawsuitArchiveHydrateDeclaration');
+        expect(cycle).toContain('finishLawsuitArchiveHydrate');
         expect(state).toContain('runLawsuitFilesHydrateCycle');
     });
 

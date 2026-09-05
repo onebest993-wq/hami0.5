@@ -1,20 +1,18 @@
 /**
- * نغمة وصول إشعار داخل التطبيق — أخف من منبّه التقويم، مربوطة بسياسة القنوات.
+ * نغمة وصول إشعار — ختم حامي الرسمي: قرار عميق ثم خامسة تامة ثم نداء ذهبي.
+ * بلا مزمار/اهتزاز نغمي/انزلاق — حتى يبقى التنبيه معروفاً لا مضحكاً.
  */
 import type { NotificationChannelKey } from '@/app/services/settings/notificationSettings';
 import { HAMI_ARRIVAL_SOUND_WEB } from '@/app/services/notifications/native/hamiNativeSound';
-
-type ChimeStep =
-    | { kind: 'tone'; freq: number; duration: number; gain: number; wave?: OscillatorType }
-    | { kind: 'pause'; duration: number };
-
-/** نغمة قصيرة مميزة — ليست منبّه تقويم الكامل */
-const ARRIVAL_CHIME: ChimeStep[] = [
-    { kind: 'tone', freq: 523.25, duration: 0.12, gain: 0.28, wave: 'sine' },
-    { kind: 'tone', freq: 659.25, duration: 0.16, gain: 0.34, wave: 'sine' },
-    { kind: 'pause', duration: 0.04 },
-    { kind: 'tone', freq: 783.99, duration: 0.22, gain: 0.26, wave: 'triangle' },
-];
+import {
+    HAMI_ARRIVAL_GAP_SEC,
+    HAMI_ARRIVAL_TONES,
+    type HamiArrivalTone,
+} from '@/app/services/notifications/native/hamiArrivalChime';
+import {
+    HAMI_NOTIFICATION_VIBRATE_PATTERN,
+    playDeviceHaptic,
+} from '@/app/services/platform/deviceHaptic';
 
 let sharedAudioContext: AudioContext | null = null;
 let webArrivalAudio: HTMLAudioElement | null = null;
@@ -44,34 +42,67 @@ async function ensureRunning(ctx: AudioContext): Promise<void> {
     }
 }
 
-function scheduleTone(
+function scheduleSealTone(
     ctx: AudioContext,
     destination: AudioNode,
     startAt: number,
-    step: Extract<ChimeStep, { kind: 'tone' }>,
+    step: HamiArrivalTone,
 ): void {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = step.wave ?? 'sine';
-    osc.frequency.setValueAtTime(step.freq, startAt);
-    const attack = 0.012;
-    const release = Math.min(0.08, step.duration * 0.4);
-    gain.gain.setValueAtTime(0.0001, startAt);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, step.gain), startAt + attack);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + step.duration - release);
-    osc.connect(gain);
-    gain.connect(destination);
-    osc.start(startAt);
-    osc.stop(startAt + step.duration + 0.02);
+    const sine = ctx.createOscillator();
+    const partial = ctx.createOscillator();
+    const sineGain = ctx.createGain();
+    const partialGain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    const out = ctx.createGain();
+
+    sine.type = 'sine';
+    partial.type = 'sine';
+    sine.frequency.setValueAtTime(step.freq, startAt);
+    partial.frequency.setValueAtTime(step.freq * 2, startAt);
+    sineGain.gain.setValueAtTime(1, startAt);
+    partialGain.gain.setValueAtTime(0.07, startAt);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2_400, startAt);
+    filter.Q.setValueAtTime(0.6, startAt);
+
+    const attack = 0.008;
+    const release = Math.min(0.22, step.duration * 0.55);
+    const peakAt = startAt + attack;
+    const fadeAt = startAt + Math.max(attack + 0.05, step.duration - release);
+    out.gain.setValueAtTime(0.0001, startAt);
+    out.gain.exponentialRampToValueAtTime(Math.max(0.0001, step.gain), peakAt);
+    out.gain.exponentialRampToValueAtTime(0.0001, fadeAt);
+
+    sine.connect(sineGain);
+    partial.connect(partialGain);
+    sineGain.connect(filter);
+    partialGain.connect(filter);
+    filter.connect(out);
+    out.connect(destination);
+
+    sine.start(startAt);
+    partial.start(startAt);
+    sine.stop(startAt + step.duration + 0.02);
+    partial.stop(startAt + step.duration + 0.02);
+
+    if (step.goldFreq) {
+        const gold = ctx.createOscillator();
+        const goldGain = ctx.createGain();
+        gold.type = 'sine';
+        gold.frequency.setValueAtTime(step.goldFreq, startAt);
+        goldGain.gain.setValueAtTime(0.0001, startAt);
+        goldGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, step.goldGain ?? 0.18), peakAt);
+        goldGain.gain.exponentialRampToValueAtTime(0.0001, fadeAt);
+        gold.connect(goldGain);
+        goldGain.connect(destination);
+        gold.start(startAt);
+        gold.stop(startAt + step.duration + 0.02);
+    }
 }
 
 function vibrateArrival(): void {
-    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
-    try {
-        navigator.vibrate([40, 50, 70]);
-    } catch {
-        /* ignore */
-    }
+    playDeviceHaptic(HAMI_NOTIFICATION_VIBRATE_PATTERN);
 }
 
 async function playWebArrivalWav(): Promise<boolean> {
@@ -100,14 +131,11 @@ async function playSynthArrivalCue(): Promise<void> {
     master.connect(ctx.destination);
 
     let cursor = ctx.currentTime;
-    for (const step of ARRIVAL_CHIME) {
+    for (let i = 0; i < HAMI_ARRIVAL_TONES.length; i += 1) {
         if (generation !== playbackGeneration) break;
-        if (step.kind === 'pause') {
-            cursor += step.duration;
-            continue;
-        }
-        scheduleTone(ctx, master, cursor, step);
-        cursor += step.duration;
+        scheduleSealTone(ctx, master, cursor, HAMI_ARRIVAL_TONES[i]);
+        cursor += HAMI_ARRIVAL_TONES[i].duration;
+        if (i < HAMI_ARRIVAL_TONES.length - 1) cursor += HAMI_ARRIVAL_GAP_SEC;
     }
 
     window.setTimeout(() => {
@@ -165,6 +193,11 @@ export async function previewNotificationArrivalCue(): Promise<void> {
     if (!playedWav) {
         await playSynthArrivalCue();
     }
+}
+
+/** معاينة الاهتزاز فقط (مفتاح الاهتزاز) — بدون نغمة */
+export function previewNotificationArrivalHaptic(): void {
+    vibrateArrival();
 }
 
 export function resetNotificationArrivalSoundForTests(): void {

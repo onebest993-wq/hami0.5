@@ -7,7 +7,3 @@ export function isNotificationPanelModuleResolved(): boolean {
 export function markNotificationPanelModuleResolved(): void {
     panelModuleResolved = true;
 }
-
-export function resetNotificationPanelModuleStateForTests(): void {
-    panelModuleResolved = false;
-}

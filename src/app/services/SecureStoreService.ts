@@ -1,8 +1,23 @@
 type SecureStoreValue = string | null;
 
-import { CryptoService } from './CryptoService';
+export type SecureStoreAtomicWrite = {
+  key: string;
+  value: string;
+  options?: {
+    allowVerifiedEmptyOverwrite?: boolean;
+    allowShrink?: boolean;
+  };
+};
+
+import { CryptoService } from '@/app/services/CryptoService';
 import { debug } from '@/app/utils/debug';
 import { bindSecureStoreE2eBridge } from '@/app/services/secureStoreE2eBridge';
+import {
+    StorageEncryptionError,
+    StoragePersistenceError,
+} from '@/app/services/storage/storageEncryptionError';
+
+export { StorageEncryptionError, StoragePersistenceError } from '@/app/services/storage/storageEncryptionError';
 
 const KEY_INDEX = '__hami_secure_store_keys__';
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
@@ -34,6 +49,8 @@ const webFallbackStore = new Map<string, string>();
 /** Vitest: قرص وهمي منفصل عن المرآة — يثبت create→reload دون IndexedDB حقيقي */
 const vitestDiskStore = new Map<string, string>();
 const decryptedCache = new Map<string, string>();
+/** يميّز [] المفكوكة فعلياً من القرص عن [] متفائلة/مسمّمة في الذاكرة. */
+const diskVerifiedDecryptedCacheKeys = new Set<string>();
 const decryptedCacheOrder: string[] = [];
 const MAX_DECRYPTED_CACHE_ENTRIES = 64;
 const HEAVY_PERSIST_DEBOUNCE_MS = 1_200;
@@ -58,7 +75,49 @@ function isHeavyPersistKey(key: string): boolean {
   return HEAVY_PERSIST_EXACT_KEYS.has(key) || HEAVY_PERSIST_PREFIXES.some((p) => key.startsWith(p));
 }
 
+function dropStalePersistQueueForKey(key: string): void {
+  const timer = heavyPersistTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    heavyPersistTimers.delete(key);
+  }
+  heavyPersistPending.delete(key);
+  cryptoDeferredWrites.delete(key);
+}
+
+function shouldDropStaleAtomicWrite(key: string): boolean {
+  return atomicWriteBarriers.has(key);
+}
+
+/**
+ * متى يُطبَّق حارس المسح؟
+ * - allowVerifiedEmptyOverwrite: تجاوز كامل (نقل مثبت إلى مقطع آخر).
+ * - allowShrink على غير الدعاوى: تجاوز (مسارات قديمة).
+ * - allowShrink على lawyer_files: ما زال يحرس التفريغ الكامل؛ التقلّص الجزئي
+ *   يثبته proveLawsuitActiveShrink في البوابة. بدون هذا كان [] يتجاوز الحارس.
+ */
+function shouldEnforceDossierWipeGuard(
+  key: string,
+  value: string,
+  options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean },
+): boolean {
+  if (options.allowVerifiedEmptyOverwrite) return false;
+  if (!options.allowShrink) return true;
+  if (key.includes('lawyer_files') && isEmptyingPayload(key, value)) return true;
+  return false;
+}
+
 const durableSetItemPending = new Map<string, Promise<void>>();
+/**
+ * حاجز كتابة متعدد المفاتيح. أي كتابة عادية لنفس المفتاح تنتظر المعاملة
+ * حتى لا تصل كتابة أقدم بعد COMMIT وتعيد حالة الإضبارة السابقة.
+ */
+const atomicWriteBarriers = new Map<string, Promise<void>>();
+let heldAtomicWriteGate: {
+  keys: ReadonlySet<string>;
+  promise: Promise<void>;
+  resolve: () => void;
+} | null = null;
 const cryptoDeferredWrites = new Map<string, string>();
 let cryptoDeferredFlushTimer: ReturnType<typeof setTimeout> | null = null;
 let cryptoDeferredAttempts = 0;
@@ -81,7 +140,9 @@ function queueCryptoDeferredWrite(key: string, value: string): void {
 async function flushCryptoDeferredWrites(): Promise<void> {
   if (cryptoDeferredWrites.size === 0) return;
   try {
-    await CryptoService.initialize();
+    if (!CryptoService.hasMasterKey() && heldAtomicWriteGate == null) {
+      await CryptoService.initialize();
+    }
   } catch {
     /* wrap قد يصل مع الجلسة */
   }
@@ -96,6 +157,9 @@ async function flushCryptoDeferredWrites(): Promise<void> {
   const batch = [...cryptoDeferredWrites.entries()];
   cryptoDeferredWrites.clear();
   for (const [key, value] of batch) {
+    if (shouldDropStaleAtomicWrite(key)) {
+      continue;
+    }
     try {
       await SecureStoreService.setItem(key, value);
     } catch (error) {
@@ -270,42 +334,35 @@ function scheduleProtectedBackupFromRaw(key: string, value: string): void {
   void backupSchedulerLoad.then((schedule) => schedule?.(key, value));
 }
 
-export class StorageEncryptionError extends Error {
-  constructor(key: string, cause?: unknown) {
-    super(`Refused to persist sensitive key "${key}" without encryption`);
-    this.name = 'StorageEncryptionError';
-    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
-  }
-}
-
-/** فشلت الكتابة إلى IndexedDB — الذاكرة ليست دليلاً على الحفظ */
-export class StoragePersistenceError extends Error {
-  constructor(key: string, cause?: unknown) {
-    super(`Failed to persist key "${key}" to IndexedDB`);
-    this.name = 'StoragePersistenceError';
-    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
-  }
-}
-
 /** تحديد ما إذا كان المفتاح حساساً ويحتاج تشفير */
 function isSensitiveKey(key: string): boolean {
   return isSensitiveStorageKey(key);
 }
 
-function touchDecryptedCache(key: string, value: string): void {
+function touchDecryptedCache(
+  key: string,
+  value: string,
+  options: { diskVerified?: boolean } = {},
+): void {
   decryptedCache.set(key, value);
+  if (options.diskVerified) diskVerifiedDecryptedCacheKeys.add(key);
+  else diskVerifiedDecryptedCacheKeys.delete(key);
   notifyDecryptedCacheWrite(key, value);
   const existingIdx = decryptedCacheOrder.indexOf(key);
   if (existingIdx >= 0) decryptedCacheOrder.splice(existingIdx, 1);
   decryptedCacheOrder.push(key);
   while (decryptedCacheOrder.length > MAX_DECRYPTED_CACHE_ENTRIES) {
     const evictKey = decryptedCacheOrder.shift();
-    if (evictKey) decryptedCache.delete(evictKey);
+    if (evictKey) {
+      decryptedCache.delete(evictKey);
+      diskVerifiedDecryptedCacheKeys.delete(evictKey);
+    }
   }
 }
 
 function deleteDecryptedCacheKey(key: string): void {
   decryptedCache.delete(key);
+  diskVerifiedDecryptedCacheKeys.delete(key);
   const idx = decryptedCacheOrder.indexOf(key);
   if (idx >= 0) decryptedCacheOrder.splice(idx, 1);
 }
@@ -325,18 +382,24 @@ async function encryptIfSensitive(key: string, value: string): Promise<string> {
   }
   if (value.startsWith(ENCRYPTED_PREFIX)) return value;
   try {
-    await Promise.race([
-      CryptoService.initialize(),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('crypto-init-timeout')), 6_000);
-      }),
-    ]);
+    if (!CryptoService.hasMasterKey()) {
+      await Promise.race([
+        CryptoService.initialize(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('crypto-init-timeout')), 6_000);
+        }),
+      ]);
+    }
     if (!CryptoService.hasMasterKey()) {
       throw new Error('crypto-not-ready');
     }
     const encrypted = await CryptoService.encryptData(value);
+    if ((await CryptoService.decryptData(encrypted)) !== value) {
+      throw new Error('crypto-roundtrip-mismatch');
+    }
     return `${ENCRYPTED_PREFIX}${encrypted}`;
   } catch (error) {
+    if (error instanceof StorageEncryptionError) throw error;
     const msg = error instanceof Error ? error.message : String(error);
     if (msg !== 'crypto-not-ready' && msg !== 'crypto-init-timeout') {
       _err(`Encryption failed for sensitive key "${key}" — write rejected:`, error);
@@ -349,22 +412,53 @@ async function encryptIfSensitive(key: string, value: string): Promise<string> {
 async function decryptIfSensitive(key: string, value: string): Promise<string | null> {
   if (!value.startsWith(ENCRYPTED_PREFIX)) return value;
   const encryptedPart = value.slice(ENCRYPTED_PREFIX.length);
-  try {
-    await Promise.race([
-      CryptoService.initialize(),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('crypto-init-timeout')), 4_000);
-      }),
-    ]);
-    return await CryptoService.decryptData(encryptedPart);
-  } catch (error) {
-    const recovered = await recoverPlaintextAfterDecryptFailure(key);
-    if (recovered !== null) {
-      if (!decryptFailureWarned.has(key)) {
-        decryptFailureWarned.add(key);
-        _warn(`Decryption failed for "${key}" — data restored from backup/legacy store.`);
+  const freezeKey = heldAtomicWriteGate != null;
+  const decryptOnce = async (): Promise<string> => {
+    if (!CryptoService.hasMasterKey()) {
+      if (freezeKey) {
+        throw new Error('crypto-frozen-without-key');
       }
-      return recovered;
+      try {
+        await Promise.race([
+          CryptoService.initialize(),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('crypto-init-timeout')), 4_000);
+          }),
+        ]);
+      } catch {
+        if (!CryptoService.hasMasterKey()) {
+          await CryptoService.rehydrateMasterKeyFromDisk();
+        }
+      }
+    }
+    if (!CryptoService.hasMasterKey()) {
+      if (freezeKey) {
+        throw new Error('crypto-frozen-without-key');
+      }
+      await CryptoService.rehydrateMasterKeyFromDisk();
+    }
+    return CryptoService.decryptData(encryptedPart);
+  };
+  try {
+    return await decryptOnce();
+  } catch (error) {
+    if (!freezeKey) {
+      try {
+        await CryptoService.rehydrateMasterKeyFromDisk();
+        if (CryptoService.hasMasterKey()) {
+          return await CryptoService.decryptData(encryptedPart);
+        }
+      } catch {
+        /* fall through to recovery */
+      }
+      const recovered = await recoverPlaintextAfterDecryptFailure(key);
+      if (recovered !== null) {
+        if (!decryptFailureWarned.has(key)) {
+          decryptFailureWarned.add(key);
+          _warn(`Decryption failed for "${key}" — data restored from backup/legacy store.`);
+        }
+        return recovered;
+      }
     }
     const wrapMismatch =
       (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'OperationError') ||
@@ -603,6 +697,69 @@ class SecureStoreService {
     });
   }
 
+  /**
+   * COMMIT واحد لعدة مفاتيح داخل معاملة IndexedDB واحدة.
+   * لا تُحدَّث مرايا الذاكرة إلا بعد `transaction.oncomplete`.
+   */
+  private static async webDbSetItems(
+    entries: readonly { key: string; value: string }[],
+  ): Promise<boolean> {
+    if (entries.length === 0) return true;
+    if (import.meta.env.VITEST) {
+      for (const entry of entries) vitestDiskStore.set(entry.key, entry.value);
+      return true;
+    }
+    const db = await this.openWebDatabase();
+    if (!db) {
+      for (const entry of entries) {
+        signalPersistenceFailure(entry.key, 'db-unavailable');
+      }
+      return false;
+    }
+    return await new Promise<boolean>((resolve) => {
+      const tx = this.beginWebDbTransaction(db, 'readwrite');
+      if (!tx) {
+        db.close();
+        for (const entry of entries) {
+          signalPersistenceFailure(
+            entry.key,
+            'transaction-failed',
+            'atomic transaction could not begin',
+          );
+        }
+        resolve(false);
+        return;
+      }
+      let settled = false;
+      const finish = (ok: boolean, detail?: string) => {
+        if (settled) return;
+        settled = true;
+        db.close();
+        if (!ok) {
+          for (const entry of entries) {
+            signalPersistenceFailure(entry.key, 'transaction-failed', detail);
+          }
+        }
+        resolve(ok);
+      };
+      try {
+        const store = tx.objectStore(WEB_STORE);
+        for (const entry of entries) store.put(entry.value, entry.key);
+      } catch (error) {
+        try {
+          tx.abort();
+        } catch {
+          /* transaction may already be inactive */
+        }
+        finish(false, error instanceof Error ? error.name : 'atomic put threw');
+        return;
+      }
+      tx.oncomplete = () => finish(true);
+      tx.onabort = () => finish(false, tx.error?.name ?? 'aborted');
+      tx.onerror = () => finish(false, tx.error?.name ?? 'error');
+    });
+  }
+
   private static async webDbGetItem(key: string): Promise<string | null> {
     if (import.meta.env.VITEST) {
       return vitestDiskStore.get(key) ?? null;
@@ -805,7 +962,9 @@ class SecureStoreService {
       ]);
       markLawsuitArchivePerf('keys-warm-start');
       try {
-        await CryptoService.initialize();
+        if (!CryptoService.hasMasterKey()) {
+          await CryptoService.initialize();
+        }
       } catch {
         /* فكّ لاحق يحاول مجدداً */
       }
@@ -830,7 +989,9 @@ class SecureStoreService {
     if (executionIndexReadyPromise) return executionIndexReadyPromise;
     const run = (async () => {
       try {
-        await CryptoService.initialize();
+        if (!CryptoService.hasMasterKey()) {
+          await CryptoService.initialize();
+        }
       } catch {
         /* فكّ لاحق يحاول مجدداً */
       }
@@ -855,7 +1016,9 @@ class SecureStoreService {
     if (__HAMI_CLIENT_PRODUCT__ === 'hq') return;
     if (!isWebEnvironment() || keys.length === 0) return;
     try {
-      await CryptoService.initialize();
+      if (!CryptoService.hasMasterKey()) {
+        await CryptoService.initialize();
+      }
     } catch {
       /* فكّ لاحق */
     }
@@ -1001,7 +1164,19 @@ class SecureStoreService {
     if (!isWebEnvironment()) return;
     await Promise.all(
       keys.map(async (key) => {
-        if (decryptedCache.has(key)) return;
+        if (decryptedCache.has(key)) {
+          const cached = decryptedCache.get(key);
+          if (
+            !(
+              key.includes('lawyer_files') &&
+              cached != null &&
+              isEmptyingPayload(key, cached) &&
+              !diskVerifiedDecryptedCacheKeys.has(key)
+            )
+          ) {
+            return;
+          }
+        }
         try {
           let raw: string | null = webFallbackStore.get(key) ?? null;
           if (raw === null) {
@@ -1011,7 +1186,9 @@ class SecureStoreService {
           if (raw === null) return;
           const decrypted = await decryptIfSensitive(key, raw);
           if (decrypted !== null) {
-            touchDecryptedCache(key, decrypted);
+            touchDecryptedCache(key, decrypted, {
+              diskVerified: raw.startsWith(ENCRYPTED_PREFIX),
+            });
             if (raw.startsWith(ENCRYPTED_PREFIX) && !isSensitiveKey(key)) {
               /*
                * التنفيذ وغيره خرج من سياسة التشفير. هذا المسار لازم لأن
@@ -1063,11 +1240,179 @@ class SecureStoreService {
     return mem;
   }
 
+  private static async setItemsAtomicallyInner(
+    items: readonly SecureStoreAtomicWrite[],
+  ): Promise<void> {
+    if (isWebEnvironment()) {
+      await this.ensureWebInfrastructureReady();
+    }
+
+    const encryptedEntries: Array<{ key: string; plain: string; encrypted: string }> = [];
+    if (isWebEnvironment() && CryptoService.hasMasterKey()) {
+      await CryptoService.persistInMemoryMasterKey();
+      await CryptoService.ensureMasterKeyObjectFromBits();
+    }
+    for (const item of items) {
+      if (isWebEnvironment()) {
+        const existingRaw = await this.resolveExistingRawForWipeGuard(item.key);
+        if (existingRaw) {
+          const decrypted = await decryptIfSensitive(item.key, existingRaw);
+          if (existingRaw.startsWith(ENCRYPTED_PREFIX) && decrypted === null) {
+            throw new StorageEncryptionError(
+              item.key,
+              'atomic overwrite refused because existing ciphertext is unreadable',
+            );
+          }
+          const existingPlain = decrypted ?? existingRaw;
+          if (
+            shouldEnforceDossierWipeGuard(item.key, item.value, item.options ?? {}) &&
+            this.shouldRejectEmptyOverwrite(item.key, item.value, existingPlain)
+          ) {
+            throw new StoragePersistenceError(
+              item.key,
+              'atomic write rejected by dossier wipe guard',
+            );
+          }
+        }
+      }
+      const encrypted = await encryptIfSensitive(item.key, item.value);
+      encryptedEntries.push({ key: item.key, plain: item.value, encrypted });
+    }
+
+    if (isWebEnvironment()) {
+      const wrote = await this.webDbSetItems(
+        encryptedEntries.map(({ key, encrypted }) => ({ key, value: encrypted })),
+      );
+      if (!wrote) {
+        throw new StoragePersistenceError(
+          encryptedEntries[0]?.key ?? 'atomic-batch',
+          'IndexedDB atomic transaction did not complete',
+        );
+      }
+      for (const entry of encryptedEntries) {
+        let raw: string | null = null;
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          raw = await this.webDbGetItem(entry.key);
+          if (raw === entry.encrypted) break;
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 25);
+          });
+        }
+        if (raw !== entry.encrypted) {
+          throw new StoragePersistenceError(
+            entry.key,
+            `atomic disk mismatch after commit have=${raw == null ? 'null' : String(raw.length)} want=${entry.encrypted.length}`,
+          );
+        }
+      }
+    }
+
+    /*
+     * الذاكرة تتبع القرص، لا تسبقه. هذا هو الفرق الجوهري عن setItemSync:
+     * لن تبدو العملية ناجحة في الجلسة إذا أُجهضت معاملة IndexedDB.
+     */
+    for (const entry of encryptedEntries) {
+      webFallbackStore.set(entry.key, entry.encrypted);
+      touchDecryptedCache(entry.key, entry.plain, { diskVerified: true });
+      scheduleProtectedBackupFromRaw(entry.key, entry.plain);
+    }
+  }
+
+  /**
+   * يمنع autosave/الكتابة المؤجّلة لمفاتيح الدعاوى من أول المعاملة حتى بعد التحقق.
+   * بدون هذا: initialize() يستغرق ثواني بلا حاجز فتعود الحمولة القديمة فوق COMMIT.
+   */
+  static acquireAtomicWriteBarriers(keys: readonly string[]): void {
+    this.releaseAtomicWriteBarriers();
+    const unique = [...new Set(keys.filter(Boolean))];
+    if (unique.length === 0) return;
+    let resolveGate: () => void = () => undefined;
+    const promise = new Promise<void>((resolve) => {
+      resolveGate = () => {
+        resolve();
+      };
+    });
+    heldAtomicWriteGate = { keys: new Set(unique), promise, resolve: resolveGate };
+    for (const key of unique) {
+      atomicWriteBarriers.set(key, promise);
+      dropStalePersistQueueForKey(key);
+    }
+  }
+
+  static releaseAtomicWriteBarriers(): void {
+    const held = heldAtomicWriteGate;
+    heldAtomicWriteGate = null;
+    if (!held) return;
+    held.resolve();
+    for (const key of held.keys) {
+      if (atomicWriteBarriers.get(key) === held.promise) {
+        atomicWriteBarriers.delete(key);
+      }
+    }
+  }
+
+  /**
+   * كتابة ذرّية متعددة المفاتيح. تُشفَّر الحمولة كاملة أولاً، ثم تُكتب في
+   * معاملة IndexedDB واحدة، ثم تُحدَّث مرايا الذاكرة بعد COMMIT فقط.
+   */
+  static setItemsAtomically(items: readonly SecureStoreAtomicWrite[]): Promise<void> {
+    const byKey = new Map<string, SecureStoreAtomicWrite>();
+    for (const item of items) {
+      if (!item?.key) continue;
+      byKey.set(item.key, item);
+    }
+    const batch = [...byKey.values()];
+    if (batch.length === 0) return Promise.resolve();
+
+    const keys = batch.map((item) => item.key);
+    for (const key of keys) {
+      dropStalePersistQueueForKey(key);
+    }
+    /*
+     * لا ننتظر durableSetItemPending لنفس المفاتيح: تلك الكتابات تنتظر الحاجز
+     * ثم تُسقط. انتظارها كان يُسبب جموداً أو يثبّت الحمولة القديمة بعد COMMIT.
+     */
+    const heldPromise = heldAtomicWriteGate?.promise;
+    const predecessors = keys
+      .map((key) => atomicWriteBarriers.get(key))
+      .filter(
+        (pending): pending is Promise<void> =>
+          pending != null && pending !== heldPromise,
+      );
+
+    const run = Promise.all(predecessors.map((pending) => pending.catch(() => undefined)))
+      .then(() => this.setItemsAtomicallyInner(batch));
+
+    for (const key of keys) {
+      if (!atomicWriteBarriers.has(key)) {
+        atomicWriteBarriers.set(key, run);
+      }
+      durableSetItemPending.set(key, run);
+    }
+    const cleanup = () => {
+      for (const key of keys) {
+        if (atomicWriteBarriers.get(key) === run) atomicWriteBarriers.delete(key);
+        if (durableSetItemPending.get(key) === run) durableSetItemPending.delete(key);
+      }
+    };
+    void run.then(cleanup, cleanup);
+    return run;
+  }
+
   static async setItem(
     key: string,
     value: string,
     options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
   ): Promise<void> {
+    const atomicBarrier = atomicWriteBarriers.get(key);
+    if (atomicBarrier) {
+      await atomicBarrier.catch(() => undefined);
+      /*
+       * الحمولة اتُخذت قبل/أثناء COMMIT. كتابتها بعده تعيد الحالة السابقة
+       * (نشط فوق سلة، أو `[]` فوق شواهد الحذف النهائي).
+       */
+      return;
+    }
     /*
      * المونولث الجزائي لم يعد مسار كتابة إنتاج — الشظايا فقط.
      * الاختبارات قد تزرع عبر setItemSync تحت VITEST.
@@ -1090,8 +1435,7 @@ class SecureStoreService {
            */
           const existingPlain = (await decryptIfSensitive(key, existingRaw)) ?? existingRaw;
           if (
-            !options.allowVerifiedEmptyOverwrite &&
-            !options.allowShrink &&
+            shouldEnforceDossierWipeGuard(key, value, options) &&
             this.shouldRejectEmptyOverwrite(key, value, existingPlain)
           ) {
             if (!key.startsWith('hami_notes_sync_map_')) {
@@ -1138,6 +1482,7 @@ class SecureStoreService {
     const previousRaw = isWebEnvironment() ? (webFallbackStore.get(key) ?? null) : null;
     const hadPlainCache = decryptedCache.has(key);
     const previousPlain = hadPlainCache ? (decryptedCache.get(key) as string) : null;
+    const previousDiskVerified = diskVerifiedDecryptedCacheKeys.has(key);
     touchDecryptedCache(key, value);
     let encrypted: string;
     try {
@@ -1155,10 +1500,25 @@ class SecureStoreService {
         );
       }
       if (!hadPlainCache) deleteDecryptedCacheKey(key);
-      else touchDecryptedCache(key, previousPlain as string);
+      else {
+        touchDecryptedCache(key, previousPlain as string, {
+          diskVerified: previousDiskVerified,
+        });
+      }
       throw error;
     }
     if (isWebEnvironment()) {
+      if (shouldDropStaleAtomicWrite(key)) {
+        if (previousRaw === null) webFallbackStore.delete(key);
+        else webFallbackStore.set(key, previousRaw);
+        if (!hadPlainCache) deleteDecryptedCacheKey(key);
+        else {
+          touchDecryptedCache(key, previousPlain as string, {
+            diskVerified: previousDiskVerified,
+          });
+        }
+        return;
+      }
       await this.ensureWebInfrastructureReady();
       webFallbackStore.set(key, encrypted);
       const wrote = await this.webDbSetItem(key, encrypted);
@@ -1166,9 +1526,14 @@ class SecureStoreService {
         if (previousRaw === null) webFallbackStore.delete(key);
         else webFallbackStore.set(key, previousRaw);
         if (!hadPlainCache) deleteDecryptedCacheKey(key);
-        else touchDecryptedCache(key, previousPlain as string);
+        else {
+          touchDecryptedCache(key, previousPlain as string, {
+            diskVerified: previousDiskVerified,
+          });
+        }
         throw new StoragePersistenceError(key, 'webDbSetItem returned false');
       }
+      touchDecryptedCache(key, value, { diskVerified: true });
       scheduleProtectedBackupFromRaw(key, value);
       return;
     }
@@ -1191,7 +1556,7 @@ class SecureStoreService {
     if (raw === null) return null;
     const decrypted = await decryptIfSensitive(key, raw);
     if (decrypted === null) return null;
-    touchDecryptedCache(key, decrypted);
+    touchDecryptedCache(key, decrypted, { diskVerified: true });
     if (raw.startsWith(ENCRYPTED_PREFIX)) {
       webFallbackStore.set(key, raw);
     }
@@ -1223,6 +1588,11 @@ class SecureStoreService {
   static poisonMemoryMirrorForTests(key: string, value: string): void {
     if (!import.meta.env.VITEST) return;
     webFallbackStore.set(key, value);
+    touchDecryptedCache(key, value);
+  }
+
+  static poisonDecryptedCacheOnlyForTests(key: string, value: string): void {
+    if (!import.meta.env.VITEST) return;
     touchDecryptedCache(key, value);
   }
 
@@ -1282,7 +1652,18 @@ class SecureStoreService {
     if (raw === null) return null;
     const decrypted = await decryptIfSensitive(key, raw);
     if (decrypted === null) return null;
-    touchDecryptedCache(key, decrypted);
+    let diskVerified = diskVerifiedDecryptedCacheKeys.has(key);
+    if (
+      isWebEnvironment() &&
+      key.includes('lawyer_files') &&
+      raw.startsWith(ENCRYPTED_PREFIX) &&
+      isEmptyingPayload(key, decrypted) &&
+      !diskVerified
+    ) {
+      const persisted = await this.webDbGetItem(key);
+      diskVerified = persisted === raw;
+    }
+    touchDecryptedCache(key, decrypted, { diskVerified });
     if (raw.startsWith(ENCRYPTED_PREFIX) && !isSensitiveKey(key)) {
       void this.setItem(key, decrypted);
     } else if (
@@ -1322,6 +1703,7 @@ class SecureStoreService {
 
   static clearDecryptedMemoryCache(): void {
     decryptedCache.clear();
+    diskVerifiedDecryptedCacheKeys.clear();
     decryptedCacheOrder.length = 0;
   }
 
@@ -1381,11 +1763,39 @@ class SecureStoreService {
     if (!isWebEnvironment()) return null;
     this.ensureWebMigrationSync();
     this.ensureWebReadySyncKickoff();
+    const storedRaw = webFallbackStore.get(key) ?? null;
+    /*
+     * دعاوى: [] في الذاكرة فوق ciphertext = تسميم قراءة متزامنة.
+     * إرجاع [] يجعل isUnreadSync=false فيُكتب التفريغ فوق الأصل عند الإقلاع.
+     * عُدّها غير مقروءة (null) مثل async getItem الذي يتجاوز الكاش المفرَّغ.
+     */
+    if (key.includes('lawyer_files') && storedRaw?.startsWith(ENCRYPTED_PREFIX)) {
+      if (decryptedCache.has(key)) {
+        const cached = decryptedCache.get(key);
+        if (
+          cached != null &&
+          isEmptyingPayload(key, cached) &&
+          !diskVerifiedDecryptedCacheKeys.has(key)
+        ) {
+          deleteDecryptedCacheKey(key);
+          return null;
+        }
+      }
+    }
     if (decryptedCache.has(key)) return decryptedCache.get(key) ?? null;
-    const raw = webFallbackStore.get(key) ?? null;
-    if (raw === null) return null;
-    if (raw.startsWith(ENCRYPTED_PREFIX)) return null;
-    return raw;
+    if (storedRaw === null) return null;
+    if (storedRaw.startsWith(ENCRYPTED_PREFIX)) return null;
+    if (
+      key.includes('lawyer_files') &&
+      isEmptyingPayload(key, storedRaw)
+    ) {
+      /*
+       * مرآة صريحة فارغة — بدون ciphertext محليّ قد تكون شرعية،
+       * لكن لا تُرجع [] إن وُجدت قيمة مشفّرة في كاش مسمّم أعلاه.
+       */
+      return storedRaw;
+    }
+    return storedRaw;
   }
 
   /**
@@ -1410,11 +1820,22 @@ class SecureStoreService {
   }
 
   /**
-   * المفتاح موجود على القرص لكن getItemSync لا تقرأه: مشفَّر وذاكرة الفكّ باردة.
-   * معاملته كمصفوفة فارغة ثم حفظها هو مسار مسح الإضبارة.
+   * المفتاح موجود على القرص لكن getItemSync لا تقرأه: مشفَّر وذاكرة الفكّ باردة،
+   * أو مرآة دعاوى مفرَّغة فوق ciphertext (تسميم). معاملته كمصفوفة فارغة ثم حفظها
+   * هو مسار مسح الإضبارة.
    */
   static isUnreadSync(key: string): boolean {
-    return this.hasItemSync(key) && this.getItemSync(key) === null;
+    if (!this.hasItemSync(key)) return false;
+    if (this.getItemSync(key) === null) return true;
+    if (!key.includes('lawyer_files')) return false;
+    const storedRaw = webFallbackStore.get(key) ?? null;
+    if (!storedRaw?.startsWith(ENCRYPTED_PREFIX)) return false;
+    const plain = decryptedCache.get(key);
+    return (
+      plain != null &&
+      isEmptyingPayload(key, plain) &&
+      !diskVerifiedDecryptedCacheKeys.has(key)
+    );
   }
 
   /**
@@ -1440,6 +1861,13 @@ class SecureStoreService {
     if (isWebEnvironment()) {
       this.ensureWebMigrationSync();
       this.ensureWebReadySyncKickoff();
+      /*
+       * أثناء المعاملة: ارفض الكتابة المتزامنة. تصفيفها خلف COMMIT كان يعيد
+       * autosave النشط القديم فوق السلة بعد نجاح الكتابة الذرية.
+       */
+      if (atomicWriteBarriers.has(key)) {
+        return true;
+      }
       const cachedPlain = this.getItemSync(key);
       const storedRaw = webFallbackStore.get(key) ?? null;
       /*
@@ -1452,8 +1880,8 @@ class SecureStoreService {
         storedRaw?.startsWith(ENCRYPTED_PREFIX) &&
         cachedPlain != null &&
         isEmptyingPayload(key, cachedPlain) &&
-        !options.allowShrink &&
-        !options.allowVerifiedEmptyOverwrite
+        !diskVerifiedDecryptedCacheKeys.has(key) &&
+        shouldEnforceDossierWipeGuard(key, value, options)
       ) {
         _guard(
           `Refused overwrite of encrypted "${key}" while memory is empty — existing data preserved.`,
@@ -1507,8 +1935,7 @@ class SecureStoreService {
       }
       if (
         existing &&
-        !options.allowShrink &&
-        !options.allowVerifiedEmptyOverwrite &&
+        shouldEnforceDossierWipeGuard(key, value, options) &&
         this.shouldRejectEmptyOverwrite(key, value, existing)
       ) {
         return false;

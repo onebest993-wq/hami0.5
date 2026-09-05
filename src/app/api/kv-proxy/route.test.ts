@@ -147,3 +147,28 @@ describe('kv-proxy public prefix authorization', () => {
         expect(kvKeysByPrefixMock).not.toHaveBeenCalled();
     });
 });
+
+describe('kv-proxy calendar never-cloud', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        requireWifeUserMock.mockResolvedValue({ ok: true, userId: 'user-1' });
+    });
+
+    it.each([
+        { action: 'get', key: 'calendar:user-1:hearing-1' },
+        { action: 'set', key: 'calendar:user-1:hearing-1', value: { id: 'hearing-1' } },
+        { action: 'del', key: 'calendar:user-1:hearing-1' },
+        { action: 'getByPrefix', prefix: 'calendar:user-1:' },
+        { action: 'delByPrefix', prefix: 'calendar:user-1:' },
+        { action: 'listKeysByPrefix', prefix: 'calendar:user-1:' },
+        { action: 'get', key: 'hami:calendar:events:user-1:v1' },
+    ])('يرفض $action على مادة التقويم ولا يلمس المخزن', async (body) => {
+        const res = await POST(buildActionRequest(body));
+        expect(res.status).toBe(403);
+        const json = (await res.json()) as { error?: string };
+        expect(json.error).toBe('Forbidden: calendar is local-only');
+        expect(kvGetMock).not.toHaveBeenCalled();
+        expect(kvDelByPrefixMock).not.toHaveBeenCalled();
+        expect(kvKeysByPrefixMock).not.toHaveBeenCalled();
+    });
+});

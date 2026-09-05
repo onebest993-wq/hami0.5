@@ -24,7 +24,7 @@ export function isTaskMarkedDone(task: LegalTask): boolean {
 }
 
 /** يوم المهمة في الأجندة — تاريخ المهمة أو يوم الإنجاز للمهام بلا تاريخ */
-export function getTaskAgendaDay(task: LegalTask): Date | null {
+function getTaskAgendaDay(task: LegalTask): Date | null {
     if (task.parsedDate) return startOfLocalDay(task.parsedDate);
     if (task.completedAt) return startOfLocalDay(task.completedAt);
     return null;

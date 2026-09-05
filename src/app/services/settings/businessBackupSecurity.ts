@@ -19,7 +19,7 @@ export const BACKUP_KDF_MAX_ITERATIONS = 1_000_000;
 export const MAX_BACKUP_FILE_BYTES = 25_000_000;
 export const MAX_BACKUP_PLAINTEXT_BYTES = 18_000_000;
 
-export type BackupPasswordValidation =
+type BackupPasswordValidation =
     | { ok: true }
     | { ok: false; reason: 'empty' | 'too_short' | 'too_long' };
 
@@ -36,7 +36,7 @@ export function validateBackupPassword(password: string): BackupPasswordValidati
 export const MAX_BACKUP_IMPORT_KEYS = 2_000;
 
 /** أقصى حجم إجمالي للقيم المستوردة (حروف) */
-export const MAX_BACKUP_IMPORT_VALUE_CHARS = 17_000_000;
+const MAX_BACKUP_IMPORT_VALUE_CHARS = 17_000_000;
 const MAX_BACKUP_IMPORT_KEY_LENGTH = 512;
 
 const EXACT_ALLOWED_KEYS = new Set<string>([
@@ -89,7 +89,7 @@ export function isAllowedBusinessBackupKey(key: string): boolean {
     return ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
-export type BackupImportValidation =
+type BackupImportValidation =
     | { ok: true; keyCount: number; totalChars: number }
     | { ok: false; reason: string };
 

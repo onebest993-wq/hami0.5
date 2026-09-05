@@ -5,7 +5,7 @@ import {
     NOTIFICATION_OPEN_ATTR,
 } from './notificationInstantPaintConstants';
 
-export function resolveNotificationLayer(): HTMLElement | null {
+function resolveNotificationLayer(): HTMLElement | null {
     if (typeof document === 'undefined') return null;
     const host = document.querySelector(NOTIFICATION_LAYER_SELECTOR);
     if (host instanceof HTMLElement) return host;

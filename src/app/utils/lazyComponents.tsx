@@ -23,7 +23,6 @@
  * مصدره؛ المحور لِما يحتاج تجميعاً حقيقياً (تسخين قسم يمسّ أكثر من مُحمِّل).
  */
 
-import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import {
     type ExecutionDashboardPrefetchMode,
     loadExecutionDashboardModule,
@@ -31,26 +30,14 @@ import {
 } from '@/app/runtime/executionDashboardLoader';
 import { loadTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
 import { prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
-import { prefetchNotificationPanel as prefetchNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import { loadProfileSettingsSheetModule as loadProfileSettingsSheetLoaderModule } from '@/app/runtime/profileSettingsSheetLoader';
 import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import {
-    loadRoyalLawyerProfileModule,
     prefetchRoyalLawyerProfile as prefetchRoyalLawyerProfileModule,
 } from '@/app/runtime/royalLawyerProfileLoader';
 import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
 
 export { prefetchArchivePortal } from '@/app/runtime/archivePortalPrefetch';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// مكوّنات مؤجَّلة موصولة
-// ═══════════════════════════════════════════════════════════════════════════
-
-export const LazyRoyalLawyerProfile = lazyWithRetry(() =>
-    loadRoyalLawyerProfileModule().then((mod) => ({
-        default: mod.RoyalLawyerProfile as unknown as LazyComponent,
-    })),
-);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // تسخين أقسام — تفويض إلى مُحمِّلات النطاق
@@ -199,11 +186,6 @@ export function prefetchVoiceRecorderModal(): void {
         );
     }
     void voiceRecorderModalPrefetch.catch(() => undefined);
-}
-
-export function prefetchNotificationPanel(): void {
-    if (typeof window === 'undefined') return;
-    prefetchNotificationPanelModule();
 }
 
 let transactionsHubPrefetch: Promise<unknown> | null = null;

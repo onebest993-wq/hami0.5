@@ -18,6 +18,7 @@ import {
     nativeChannelIdForKey,
 } from '@/app/services/notifications/native/nativeNotificationChannels';
 import type { NotificationChannelKey } from '@/app/services/settings/notificationSettings';
+import { HAMI_OS_NOTIFICATION_VIBRATE_PATTERN } from '@/app/services/platform/deviceHaptic';
 import {
     initializeHamiNotificationBridge,
     loadNativePlugin,
@@ -107,6 +108,7 @@ export async function previewHamiOsNotification(): Promise<boolean> {
             body,
             tag: `os-preview-${Date.now()}`,
             silent: false,
+            vibrate: [...HAMI_OS_NOTIFICATION_VIBRATE_PATTERN],
             data: extra,
         });
         return true;

@@ -28,21 +28,32 @@ import { closeOverlaysBeforeForumOpen } from '@/app/services/forum/forumShellOrc
 import { bindForumOpenIntent } from '@/app/runtime/forumOpenIntent';
 import { closeOverlaysBeforeTransactionsOpen } from '@/app/services/transactions/transactionsShellOrchestration';
 import { closeOverlaysBeforeSettingsOpen } from '@/app/services/settings/settingsShellOrchestration';
+import {
+    concealRepositoryWarmShell,
+    REPOSITORY_INSTANT_DISMISS_EVENT,
+} from '@/app/runtime/repositoryInstantPaint';
+import {
+    concealFieldTasksWarmSheet,
+    FIELD_TASKS_INSTANT_DISMISS_EVENT,
+} from '@/app/runtime/fieldTasksInstantPaint';
 import type { UseLawyerDashboardCoreParams } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 import type {
     DeferredFeatureBag,
+    DeferredFieldTasks,
     DeferredPendingOp,
 } from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
 import {
     createDeferredFeatureStubs,
     deferredHandoffId,
     isDeferredPendingOpSatisfied,
+    isFieldTasksDeferredOp,
     runDeferredPendingOp,
 } from '@/app/components/lawyer/dashboard/createDeferredFeatureStubs';
 import {
     createPreDockFeatureStubs,
     isPreDockPendingOpSatisfied,
     readPreDockEarlyArm,
+    readRepositoryEarlyArm,
     runPreDockPendingOp,
 } from '@/app/components/lawyer/dashboard/createPreDockFeatureStubs';
 import {
@@ -60,9 +71,13 @@ import {
     clearShellHandoffPending,
     markShellHandoffPending,
 } from '@/app/runtime/sectionShellHandoff';
-import type { PreDockFeatureBag, PreDockPendingOp } from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
+import type {
+    PreDockFeatureBag,
+    PreDockLiveBag,
+    PreDockPendingOp,
+    PreDockRepository,
+} from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
 import {
-    readInitialFieldTasksSession,
     readInitialGlobalSearchSession,
     readInitialTransactionsSession,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
@@ -70,7 +85,6 @@ import {
 function readDeferredEarlyArm(): boolean {
     if (typeof window === 'undefined') return false;
     if (readInitialTransactionsSession().open) return true;
-    if (readInitialFieldTasksSession().open) return true;
     if (readInitialGlobalSearchSession().open) return true;
     return false;
 }
@@ -137,15 +151,20 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
 
     const [earlyArm] = useState(readDeferredEarlyArm);
     const [preDockEarlyArm] = useState(readPreDockEarlyArm);
+    const [repositoryEarlyArm] = useState(readRepositoryEarlyArm);
     const [forceArm, setForceArm] = useState(false);
+    const [fieldTasksForceArm, setFieldTasksForceArm] = useState(false);
     const [preDockForceArm, setPreDockForceArm] = useState(false);
+    const [repositoryForceArm, setRepositoryForceArm] = useState(false);
     const pendingOpRef = useRef<DeferredPendingOp | null>(null) as MutableRefObject<DeferredPendingOp | null>;
     const preDockPendingOpRef = useRef<PreDockPendingOp | null>(null) as MutableRefObject<PreDockPendingOp | null>;
     const bootChromePendingOpRef = useRef<BootChromePendingOp | null>(
         null,
     ) as MutableRefObject<BootChromePendingOp | null>;
     const [liveBag, setLiveBag] = useState<DeferredFeatureBag | null>(null);
-    const [livePreDock, setLivePreDock] = useState<PreDockFeatureBag | null>(null);
+    const [liveFieldTasks, setLiveFieldTasks] = useState<DeferredFieldTasks | null>(null);
+    const [livePreDock, setLivePreDock] = useState<PreDockLiveBag | null>(null);
+    const [liveRepository, setLiveRepository] = useState<PreDockRepository | null>(null);
     const [bootChromeForceArm, setBootChromeForceArm] = useState(false);
     const [liveBootChrome, setLiveBootChrome] = useState<{
         settings: LawyerDashboardSettingsFeature;
@@ -155,12 +174,28 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
     const requestArm = useCallback((op: DeferredPendingOp) => {
         pendingOpRef.current = op;
         if (op) markShellHandoffPending(deferredHandoffId(op));
+        if (isFieldTasksDeferredOp(op)) {
+            setFieldTasksForceArm(true);
+            return;
+        }
         setForceArm(true);
+    }, []);
+
+    const clearDeferredPending = useCallback((op?: DeferredPendingOp) => {
+        if (!op || pendingOpRef.current === op) {
+            const current = pendingOpRef.current;
+            if (current) clearShellHandoffPending(deferredHandoffId(current));
+            pendingOpRef.current = null;
+        }
     }, []);
 
     const requestPreDockArm = useCallback((op: PreDockPendingOp) => {
         preDockPendingOpRef.current = op;
         if (op) markShellHandoffPending(op);
+        if (op === 'repository') {
+            setRepositoryForceArm(true);
+            return;
+        }
         setPreDockForceArm(true);
     }, []);
 
@@ -171,6 +206,27 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
             preDockPendingOpRef.current = null;
         }
     }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onInstantDismiss = () => {
+            clearPreDockPending('repository');
+            concealRepositoryWarmShell();
+        };
+        window.addEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, onInstantDismiss);
+        return () => window.removeEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, onInstantDismiss);
+    }, [clearPreDockPending]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onFieldTasksInstantDismiss = () => {
+            clearDeferredPending('fieldTasks');
+            concealFieldTasksWarmSheet();
+        };
+        window.addEventListener(FIELD_TASKS_INSTANT_DISMISS_EVENT, onFieldTasksInstantDismiss);
+        return () =>
+            window.removeEventListener(FIELD_TASKS_INSTANT_DISMISS_EVENT, onFieldTasksInstantDismiss);
+    }, [clearDeferredPending]);
 
     const clearBootChromePending = useCallback((op?: BootChromePendingOp) => {
         if (!op) {
@@ -200,6 +256,11 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
     }, []);
 
     const stubs = useMemo(() => createDeferredFeatureStubs(requestArm), [requestArm]);
+    const deferredLive = liveBag ?? stubs;
+    const bag: DeferredFeatureBag = {
+        ...deferredLive,
+        fieldTasks: liveFieldTasks ?? stubs.fieldTasks,
+    };
     const preDockStubs = useMemo(
         () => createPreDockFeatureStubs(requestPreDockArm, clearPreDockPending),
         [requestPreDockArm, clearPreDockPending],
@@ -208,11 +269,9 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
         () => createBootChromeFeatureStubs(requestBootChromeArm, clearBootChromePending),
         [requestBootChromeArm, clearBootChromePending],
     );
-    const bag = liveBag ?? stubs;
-    const preDock = livePreDock ?? preDockStubs;
-    const communityFeature = preDock.community;
-    const scheduleFeature = preDock.schedule;
-    const repositoryFeature = preDock.repository;
+    const communityFeature = livePreDock?.community ?? preDockStubs.community;
+    const scheduleFeature = livePreDock?.schedule ?? preDockStubs.schedule;
+    const repositoryFeature = liveRepository ?? preDockStubs.repository;
     const settingsFeature = liveBootChrome?.settings ?? bootChromeStubs.settings;
     const profileFeature = liveBootChrome?.profile ?? bootChromeStubs.profile;
 
@@ -269,7 +328,7 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
         };
         setLiveBag(next);
         const op = pendingOpRef.current;
-        if (!op) return;
+        if (!op || isFieldTasksDeferredOp(op)) return;
         if (isDeferredPendingOpSatisfied(next, op)) {
             pendingOpRef.current = null;
             clearShellHandoffPending(deferredHandoffId(op));
@@ -278,16 +337,49 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
         runDeferredPendingOp(next, op);
     }, [repositoryFeature]);
 
-    const onPreDockFeaturesReady = useCallback((next: PreDockFeatureBag) => {
+    const onFieldTasksReady = useCallback((next: DeferredFieldTasks) => {
+        setLiveFieldTasks((prev) => (prev === next ? prev : next));
+        const op = pendingOpRef.current;
+        if (!isFieldTasksDeferredOp(op)) return;
+        const merged: DeferredFeatureBag = {
+            ...(liveBag ?? stubs),
+            fieldTasks: next,
+        };
+        if (isDeferredPendingOpSatisfied(merged, op)) {
+            pendingOpRef.current = null;
+            clearShellHandoffPending(deferredHandoffId(op));
+            return;
+        }
+        runDeferredPendingOp(merged, op);
+    }, [liveBag, stubs]);
+
+    const onPreDockFeaturesReady = useCallback((next: PreDockLiveBag) => {
         setLivePreDock(next);
         const op = preDockPendingOpRef.current;
-        if (!op) return;
-        if (isPreDockPendingOpSatisfied(next, op)) {
+        if (!op || op === 'repository') return;
+        const bagForOp: PreDockFeatureBag = {
+            community: next.community,
+            schedule: next.schedule,
+            repository: preDockStubs.repository,
+        };
+        if (isPreDockPendingOpSatisfied(bagForOp, op)) {
             preDockPendingOpRef.current = null;
             clearShellHandoffPending(op);
             return;
         }
-        runPreDockPendingOp(next, op);
+        runPreDockPendingOp(bagForOp, op);
+    }, [preDockStubs.repository]);
+
+    const onRepositoryFeaturesReady = useCallback((next: PreDockRepository) => {
+        setLiveRepository(next);
+        const op = preDockPendingOpRef.current;
+        if (op !== 'repository') return;
+        if (next.isRepositoryOpen) {
+            preDockPendingOpRef.current = null;
+            clearShellHandoffPending(op);
+            return;
+        }
+        next.openRepository();
     }, []);
 
     const productivityOverlayClosers = useMemo(
@@ -406,8 +498,10 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
         dashboardHome,
         earlyArm,
         forceArm,
+        fieldTasksForceArm,
         bag,
         onDeferredFeaturesReady,
+        onFieldTasksReady,
         productivityOverlayClosers,
         openNotifications,
         openCommunityTab,
@@ -424,6 +518,9 @@ export function useLawyerDashboardPreWorkspaceOrchestration({
         preDockEarlyArm,
         preDockForceArm,
         onPreDockFeaturesReady,
+        repositoryEarlyArm,
+        repositoryForceArm,
+        onRepositoryFeaturesReady,
         bootChromeForceArm,
         onSettingsProfileReady,
     };

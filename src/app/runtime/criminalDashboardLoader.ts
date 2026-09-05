@@ -169,10 +169,11 @@ export function prefetchCriminalDashboardChromeWarm(): void {
     void prefetchCriminalStore().catch(() => undefined);
 
     void import('@/app/components/lawyer/criminal-system/CriminalDashboardBootChrome').catch(
-
         () => undefined,
-
     );
+    void import('@/app/components/lawyer/dashboard/overlayInstantChromeLazy')
+        .then((m) => m.LazyCriminalDashboardBootChrome.preload())
+        .catch(() => undefined);
 
 }
 

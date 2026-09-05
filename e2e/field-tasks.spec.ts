@@ -10,6 +10,7 @@ import {
     openFieldTasksFromDock,
     openTasksManagerFromSheet,
     prepareTasksE2E,
+    revealWeekAddOptionalFields,
     seedQuantumTasks,
     teardownTasksE2E,
     workWeekKeyForDate,
@@ -29,12 +30,13 @@ async function openAddTaskForm(manager: Locator) {
     }
     await expect(addBtn).toBeVisible({ timeout: 12_000 });
 
-    const detailsField = manager.getByTestId('tasks-week-form-details');
-    if (!(await detailsField.isVisible().catch(() => false))) {
+    const form = manager.getByTestId('tasks-week-add-form');
+    if (!(await form.isVisible().catch(() => false))) {
         await addBtn.click({ force: true, noWaitAfter: true });
     }
-    await expect(detailsField).toBeVisible({ timeout: 8_000 });
-    await expect(detailsField).toBeEditable();
+    await expect(form).toBeVisible({ timeout: 8_000 });
+    await revealWeekAddOptionalFields(manager, ['details', 'location']);
+    await expect(manager.getByTestId('tasks-week-form-details')).toBeEditable();
 }
 
 async function fillAndSaveTask(manager: Locator) {

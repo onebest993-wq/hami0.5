@@ -35,13 +35,23 @@ describe('queryMicrophonePermission', () => {
                 query: vi.fn().mockResolvedValue({ state: 'prompt', onchange: null }),
             },
         });
-        vi.stubGlobal('document', {
-            permissionsPolicy: {
+        const previous = Object.getOwnPropertyDescriptor(Document.prototype, 'permissionsPolicy')
+            ?? Object.getOwnPropertyDescriptor(document, 'permissionsPolicy');
+        Object.defineProperty(document, 'permissionsPolicy', {
+            configurable: true,
+            value: {
                 allowsFeature: (feature: string) => feature !== 'microphone',
             },
         });
-
-        await expect(queryMicrophonePermission()).resolves.toBe('denied');
+        try {
+            await expect(queryMicrophonePermission()).resolves.toBe('denied');
+        } finally {
+            if (previous) {
+                Object.defineProperty(document, 'permissionsPolicy', previous);
+            } else {
+                Reflect.deleteProperty(document, 'permissionsPolicy');
+            }
+        }
     });
 
     it('يُرجع granted عند وجود تسمية جهاز صوتي (بعد منح الإذن سابقاً)', async () => {

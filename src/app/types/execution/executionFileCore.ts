@@ -85,7 +85,7 @@ export interface ExecutionFileCore {
         body: string;
         createdAt: string;
         trashedAt?: string;
-        /** تثبيت في درج الملاحظات داخل «سجل الملاحظات والمهام» */
+        /** تثبيت في درج الملاحظات داخل «سجل الملاحظات» */
         pinned?: boolean;
     }>;
     /** مهام معلّقة من «سجل الملاحظات» — تظهر في الشريط العلوي حتى الإنجاز */
@@ -121,6 +121,8 @@ export interface ExecutionFileCore {
     /** مفاتيح إجراءات إكراهية نشطة في الواجهة / التخزين المحلي (مثلاً salary) */
     activeCoerciveActions?: string[];
     seizedAssets?: SeizedAsset[];
+    /** موافقة المحامي على تفعيل الحجز في شريحة 1–2 مليون */
+    seizure_matrix_soft_opt_in?: boolean;
     /** طلبات حجز بانتظار موافقة المنفذ — المفتاح هو معرّف صف القرار */
     seizureDraftsByDecisionId?: Record<string, SeizedAsset>;
     seizedProperties?: SeizedProperty[];

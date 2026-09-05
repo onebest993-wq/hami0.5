@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
     markPerfMock: vi.fn(),
     loadHostMock: vi.fn(() => Promise.resolve({})),
     isSnappedOpen: vi.fn(() => false),
+    primePeekMock: vi.fn(() => false),
 }));
 
 vi.mock('react-dom', () => ({
@@ -32,6 +33,10 @@ vi.mock('@/app/services/schedule/scheduleShellSnap', () => ({
 vi.mock('@/app/runtime/scheduleHubLoader', () => ({
     prefetchScheduleTabHostModule: vi.fn(),
     loadScheduleTabHostModule: mocks.loadHostMock,
+}));
+
+vi.mock('@/app/services/calendar/calendarEventsWarm', () => ({
+    primeCalendarEventsCacheFromPeek: mocks.primePeekMock,
 }));
 
 describe('scheduleShellOpenFlow', () => {
@@ -134,6 +139,21 @@ describe('scheduleShellOpenFlow', () => {
         await vi.waitFor(() => {
             expect(mocks.loadHostMock).toHaveBeenCalled();
         });
+    });
+
+    it('يملأ كاش العرض من peek بهوية الفتح', async () => {
+        const { commitScheduleTabOpen } = await import(
+            '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow'
+        );
+
+        commitScheduleTabOpen({
+            armScheduleHost: vi.fn(),
+            setCalendarSearchFocus: vi.fn(),
+            setActiveTab: vi.fn(),
+            userId: 'guest-lawyer-1',
+        });
+
+        expect(mocks.primePeekMock).toHaveBeenCalledWith('guest-lawyer-1');
     });
 
     it('commitScheduleTabClose يعيد الرئيسية فوراً مع snap DOM', async () => {

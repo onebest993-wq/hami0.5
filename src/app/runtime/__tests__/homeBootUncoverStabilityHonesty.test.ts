@@ -9,14 +9,14 @@ function src(rel: string): string {
 }
 
 describe('home boot uncover stability', () => {
-    it('لا يقطع الغطاء قبل البطاقة الحية والهوية، ويتلاشى فوق الواجهة النهائية', () => {
+    it('لا يقطع الغطاء قبل كروم المركز وبلاطات حية، ويتلاشى فوق الواجهة النهائية', () => {
         const gate = src('src/app/bootstrap/homeMainGridPaintGate.ts');
         const worthy = src('src/app/bootstrap/bootWorthySurface.ts');
         const announce = src('src/app/bootstrap/homeMainGridPaintAnnounce.ts');
         const fade = src('src/app/bootstrap/bootStaticShell.constants.ts');
-        expect(worthy).toContain('isLiveHubPaintWorthy(root)');
+        expect(worthy).toContain('isHubChromePaintWorthy(root)');
         expect(worthy).toContain('findLiveHomeMainGrid');
-        expect(announce).toContain('isLiveHubPaintWorthy(grid)');
+        expect(announce).toContain('isHubChromePaintWorthy(grid)');
         expect(announce).toContain('hasLiveCommandTiles(grid)');
         expect(announce).toContain('hasIncompleteHomeWidgetSlots');
         expect(announce).not.toContain('if (grid.querySelector(\'[data-testid="home-hub-card"]\')) return true');

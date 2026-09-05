@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useLawyerDashboardWorkspaceHeavy } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceHeavy';
 import type { LawyerDashboardWorkspaceProviderParams } from '@/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceProvider';
-import type { LawyerDashboardWorkspaceStem } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceStem';
+import type { LawyerDashboardWorkspaceStem } from '@/app/hooks/lawyerDashboard/lawyerDashboardWorkspaceStem.types';
 
 type LawyerDashboardWorkspaceHeavyLayerProps = {
     params: LawyerDashboardWorkspaceProviderParams;
@@ -34,7 +34,12 @@ export function LawyerDashboardWorkspaceHeavyLayer({
             prev.caseLinkBrowse === heavy.caseLinkBrowse &&
             prev.caseLinkViewOnly === heavy.caseLinkViewOnly &&
             prev.consolidationNavActive === heavy.consolidationNavActive &&
-            prev.caseLinkNav === heavy.caseLinkNav
+            prev.caseLinkNav === heavy.caseLinkNav &&
+            prev.permanentlyDeleteLawsuits === heavy.permanentlyDeleteLawsuits &&
+            prev.moveLawsuitToTrash === heavy.moveLawsuitToTrash &&
+            prev.restoreLawsuitFromTrash === heavy.restoreLawsuitFromTrash &&
+            prev.archiveLawsuit === heavy.archiveLawsuit &&
+            prev.permanentlyDeleteExecutions === heavy.permanentlyDeleteExecutions
         ) {
             return;
         }
@@ -52,6 +57,11 @@ export function LawyerDashboardWorkspaceHeavyLayer({
         heavy.isExecutionModalOpen,
         heavy.isNewCaseModalOpen,
         heavy.storageHydrated,
+        heavy.permanentlyDeleteLawsuits,
+        heavy.moveLawsuitToTrash,
+        heavy.restoreLawsuitFromTrash,
+        heavy.archiveLawsuit,
+        heavy.permanentlyDeleteExecutions,
         onHeavyChange,
     ]);
 

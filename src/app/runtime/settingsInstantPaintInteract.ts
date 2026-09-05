@@ -5,6 +5,9 @@ import {
 
 export const SETTINGS_OVERLAY_INTERACT_CLASS = 'hami-settings-overlay-layer--interact';
 const CLOSE_GUARD_ATTR = 'data-settings-close-guard';
+/** أزرار قد تستقبل click شبحي بعد إيماءة فتح الترس */
+export const SETTINGS_GHOST_CLICK_SWALLOW_SELECTOR =
+    '[data-testid="settings-shell-close"], [data-testid="settings-instant-close"], [data-testid="header-settings-trigger"], [data-instant-tab]';
 
 /**
  * مهلة احتياط إن لم يصل pointerup أصلاً (إيماءة معلّقة).
@@ -123,9 +126,7 @@ export function scheduleSettingsOverlayInteractionArm(root?: HTMLElement | null)
         const target = event.target;
         if (
             target instanceof Element &&
-            target.closest(
-                '[data-testid="settings-shell-close"], [data-testid="header-settings-trigger"]',
-            )
+            target.closest(SETTINGS_GHOST_CLICK_SWALLOW_SELECTOR)
         ) {
             event.preventDefault();
             event.stopPropagation();

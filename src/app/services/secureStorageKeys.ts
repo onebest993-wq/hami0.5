@@ -212,11 +212,15 @@ export function isLawsuitEncryptAlwaysKey(key: string): boolean {
 
 /**
  * كتابة حسّاسة: تشفير أو رفض ظاهر — لا طابور صامت يُظهر «حُفظ» والقرص فارغ.
- * الدعاوى كانت وحدها في هذا المسار؛ المعاملات تحمل نفس أسماء الموكّلين.
+ * الدعاوى كانت وحدها في هذا المسار؛ المعاملات والمهام وإعدادات الجهاز تحمل أسراراً محلية.
  */
 export function isEncryptOrFailStorageKey(key: string): boolean {
     if (isLawsuitEncryptAlwaysKey(key)) return true;
-    return isTransactionsStorageKey(key);
+    if (isTransactionsStorageKey(key)) return true;
+    if (key === 'lawyer_settings') return true;
+    if (key === 'hami_quantum_legal_tasks_v1') return true;
+    if (key === 'hami_task_help_requests_v1') return true;
+    return false;
 }
 
 /**

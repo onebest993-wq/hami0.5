@@ -3,6 +3,7 @@ import {
     emitForumUnreadCount,
     FORUM_UNREAD_CHANGED_EVENT,
 } from '@/app/services/forum/forumNotificationEvents';
+import { isForumSurfaceLive, subscribeForumSurfaceLive } from '@/app/runtime/forumSurfaceLive';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { resolveForumUnreadPollMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
 import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
@@ -17,6 +18,7 @@ export function useForumUnreadCount(userId: string | null, enabled = true): Foru
     const [count, setCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [streamRunning, setStreamRunning] = useState(false);
+    const [surfaceLive, setSurfaceLive] = useState(() => isForumSurfaceLive());
 
     const refresh = useCallback(
         async (opts?: { silent?: boolean }) => {
@@ -79,19 +81,26 @@ export function useForumUnreadCount(userId: string | null, enabled = true): Foru
         };
     }, [enabled]);
 
+    useEffect(
+        () =>
+            subscribeForumSurfaceLive(() => {
+                setSurfaceLive(isForumSurfaceLive());
+            }),
+        [],
+    );
+
     useVisibilityAwareInterval(
         () => {
             void refresh({ silent: true });
         },
         resolveForumUnreadPollMs(streamRunning),
-        enabled && Boolean(userId) && canReachProtectedServerNetwork(userId),
+        enabled && Boolean(userId) && canReachProtectedServerNetwork(userId) && !surfaceLive,
     );
 
     useEffect(() => {
         const onExternal = (e: Event) => {
             const detail = (e as CustomEvent<{ count: number; refresh?: boolean }>).detail;
             if (typeof detail?.count === 'number') setCount(detail.count);
-            if (detail?.refresh) void refresh();
         };
         window.addEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);
         return () => window.removeEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);

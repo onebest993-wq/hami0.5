@@ -154,10 +154,9 @@ describe('global search section surgical close honesty', () => {
         expect(main).toContain('LazyGlobalSearchOverlayEntry');
         expect(main).toContain('showGlobalSearch');
         expect(main).toMatch(/globalSearchLive\s*\?[\s\S]*?LazyGlobalSearchOverlayEntry/);
-        expect(main).toContain('GlobalSearchInstantPaintCover');
-        expect(main).toContain('LazyGlobalSearchInstantPaintCover');
+        expect(main).toContain('GlobalSearchOverlaySuspenseCover');
         expect(main).not.toContain('GlobalSearchInstantShell');
-        expect(main).toMatch(/showGlobalSearch[\s\S]*?LazyGlobalSearchInstantPaintCover/);
+        expect(main).toMatch(/showGlobalSearch[\s\S]*?GlobalSearchOverlaySuspenseCover/);
         expect(main).toContain('warmOverlayEntryChunks');
     });
 
@@ -479,7 +478,7 @@ describe('global search section surgical close honesty', () => {
         expect(css).not.toMatch(/::before\s*\{/);
         expect(css).toContain('[data-search-open=\'true\']');
         expect(css).toContain("html[data-hami-global-search-open='1'] [data-hami-lawyer-dashboard]");
-        expect(css).toContain("html[data-hami-native='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard]");
+        expect(css).not.toContain("html[data-hami-native='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard]");
         expect(css).toContain("html[data-hami-global-search-open='1'] .hami-lawyer-header");
         expect(css).toContain('لا content-visibility:hidden');
         expect(css).not.toMatch(
@@ -488,8 +487,10 @@ describe('global search section surgical close honesty', () => {
         expect(css).toContain("html[data-hami-overlay-unfreeze='1'][data-hami-global-search-open='1']");
         expect(css).toContain('content-visibility: visible !important');
         expect(css).toContain('translateZ(0)');
-        expect(css).toContain(":not([data-hami-platform='ios'])");
         expect(css).toContain("html:not([data-hami-global-search-open='1']):not([data-hami-global-search-closing='1']) .hami-gs-layer");
+        expect(css).toContain("data-hami-native='1'");
+        expect(css).toContain('backdrop-filter: none !important');
+        expect(css).not.toContain(":not([data-hami-platform='ios'])");
         expect(css).toContain('data-hami-global-search-closing');
         expect(css).toContain('data-hami-gs-dismiss-locked');
         expect(css).toContain('data-hami-gs-enter');
@@ -706,7 +707,7 @@ describe('global search section surgical close honesty', () => {
         expect(sheetCss).toContain('--gs-swipe-y');
         expect(sheetCss).toContain("[data-gs-swiping='1']");
         expect(sheetCss).toContain("[data-gs-paint='true']");
-        expect(sheetCss).toContain('min-height: 13.5rem');
+        expect(sheetCss).toContain('min-height: 12rem');
     });
 
     it('أمان: تنقّل مُنقّى، بلا ترحيل الأخيرة المشتركة، جلسة محلية قبل الفتح', () => {

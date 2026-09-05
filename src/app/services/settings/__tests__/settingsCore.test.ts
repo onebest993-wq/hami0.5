@@ -8,7 +8,7 @@ import {
     runBypassingLocalOnlyForUrl,
     LOCAL_ONLY_BYPASS_PATHS,
 } from '../localOnlyGuard';
-import { isCloudSyncBucketEnabled } from '../settingsRuntime';
+import { isCloudSyncBucketEnabled } from '../cloudSyncBucket';
 import { LAWYER_SETTINGS_V2_DEFAULTS } from '../defaults';
 
 describe('migrateLawyerSettings', () => {

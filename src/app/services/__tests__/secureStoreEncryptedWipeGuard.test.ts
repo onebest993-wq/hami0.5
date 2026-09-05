@@ -101,4 +101,47 @@ describe('SecureStoreService — حماية المفاتيح المشفَّرة 
         expect(second).toBe(first);
         expect(JSON.parse(String(second))).toHaveLength(2);
     });
+
+    it('getItemSync لا يُرجع [] المسمّم فوق ciphertext — يُعدّ unread', async () => {
+        await SecureStoreService.setItem(
+            'lawyer_files_active',
+            JSON.stringify([{ id: 'a' }, { id: 'b' }]),
+        );
+        SecureStoreService.clearDecryptedMemoryCache();
+        expect(SecureStoreService.getItemSync('lawyer_files_active')).toBeNull();
+        expect(SecureStoreService.isUnreadSync('lawyer_files_active')).toBe(true);
+
+        SecureStoreService.poisonDecryptedCacheOnlyForTests('lawyer_files_active', '[]');
+        expect(SecureStoreService.getItemSync('lawyer_files_active')).toBeNull();
+        expect(SecureStoreService.isUnreadSync('lawyer_files_active')).toBe(true);
+        expect(
+            JSON.parse(String(await SecureStoreService.getItem('lawyer_files_active'))),
+        ).toHaveLength(2);
+    });
+
+    it('يميّز [] المفكوكة من القرص عن [] المسمّمة ويسمح بملء سلة فارغة', async () => {
+        await SecureStoreService.setItem('lawyer_files_trash', '[]');
+        SecureStoreService.clearDecryptedMemoryCache();
+
+        expect(await SecureStoreService.getItem('lawyer_files_trash')).toBe('[]');
+        expect(SecureStoreService.getItemSync('lawyer_files_trash')).toBe('[]');
+        expect(SecureStoreService.isUnreadSync('lawyer_files_trash')).toBe(false);
+
+        const accepted = SecureStoreService.setItemSync(
+            'lawyer_files_trash',
+            JSON.stringify([{ id: 'moved' }]),
+        );
+        expect(accepted).toBe(true);
+    });
+
+    it('allowShrink لا يفرّغ lawyer_files بدون allowVerifiedEmptyOverwrite', async () => {
+        await SecureStoreService.setItem(
+            'lawyer_files_active',
+            JSON.stringify([{ id: 'a' }, { id: 'b' }]),
+        );
+        await SecureStoreService.setItem('lawyer_files_active', '[]', { allowShrink: true });
+        expect(
+            JSON.parse(String(await SecureStoreService.getItem('lawyer_files_active'))),
+        ).toHaveLength(2);
+    });
 });

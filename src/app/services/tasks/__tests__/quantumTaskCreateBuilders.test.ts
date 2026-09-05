@@ -43,10 +43,46 @@ describe('quantumTaskCreateBuilders', () => {
         expect(task!.subTasks[0]!.title).toBe('تصوير قرار');
         expect(task!.subTasks[0]!.kind).toBe('field');
         expect(task!.subTasks[0]!.isCompleted).toBe(false);
+        expect(task!.subTasks[0]!.planStatus).toBe('pending');
     });
 
-    it('buildWeeklyLocationBundleTask rejects missing location', () => {
-        expect(buildWeeklyLocationBundleTask(new Date(), '  ', 'جلسة')).toBeNull();
+    it('buildWeeklyLocationBundleTask with plan titles + details uses branch plan steps', () => {
+        const day = startOfLocalDay(new Date(2026, 4, 18));
+        const task = buildWeeklyLocationBundleTask(
+            day,
+            'محكمة الرصافة',
+            ['طلب حجز', 'متابعة قرار', 'تبليغ'],
+            'مسار حجز مالي',
+        );
+        expect(task).not.toBeNull();
+        expect(task!.title).toBe('مسار حجز مالي');
+        expect(task!.subTasks).toHaveLength(3);
+        expect(task!.subTasks.every((st) => st.kind === 'branch')).toBe(true);
+        expect(task!.subTasks.every((st) => st.planStatus === 'pending')).toBe(true);
+        expect(task!.subTasks.map((st) => st.title)).toEqual([
+            'طلب حجز',
+            'متابعة قرار',
+            'تبليغ',
+        ]);
+    });
+
+    it('buildWeeklyLocationBundleTask allows missing location when details exist', () => {
+        const task = buildWeeklyLocationBundleTask(new Date(), '  ', 'جلسة');
+        expect(task).not.toBeNull();
+        expect(task!.title).toBe('جلسة');
+        expect(task!.location).toBeNull();
+    });
+
+    it('buildWeeklyLocationBundleTask rejects empty payload', () => {
+        expect(buildWeeklyLocationBundleTask(new Date(), '  ', '  ')).toBeNull();
+        expect(buildWeeklyLocationBundleTask(new Date(), '', [])).toBeNull();
+    });
+
+    it('buildWeeklyLocationBundleTask accepts location-only as title', () => {
+        const task = buildWeeklyLocationBundleTask(new Date(), 'محكمة الكرخ', '');
+        expect(task).not.toBeNull();
+        expect(task!.title).toBe('محكمة الكرخ');
+        expect(task!.location).toBe('محكمة الكرخ');
     });
 
     it('buildSnoozedBacklogTask stores reminder and leaves parsedDate empty', () => {

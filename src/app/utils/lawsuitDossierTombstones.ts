@@ -59,6 +59,11 @@ function isLawsuitDossierTombstoned(dossierId: string | number | undefined): boo
     return readTombstoneSet().has(id);
 }
 
+/** معرّفات الحذف النهائي — لاستبعادها من دمج المقاطع بعد التحميل/المزامنة */
+export function readLawsuitDossierTombstoneIds(): Set<string> {
+    return readTombstoneSet();
+}
+
 export function markLawsuitDossierTombstone(dossierId: string | number | undefined): boolean {
     const id = String(dossierId ?? '').trim();
     if (!id) return false;
@@ -70,6 +75,29 @@ export function markLawsuitDossierTombstone(dossierId: string | number | undefin
     const next = readTombstoneSet();
     next.add(id);
     return writeTombstoneSet(next);
+}
+
+/** إزالة شاهد بعد استعادة مقصودة من السلة/الأرشيف */
+export function clearLawsuitDossierTombstone(dossierId: string | number | undefined): boolean {
+    const id = String(dossierId ?? '').trim();
+    if (!id) return false;
+    if (areLawsuitDossierTombstonesUnreadSync()) return false;
+    const next = readTombstoneSet();
+    if (!next.has(id)) return true;
+    next.delete(id);
+    return writeTombstoneSet(next);
+}
+
+export function excludeTombstonedLawsuitFiles<T extends { id?: string | number }>(
+    rows: readonly T[] | null | undefined,
+): T[] {
+    if (!rows || rows.length === 0) return rows ? [...rows] : [];
+    const tombstoned = readTombstoneSet();
+    if (tombstoned.size === 0) return [...rows];
+    return rows.filter((row) => {
+        const id = String(row?.id ?? '').trim();
+        return !id || !tombstoned.has(id);
+    });
 }
 
 /**

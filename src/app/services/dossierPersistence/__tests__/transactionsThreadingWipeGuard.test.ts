@@ -19,18 +19,21 @@ function state(counts: {
     transactions?: number;
     tasks?: number;
     documents?: number;
-    financeRecords?: number;
+    abandonedFinance?: number;
 }): string {
     const rows = (n: number, tag: string) =>
         Array.from({ length: n }, (_, i) => ({ id: `${tag}-${i}`, title: `${tag} ${i}` }));
-    return JSON.stringify({
+    const payload: Record<string, unknown> = {
         userId: 'lawyer-guard-1',
         transactions: rows(counts.transactions ?? 0, 'tx'),
         tasks: rows(counts.tasks ?? 0, 'task'),
-        financeRecords: rows(counts.financeRecords ?? 0, 'fee'),
         documents: rows(counts.documents ?? 0, 'doc'),
         updatedAt: '2026-08-29T00:00:00.000Z',
-    });
+    };
+    if (counts.abandonedFinance) {
+        payload.financeRecords = rows(counts.abandonedFinance, 'fee');
+    }
+    return JSON.stringify(payload);
 }
 
 describe('transactionsThreading wipe guard', () => {
@@ -42,9 +45,9 @@ describe('transactionsThreading wipe guard', () => {
         expect(readProtectedItemCount(KEY, state({}))).toBe(0);
         expect(readProtectedItemCount(KEY, state({ tasks: 3 }))).toBe(3);
         expect(readProtectedItemCount(KEY, state({ transactions: 2, tasks: 1, documents: 4 }))).toBe(7);
-        expect(readProtectedItemCount(KEY, state({ financeRecords: 2 }))).toBe(2);
+        expect(readProtectedItemCount(KEY, state({ abandonedFinance: 2 }))).toBe(0);
         expect(isEmptyingPayload(KEY, state({}))).toBe(true);
-        expect(isEmptyingPayload(KEY, state({ financeRecords: 1 }))).toBe(false);
+        expect(isEmptyingPayload(KEY, state({ abandonedFinance: 1 }))).toBe(true);
     });
 
     it('يرفض التفريغ فوق ciphertext بارد لم يُفكّ', () => {
@@ -79,6 +82,7 @@ describe('transactions task templates wipe guard', () => {
         expect(isProtectedStorageKey(TEMPLATES)).toBe(true);
         expect(backupDomainForStorageKey(TEMPLATES)).toBe('transactions');
         expect(backupDomainForStorageKey('hami:transactions:v1')).toBe('transactions');
+        expect(backupDomainForStorageKey(KEY)).toBe('transactionsThreading');
     });
 
     it('يرفض التفريغ فوق ciphertext بارد', () => {

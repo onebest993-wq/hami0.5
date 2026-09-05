@@ -1,4 +1,8 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import {
+    assertCollaborationNetworkReachable,
+    canReachCollaborationNetwork,
+} from '@/app/services/settings/collaborationNetworkGate';
 import type {
     CaseShareRecord,
     CaseShareVisibleFields,
@@ -25,10 +29,14 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
 
 export class CaseShareApiService {
     static async listNetworkColleagues(userId: string) {
+        if (!canReachCollaborationNetwork()) return [];
         return listNetworkColleagues(userId);
     }
 
     static async listShares(userId: string): Promise<CaseShareRecord[]> {
+        if (!canReachCollaborationNetwork()) {
+            return CaseShareRepository.listForUser(userId, { summary: true });
+        }
         try {
             const res = await SecureAPIClient.fetchSecure<ApiOk<{ shares: CaseShareRecord[] }>>(
                 '/api/case-share',
@@ -44,6 +52,9 @@ export class CaseShareApiService {
     }
 
     static async getShareDetail(shareId: string, userId: string): Promise<CaseShareRecord | null> {
+        if (!canReachCollaborationNetwork()) {
+            return CaseShareRepository.getById(shareId, userId);
+        }
         try {
             const res = await SecureAPIClient.fetchSecure<ApiOk<{ share: CaseShareRecord }>>(
                 `/api/case-share/detail?shareId=${encodeURIComponent(shareId)}`,
@@ -72,6 +83,7 @@ export class CaseShareApiService {
         ownerName: string;
         sessionDurationMinutes?: number;
     }): Promise<CaseShareRecord> {
+        assertCollaborationNetworkReachable();
         const inNetwork = await assertRecipientInNetwork(params.ownerId, params.recipientId);
         if (!inNetwork) {
             throw new Error('RECIPIENT_NOT_IN_NETWORK');
@@ -102,6 +114,7 @@ export class CaseShareApiService {
     }
 
     static async respond(shareId: string, action: 'accept' | 'decline', userId: string): Promise<void> {
+        assertCollaborationNetworkReachable();
         try {
             const res = await postJson<ApiOk<{ share: CaseShareRecord }>>('/api/case-share', {
                 action,
@@ -123,6 +136,7 @@ export class CaseShareApiService {
     }
 
     static async endSession(shareId: string, userId: string): Promise<CaseShareRecord | null> {
+        assertCollaborationNetworkReachable();
         try {
             const res = await postJson<ApiOk<{ share: CaseShareRecord }>>('/api/case-share', {
                 action: 'end',

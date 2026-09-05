@@ -169,6 +169,11 @@ export function applyNativeNotificationSheetSettingsPatch(
             notifications = patchNotificationSettings(notifications, {
                 vibrateMaster: patch.vibrateMaster,
             });
+            if (patch.vibrateMaster) {
+                void import('@/app/services/platform/deviceHaptic').then((m) => {
+                    m.playDeviceHaptic();
+                });
+            }
         }
 
         if (patch.channel) {
@@ -191,7 +196,7 @@ export function applyNativeNotificationSheetSettingsPatch(
     });
 }
 
-export async function handleNativeNotificationSheetTap(
+async function handleNativeNotificationSheetTap(
     userId: string | null,
     id: string,
     onNavigate: (path: string, payload: Record<string, unknown>) => void,

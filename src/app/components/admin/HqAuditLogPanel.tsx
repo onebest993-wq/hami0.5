@@ -79,7 +79,7 @@ export function HqAuditLogPanel({ gated = false }: { gated?: boolean }) {
     const showLoading = loading && entries.length === 0;
     const showError = failedLoad && entries.length === 0;
     const summary = showLoading
-        ? 'جاري التحميل'
+        ? undefined
         : showError
           ? 'تعذّر التحميل'
           : failedLoad
@@ -99,7 +99,7 @@ export function HqAuditLogPanel({ gated = false }: { gated?: boolean }) {
             action={<HqGhostButton onClick={() => void reload()}>تحديث</HqGhostButton>}
         >
             {showLoading ? (
-                <HqStateBlock kind="loading" title="جاري تحميل السجل..." />
+                <HqStateBlock kind="loading" title="سجل العمليات" />
             ) : showError ? (
                 <HqStateBlock
                     kind="error"

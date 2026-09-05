@@ -1,6 +1,6 @@
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { extractTextFromVaultPdf } from '@/app/services/vault/vaultPdfTextExtraction';
-import { isVaultDocPdf, resolveVaultDocBlob } from '@/app/services/vaultUploadService';
+import { isVaultDocPdf, resolveVaultDocBlob } from '@/app/services/vault/vaultDocResolve';
 
 const VAULT_EXTRACT_MAX_CHARS = 12_000;
 

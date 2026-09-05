@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     isSessionMuted,
+    isWithinQuietHours,
     shouldPlayChannelSound,
     shouldSendOsPush,
 } from '@/app/services/notifications/notificationAlertPolicy';
@@ -8,6 +9,18 @@ import { LAWYER_SETTINGS_V2_DEFAULTS } from '@/app/services/settings/defaults';
 import { patchNotificationSettings, sessionMuteUntilMs } from '@/app/services/settings/notificationSettings';
 
 describe('notificationAlertPolicy', () => {
+    it('تفعيل ساعات الهدوء يُحفظ ولا يكتم خارج النافذة', () => {
+        const settings = {
+            ...LAWYER_SETTINGS_V2_DEFAULTS,
+            notifications: patchNotificationSettings(LAWYER_SETTINGS_V2_DEFAULTS.notifications, {
+                quietHours: { enabled: true, start: '22:00', end: '07:00' },
+            }),
+        };
+        expect(settings.notifications.quietHours.enabled).toBe(true);
+        expect(isWithinQuietHours(settings, new Date('2026-08-30T13:33:00'))).toBe(false);
+        expect(isWithinQuietHours(settings, new Date('2026-08-30T23:00:00'))).toBe(true);
+    });
+
     it('يكتم الجلسة عند sessionMutedUntil', () => {
         const settings = {
             ...LAWYER_SETTINGS_V2_DEFAULTS,

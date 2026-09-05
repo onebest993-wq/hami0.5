@@ -11,7 +11,7 @@ function read(rel: string): string {
 describe('profile first elements paint honesty', () => {
     it('خمول ما بعد اللوحة يسخّن مقطع الملف قبل التنفيذ', () => {
         const chunks = read('src/app/runtime/overlayEntryChunks.ts');
-        const profileIdx = chunks.indexOf("profile/ProfileTabHost");
+        const profileIdx = chunks.indexOf('prefetchProfileTabHost');
         const executionIdx = chunks.indexOf('LawyerDashboardExecutionOverlayEntry');
         expect(profileIdx).toBeGreaterThan(0);
         expect(profileIdx).toBeLessThan(executionIdx);
@@ -78,6 +78,7 @@ describe('profile first elements paint honesty', () => {
             hydrator.indexOf('export function hydrateProfileShellForInstantOpenWithData'),
         );
         expect(hubFn).toContain('prefetchPageExtrasAfterHub');
+        expect(hubFn).toContain('profilePrefetchAllowed');
         expect(hubFn.indexOf('loadProfileHubModule')).toBeLessThan(
             hubFn.indexOf('prefetchPageExtrasAfterHub'),
         );

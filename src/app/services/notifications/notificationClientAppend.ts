@@ -5,7 +5,7 @@ import type {
 } from '@/app/infrastructure/NotificationRepository';
 import { isNotificationServerSyncEnabled } from '@/app/services/notifications/notificationServerSync';
 
-export type ClientAppendInput = {
+type ClientAppendInput = {
     title: string;
     message: string;
     type: NotificationType;

@@ -73,20 +73,12 @@ test.describe('مركز الإعدادات — سيناريوهات الطبقا
         await expect(shell).toBeVisible();
     });
 
-    test('المنظر: حجم النص وأداء خفيف وفصل الخلفية دون رفع ملف', async ({ page }) => {
+    test('المنظر: فصل الخلفية دون رفع ملف', async ({ page }) => {
         await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettingsFromHeader(page);
         await switchSettingsTab(shell, 'appearance');
-
-        const large = page.getByTestId('settings-font-preset-large');
-        await large.evaluate((el) => (el as HTMLElement).scrollIntoView({ block: 'center' }));
-        await dispatchDomClick(large);
-        await expect(large).toHaveAttribute('aria-checked', 'true', { timeout: 8_000 });
-
-        await dispatchDomClick(page.getByTestId('settings-lite-on'));
-        await expect(page.getByTestId('settings-lite-on')).toHaveAttribute('aria-checked', 'true', { timeout: 8_000 });
 
         await dispatchDomClick(page.getByTestId('appearance-chapter-wallpaper'));
         await expect(page.getByTestId('settings-wallpaper-upload')).toBeVisible({ timeout: 8_000 });
@@ -112,6 +104,27 @@ test.describe('مركز الإعدادات — سيناريوهات الطبقا
         await expect(page.getByTestId('settings-wipe-start')).toBeVisible();
     });
 
+    test('زر X يغلق الحوار والمركز معاً', async ({ page }) => {
+        await gotoLawyerHomeE2E(page);
+        await dismissProductivityBlockers(page);
+
+        const shell = await openSettingsFromHeader(page);
+        await switchSettingsTab(shell, 'data');
+        await ensureSmartDialogInfrastructure(page);
+
+        await expect(async () => {
+            await dispatchDomClick(page.getByTestId('settings-wipe-start'));
+            await expect(page.getByTestId('smart-dialog-overlay')).toBeVisible({ timeout: 4_000 });
+        }).toPass({ timeout: 20_000 });
+
+        const closeBtn = page.getByTestId('settings-shell-close');
+        await dispatchPrimaryPointerDown(closeBtn);
+        await dispatchDomClick(closeBtn);
+
+        await expect(page.getByTestId('smart-dialog-overlay')).toBeHidden({ timeout: 5_000 });
+        await expect(page.getByTestId('hami-settings-shell')).toBeHidden({ timeout: 8_000 });
+    });
+
     test('لوحة النسخ تُفتح وتُغلق بـ Escape دون تصدير أو استيراد', async ({ page }) => {
         await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
@@ -129,7 +142,7 @@ test.describe('مركز الإعدادات — سيناريوهات الطبقا
         await expect(shell).toBeVisible();
     });
 
-    test('تبويب الأمان يعرض البيومتري والضبابية والقفل التلقائي وحماية اللقطة', async ({ page }) => {
+    test('تبويب الأمان يعرض البيومتري والقفل التلقائي وحماية اللقطة', async ({ page }) => {
         await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
@@ -137,24 +150,12 @@ test.describe('مركز الإعدادات — سيناريوهات الطبقا
         await switchSettingsTab(shell, 'security');
 
         await expect(page.getByTestId('settings-toggle-security-biometricLock')).toBeVisible();
-        const privacyBlur = page.getByTestId('settings-toggle-security-privacyBlur');
-        await expect(privacyBlur).toBeVisible();
-        await expect(privacyBlur).toHaveAttribute('aria-checked', 'true');
         await expect(page.getByTestId('settings-toggle-security-screenshotDeterrent')).toBeVisible();
         await expect(page.getByTestId('settings-auto-lock-5')).toBeVisible();
 
         const lock15 = page.getByTestId('settings-auto-lock-15');
         await dispatchDomClick(lock15);
         await expect(lock15).toHaveAttribute('aria-checked', 'true', { timeout: 8_000 });
-
-        await ensureSmartDialogInfrastructure(page);
-        await privacyBlur.evaluate((el) => (el as HTMLElement).click());
-        const dialog = page.getByTestId('smart-dialog-overlay');
-        await expect(dialog).toBeVisible({ timeout: 8_000 });
-        await expect(dialog).toContainText('إيقاف ضبابية الخصوصية');
-        await page.keyboard.press('Escape');
-        await expect(dialog).toBeHidden({ timeout: 5_000 });
-        await expect(privacyBlur).toHaveAttribute('aria-checked', 'true');
         await expect(shell).toBeVisible();
     });
 

@@ -1,14 +1,14 @@
 import { notesVault } from '@/app/data/NotesVault';
 import { docsVault } from '@/app/data/DocsVault';
-import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { STORAGE_KEYS } from '@/app/utils/constants';
 import type { BuildGlobalSearchIndexInput, PreparedDocsVaultDoc, PreparedVaultNote } from '@/app/services/globalSearchIndex';
 import { buildExecutionDeepSearchEntries } from '@/app/services/executionSearchIndex';
+import {
+    composeGlobalSearchIndexCacheKey,
+    globalSearchExtrasSignature,
+} from '@/app/services/globalSearchExtrasSignature';
 import { fileSearchIndexSignature } from '@/app/services/search/globalSearchFileSliceCache';
 import { lawsuitLifecycleIndexSignature } from '@/app/services/search/globalSearchIndexLawsuitLifecycleEntries';
 import { djb2Hash } from '@/app/utils/djb2';
-
-type GlobalNoteRow = { id: number | string; title?: string; body?: string; type?: string };
 
 export type GlobalSearchIndexSource = Omit<
     BuildGlobalSearchIndexInput,
@@ -29,15 +29,18 @@ export function prepareGlobalSearchIndexInput(source: GlobalSearchIndexSource): 
         }
     }
 
-    const preparedDocsVault: PreparedDocsVaultDoc[] = docsVault.getDocuments().map((d) => ({
-        id: d.id,
-        name: d.name,
-        caseId: d.caseId,
-        tags: d.tags,
-    }));
-
-    const storedRaw = persistenceRepository.load<GlobalNoteRow[]>(STORAGE_KEYS.LAWYER_NOTES);
-    const preparedStoredNotes = Array.isArray(storedRaw) ? storedRaw : [];
+    const preparedDocsVault: PreparedDocsVaultDoc[] = [];
+    if (source.userId) {
+        docsVault.setUserScope(source.userId);
+        for (const d of docsVault.getDocuments()) {
+            preparedDocsVault.push({
+                id: d.id,
+                name: d.name,
+                caseId: d.caseId,
+                tags: d.tags,
+            });
+        }
+    }
 
     const preparedExecutionDeepEntries =
         source.executionFiles?.length ?
@@ -51,24 +54,12 @@ export function prepareGlobalSearchIndexInput(source: GlobalSearchIndexSource): 
         ...source,
         preparedVaultNotes,
         preparedDocsVault,
-        preparedStoredNotes,
         preparedExecutionDeepEntries,
     };
 }
 
 export function computeGlobalSearchIndexKey(input: BuildGlobalSearchIndexInput): string {
-    const extras = input.extras;
-    const extrasSig = extras
-        ? [
-              extras.quantumTasks.length,
-              extras.calendarEvents.length,
-              extras.urgentCases.length,
-              extras.vaultDocs.length,
-              extras.repositoryDocs.length,
-              extras.threadingTransactions.length,
-              extras.communityPosts.length,
-          ].join('.')
-        : '0';
+    const extrasSig = globalSearchExtrasSignature(input.extras);
 
     // توقيع واعٍ بالمحتوى — يلتقط تعديل العنوان/الأطراف/الملاحظات/المراحل دون انتظار تغيّر العدد
     const filesSig = djb2Hash(input.files.map(fileSearchIndexSignature).join('~'));
@@ -83,7 +74,7 @@ export function computeGlobalSearchIndexKey(input: BuildGlobalSearchIndexInput):
 
     const lawsuitIndexSig = djb2Hash(lawsuitLifecycleIndexSignature(input.lawsuitLifecycleIndex));
 
-    return [
+    const core = [
         input.userId ?? '',
         input.cacheGeneration ?? 0,
         input.files.length,
@@ -101,6 +92,6 @@ export function computeGlobalSearchIndexKey(input: BuildGlobalSearchIndexInput):
         input.preparedDocsVault?.length ?? -1,
         input.preparedStoredNotes?.length ?? -1,
         input.preparedExecutionDeepEntries?.length ?? -1,
-        extrasSig,
     ].join('|');
+    return composeGlobalSearchIndexCacheKey(core, extrasSig);
 }

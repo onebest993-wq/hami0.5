@@ -108,7 +108,11 @@ describe('execution archive weight — chrome vs cards', () => {
         expect(grid).not.toContain('executionArchiveFilterUtils');
         expect(grid).toContain("lazy(() => import('./ExecutionSmartCard'))");
         expect(grid).not.toMatch(/import ExecutionSmartCard from/);
-        expect(grid).toContain('<Suspense fallback={<ExecutionArchiveCardPaintSlot />}>');
+        expect(grid).toContain('<Suspense');
+        expect(grid).toContain('ExecutionArchiveCardPaintSlot');
+        expect(grid).toContain('ExecutionArchiveCardOpenShell');
+        expect(grid).toContain('takeExecutionArchiveFirstOpenIndex');
+        expect(grid).toContain('deferOpenPress');
         expect(grid).not.toContain('<Suspense fallback={null}>');
         expect(grid).not.toMatch(/<Suspense fallback=\{null\}>\s*<ArchiveVirtualGrid/);
         expect(grid).not.toContain('setExecutionViewMode');

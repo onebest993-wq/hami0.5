@@ -57,6 +57,9 @@ export function warmForumOnHover(userId?: string | null): void {
 /** عند فتح المنتدى */
 export function warmForumOnOpen(userId?: string | null): void {
     if (typeof window === 'undefined') return;
+    void import('@/app/runtime/sectionChunkRecency')
+        .then((m) => m.rememberOpenedSectionChunk('forum'))
+        .catch(() => undefined);
     prefetchCommunityScreenHost();
     prefetchPersistedLandingSection();
     if (isLitePerformanceActive() || !shouldAllowIntentWarmFromDom()) {

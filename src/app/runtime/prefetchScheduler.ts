@@ -1,5 +1,5 @@
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+import { isLitePerformanceActive, isMeteredOrSlowNetwork } from '@/app/runtime/devicePerformanceTier';
 type PrefetchPriority = 'critical' | 'high' | 'low';
 
 export type PrefetchJob = {
@@ -11,10 +11,6 @@ export type PrefetchJob = {
 const scheduled = new Set<string>();
 const inflight = new Set<string>();
 
-function devPrefetchDisabled(): boolean {
-    return import.meta.env.DEV;
-}
-
 function canPrefetch(): boolean {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
     if (typeof navigator === 'undefined') return true;
@@ -24,12 +20,8 @@ function canPrefetch(): boolean {
     } catch {
         if (isLitePerformanceActive()) return false;
     }
-    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
-        .connection;
-    if (!conn) return true;
-    if (conn.saveData) return false;
-    const effective = String(conn.effectiveType ?? '');
-    return effective !== 'slow-2g' && effective !== '2g' && effective !== '3g';
+    if (typeof isMeteredOrSlowNetwork === 'function' && isMeteredOrSlowNetwork()) return false;
+    return true;
 }
 
 function settingsAllowPrefetch(): boolean {
@@ -56,12 +48,13 @@ function runJob(job: PrefetchJob): void {
 
 /**
  * Prefetch عند النية فقط — hover / لمس / قرب فتح شاشة.
- * لا موجات زمنية تحمّل شاشات ثقيلة في الخلفية.
+ * يعمل في التطوير والإنتاج. lite / saveData / 2G / localOnly تبقى.
+ * Vite في DEV يحلّل وحدات غير مجمّعة فيبقى أثقل من حزمة الإنتاج.
  */
 export const PrefetchScheduler = {
     /** الطريقة الوحيدة المفضّلة لجدولة تحميل مسبق */
     prefetchOnIntent(job: PrefetchJob): void {
-        if (devPrefetchDisabled() || !canPrefetch() || !settingsAllowPrefetch()) return;
+        if (!canPrefetch() || !settingsAllowPrefetch()) return;
         if (scheduled.has(job.id)) return;
         scheduled.add(job.id);
 

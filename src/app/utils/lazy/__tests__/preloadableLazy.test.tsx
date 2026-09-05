@@ -70,4 +70,14 @@ describe('createPreloadableLazyComponent', () => {
         });
         expect(LazyReal.isPreloaded()).toBe(true);
     });
+
+    it('resetForTests يفك التثبيت ليعيد مسار التعليق', async () => {
+        const LazyReal = createPreloadableLazyComponent(async () => ({ default: Real }));
+        await act(async () => {
+            await LazyReal.preload();
+        });
+        expect(LazyReal.isPreloaded()).toBe(true);
+        LazyReal.resetForTests();
+        expect(LazyReal.isPreloaded()).toBe(false);
+    });
 });

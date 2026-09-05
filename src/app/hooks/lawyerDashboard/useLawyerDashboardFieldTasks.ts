@@ -18,15 +18,13 @@ import { useLawyerDashboardTasksOverlayEscape } from '@/app/hooks/lawyerDashboar
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import {
     HAMI_OPEN_TASKS_HELP_INBOX_EVENT,
+    HAMI_OPEN_TASKS_MANAGER_EVENT,
     persistFieldTasksSessionOpen,
     readInitialFieldTasksSession,
     type LawyerDashboardTab,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
-import {
-    loadFieldTasksBootHydrator,
-    loadFieldTasksHubLoader,
-} from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
+import { loadFieldTasksBootHydrator } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
 import {
     commitFieldTasksSheetOpen,
     commitTasksManagerOpen,
@@ -35,6 +33,11 @@ import {
     concealFieldTasksInstantLayer,
     useFieldTasksInstantPaintRef,
 } from '@/app/hooks/lawyerDashboard/fieldTasks/useFieldTasksInstantPaint';
+import { FIELD_TASKS_INSTANT_DISMISS_EVENT } from '@/app/runtime/fieldTasksInstantPaint';
+import {
+    FIELD_TASKS_INSTANT_MANAGE_EVENT,
+    takeFieldTasksInstantManageQueued,
+} from '@/app/runtime/fieldTasksInstantActions';
 import {
     primeFieldTasksHostMount,
     useFieldTasksHostLifecycle,
@@ -102,7 +105,6 @@ export function useLawyerDashboardFieldTasks({
                 commit: () => {
                     flushSync(() => {
                         setFieldTasksSheetOpen(false);
-                        setFieldTasksHostMounted(false);
                         persistFieldTasksSessionOpen(false);
                     });
                     closingFieldRef.current = false;
@@ -128,7 +130,6 @@ export function useLawyerDashboardFieldTasks({
                     flushSync(() => {
                         setTasksManagerFocusTaskId(undefined);
                         setShowTasksManager(false);
-                        setFieldTasksManagerHostMounted(false);
                         persistFieldTasksSessionOpen(false);
                     });
                     closingManagerRef.current = false;
@@ -194,6 +195,12 @@ export function useLawyerDashboardFieldTasks({
             unregManager();
         };
     }, [closeFieldTasksSheet, closeTasksManager]);
+
+    useEffect(() => {
+        const onInstantDismiss = () => closeFieldTasksSheet();
+        window.addEventListener(FIELD_TASKS_INSTANT_DISMISS_EVENT, onInstantDismiss);
+        return () => window.removeEventListener(FIELD_TASKS_INSTANT_DISMISS_EVENT, onInstantDismiss);
+    }, [closeFieldTasksSheet]);
 
     useLawyerDashboardTasksOverlayEscape({
         fieldTasksSheetOpen,
@@ -267,6 +274,7 @@ export function useLawyerDashboardFieldTasks({
             concealFieldTasksInstantLayer(withInstantPaint);
             sheetOpenRef.current = false;
             setFieldTasksSheetOpen(false);
+            setFieldTasksHostMounted(false);
             closeCommunity?.();
             setActiveTab('home');
             setTasksManagerFocusTaskId(focusTaskId);
@@ -287,6 +295,7 @@ export function useLawyerDashboardFieldTasks({
                 commitFieldTasksSheetOpen({
                     instantPaint: instantPaintRef.current,
                     setFieldTasksHostMounted,
+                    setFieldTasksManagerHostMounted,
                     setTasksManagerFocusTaskId,
                     setShowTasksManager,
                     setFieldTasksSheetOpen,
@@ -296,12 +305,6 @@ export function useLawyerDashboardFieldTasks({
             },
         });
     }, [closeCommunity, instantPaintRef, setActiveTab, userId]);
-
-    const afterTasksManagerOpen = useCallback(() => {
-        void loadFieldTasksHubLoader()
-            .then((m) => m.loadTasksManagerModule())
-            .catch(() => undefined);
-    }, []);
 
     const openTasksManager = useCallback(
         (focusTaskId?: string) => {
@@ -314,12 +317,11 @@ export function useLawyerDashboardFieldTasks({
                         focusTaskId,
                         armFieldTasksManagerHost,
                         revealTasksManager,
-                        afterOpen: afterTasksManagerOpen,
                     });
                 },
             });
         },
-        [afterTasksManagerOpen, armFieldTasksManagerHost, revealTasksManager, userId],
+        [armFieldTasksManagerHost, revealTasksManager, userId],
     );
 
     const switchToTasksManager = useCallback(() => {
@@ -330,14 +332,36 @@ export function useLawyerDashboardFieldTasks({
         commitTasksManagerOpen({
             armFieldTasksManagerHost,
             revealTasksManager,
-            afterOpen: afterTasksManagerOpen,
         });
-    }, [afterTasksManagerOpen, armFieldTasksManagerHost, revealTasksManager, userId]);
+    }, [armFieldTasksManagerHost, revealTasksManager, userId]);
+
+    useEffect(() => {
+        const goManager = () => {
+            takeFieldTasksInstantManageQueued();
+            switchToTasksManager();
+        };
+        if (takeFieldTasksInstantManageQueued()) {
+            switchToTasksManager();
+        }
+        window.addEventListener(FIELD_TASKS_INSTANT_MANAGE_EVENT, goManager);
+        return () => window.removeEventListener(FIELD_TASKS_INSTANT_MANAGE_EVENT, goManager);
+    }, [switchToTasksManager]);
 
     useEffect(() => {
         const onOpenHelpInbox = () => openTasksManager();
         window.addEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, onOpenHelpInbox);
         return () => window.removeEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, onOpenHelpInbox);
+    }, [openTasksManager]);
+
+    useEffect(() => {
+        const onOpenManager = (event: Event) => {
+            const detail = (event as CustomEvent<{ focusTaskId?: string }>).detail;
+            const focus = String(detail?.focusTaskId ?? '').trim();
+            openTasksManager(focus || undefined);
+        };
+        window.addEventListener(HAMI_OPEN_TASKS_MANAGER_EVENT, onOpenManager as EventListener);
+        return () =>
+            window.removeEventListener(HAMI_OPEN_TASKS_MANAGER_EVENT, onOpenManager as EventListener);
     }, [openTasksManager]);
 
     const resetFieldTasksShell = useCallback(() => {

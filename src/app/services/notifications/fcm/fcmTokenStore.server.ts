@@ -1,6 +1,6 @@
 import { loadKvStoreAdmin } from '@/app/api/security/loadKvStoreAdmin';
 
-export type FcmDeviceToken = {
+type FcmDeviceToken = {
     token: string;
     platform: 'android' | 'ios';
     updatedAt: string;

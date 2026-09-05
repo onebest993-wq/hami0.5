@@ -12,6 +12,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarCloud';
+import { resetCalendarCloudLoaderForTests } from '@/app/services/calendar/calendarCloudLoader';
 import { useCalendarRadar48h } from '../useCalendarRadar48h';
 
 const getEventsMock = vi.fn();
@@ -27,7 +28,7 @@ vi.mock('@/app/services/cloud/lawyerCalendarCloud', async (orig) => {
     };
 });
 
-vi.mock('@/app/services/alerts/homeHubRadarWarmCache', () => ({
+vi.mock('@/app/services/alerts/homeHubRadarPeek', () => ({
     peekHomeHubRadarCache: () => null,
 }));
 
@@ -55,6 +56,7 @@ function inHours(hoursFromNow: number, base: Partial<CalendarEvent> = {}): Calen
 }
 
 beforeEach(() => {
+    resetCalendarCloudLoaderForTests();
     getEventsMock.mockReset();
 });
 

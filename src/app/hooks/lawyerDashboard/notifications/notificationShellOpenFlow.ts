@@ -23,7 +23,7 @@ export function clearNotificationOpenPerfMarks(): void {
     }
 }
 
-export type CommitNotificationShellOpenParams = {
+type CommitNotificationShellOpenParams = {
     userId: string | null;
     showNotificationsRef: MutableRefObject<boolean>;
     setNotificationHostMounted: (mounted: boolean) => void;

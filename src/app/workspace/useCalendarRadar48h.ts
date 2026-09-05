@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudRuntime';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import type { CalendarRadarEvent } from './types';
@@ -7,8 +7,8 @@ import { buildWorkspaceRoute } from './workspaceRoutes';
 import type { WorkspacePinType } from './types';
 import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
 import { addBaghdadDays, baghdadDayRange, todayBaghdadYmd } from '@/app/utils/baghdadTime';
-import { peekHomeHubRadarCache } from '@/app/services/alerts/homeHubRadarWarmCache';
-import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendarAuthenticity';
+import { peekHomeHubRadarCache } from '@/app/services/alerts/homeHubRadarPeek';
+import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendar/calendarEventAuthorship';
 import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 import {
     formatRadarDeadlineLabel,
@@ -69,7 +69,8 @@ function mapRadarEvent(ev: CalendarEvent, nowMs: number): CalendarRadarEvent | n
     };
 }
 
-/** مواعيد اليوم وغداً ضمن نافذة 48 ساعة — من CalendarDB فقط */
+/** مواعيد اليوم وغداً ضمن نافذة 48 ساعة — عبر hop calendarCloudRuntime */
+
 export function useCalendarRadar48h(lawyerId: string | null): {
     events: CalendarRadarEvent[];
     loading: boolean;
@@ -104,7 +105,7 @@ export function useCalendarRadar48h(lawyerId: string | null): {
         }
         deferredWhileHiddenRef.current = false;
         const token = ++fetchTokenRef.current;
-        void CalendarDB.getEvents(lawyerId)
+        void fetchCalendarEvents(lawyerId)
             .then((list) => {
                 if (token !== fetchTokenRef.current) return; // قد تغيّر المحامي
                 setRaw(Array.isArray(list) ? list : []);

@@ -241,7 +241,7 @@ export function AdminLawyerVerificationRequests({
             </div>
 
             {loading ? (
-                <HqStateBlock kind="loading" title="جاري التحميل…" />
+                <HqStateBlock kind="loading" title="طلبات التوثيق" />
             ) : loadError || failed ? (
                 <HqStateBlock
                     kind="error"

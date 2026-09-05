@@ -2,19 +2,22 @@ import { createContext, useContext } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { createLawyerDashboardWorkspaceHeavyStubs } from '@/app/hooks/lawyerDashboard/lawyerDashboardWorkspaceStubs';
 import type { UseLawyerDashboardWorkspaceHeavyParams } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceHeavy';
-import type { useLawyerDashboardWorkspaceStem } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceStem';
+import type {
+    LawyerDashboardWorkspaceStem,
+    UseLawyerDashboardWorkspaceStemParams,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardWorkspaceStem.types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 
 export type LawyerDashboardWorkspaceProviderParams = Omit<
     UseLawyerDashboardWorkspaceHeavyParams,
     'stem'
 > &
-    Parameters<typeof useLawyerDashboardWorkspaceStem>[0] & {
+    UseLawyerDashboardWorkspaceStemParams & {
         archiveType: LawyerArchiveOverlay;
         setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
     };
 
-export type LawyerDashboardWorkspaceValue = ReturnType<typeof useLawyerDashboardWorkspaceStem> &
+export type LawyerDashboardWorkspaceValue = LawyerDashboardWorkspaceStem &
     ReturnType<typeof createLawyerDashboardWorkspaceHeavyStubs> & {
         archiveType: LawyerArchiveOverlay;
         setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;

@@ -95,12 +95,12 @@ describe('settingsInstantPaint', () => {
         expect(paintSettingsInstantChrome()).toBe(true);
         expect(isSettingsForceVisible()).toBe(true);
         expect(document.documentElement.getAttribute('data-hami-settings-open')).toBe('1');
-        expect(getSettingsShellRevealedAt()).not.toBeNull();
         expect(layer.style.visibility).toBe('visible');
         expect(layer.style.pointerEvents).toBe('auto');
         expect(isSettingsOverlayInteractionArmed(layer)).toBe(false);
         expect(isSettingsCloseGuarded()).toBe(true);
         expect(isSettingsLayerOpen(false)).toBe(true);
+        expect(layer.contains(document.getElementById('hami-settings-instant-bridge'))).toBe(true);
     });
 
     it('paints instant chrome bridge when no host exists', () => {
@@ -109,7 +109,11 @@ describe('settingsInstantPaint', () => {
         expect(bridge).toBeTruthy();
         expect(bridge?.textContent).toContain('مركز الإعدادات');
         expect(bridge?.style.pointerEvents).toBe('none');
-        expect(bridge?.style.zIndex).toBe('199');
+        expect(bridge?.style.zIndex).toBe('2');
+        expect(bridge?.style.position).toBe('absolute');
+        const overlay = document.querySelector('[data-testid="hami-settings-overlay-host"]');
+        expect(overlay).toBeTruthy();
+        expect(overlay?.contains(bridge)).toBe(true);
         expect(bridge?.getAttribute('data-instant-section')).toBe('security');
         expect(bridge?.querySelector('[data-instant-tab="security"]')?.getAttribute('data-instant-active')).toBe(
             '1',
@@ -117,6 +121,12 @@ describe('settingsInstantPaint', () => {
         expect(isSettingsForceVisible()).toBe(true);
         expect(isSettingsCloseGuarded()).toBe(true);
         expect(document.documentElement.getAttribute('data-hami-settings-open')).toBe('1');
+        expect(bridge?.querySelector('[data-testid="settings-instant-close"]')).toBeTruthy();
+        expect(bridge?.querySelector('[data-instant-tab="security"] svg')).toBeTruthy();
+        expect(bridge?.querySelector('[data-instant-tab="appearance"]')?.tagName).toBe('BUTTON');
+        expect(bridge?.querySelector('[data-testid="settings-instant-skeleton"]')).toBeTruthy();
+        expect(bridge?.innerHTML).toContain('--hami-lawyer-header-safe-top');
+        expect(bridge?.innerHTML).toContain('pointer-events:auto');
     });
 
     it('الجسر يبرز التبويب المحفوظ في الجلسة', () => {
@@ -130,20 +140,132 @@ describe('settingsInstantPaint', () => {
         );
     });
 
-    it('يزيل الجسر فور وجود Host ولا يترك طبقة حاجبة', () => {
+    it('إغلاق القشرة يُطلق الحدث بعد انتهاء حراسة إيماءة الفتح', () => {
+        const seen: string[] = [];
+        const onDismiss = () => {
+            seen.push('dismiss');
+        };
+        window.addEventListener('hami:settings-instant-dismiss', onDismiss);
+        expect(paintSettingsInstantChrome()).toBe(true);
+        const btn = document.querySelector('[data-testid="settings-instant-close"]');
+        expect(btn).toBeTruthy();
+        btn?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(seen).toEqual([]);
+        vi.advanceTimersByTime(SETTINGS_INTERACT_ARM_MS);
+        btn?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(seen).toEqual(['dismiss']);
+        window.removeEventListener('hami:settings-instant-dismiss', onDismiss);
+    });
+
+    it('لمس تبويب القشرة يحفظ القسم ويحدّث التمييز بعد انتهاء حراسة الفتح', () => {
+        const seen: string[] = [];
+        const onSection = (event: Event) => {
+            seen.push(String((event as CustomEvent).detail));
+        };
+        window.addEventListener('hami:settings-instant-section', onSection);
+        expect(paintSettingsInstantChrome()).toBe(true);
+        const tab = document.querySelector('[data-instant-tab="appearance"]');
+        expect(tab).toBeTruthy();
+        tab?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(sessionStorage.getItem('hami:settings-active-section')).toBeNull();
+        expect(seen).toEqual([]);
+
+        vi.advanceTimersByTime(SETTINGS_INTERACT_ARM_MS);
+        const appearanceTab = document.querySelector('[data-instant-tab="appearance"]');
+        appearanceTab?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(sessionStorage.getItem('hami:settings-active-section')).toBe('appearance');
+        expect(document.getElementById('hami-settings-instant-bridge')?.getAttribute('data-instant-section')).toBe(
+            'appearance',
+        );
+        expect(appearanceTab?.getAttribute('data-instant-active')).toBe('1');
+        expect(
+            document.querySelector('[data-instant-tab="security"]')?.getAttribute('data-instant-active'),
+        ).toBe('0');
+        expect(seen).toEqual(['appearance']);
+        window.removeEventListener('hami:settings-instant-section', onSection);
+    });
+
+    it('لا يزيل الجسر على data-settings-root بلا قسم تفاعلي ظاهر', () => {
         expect(paintSettingsInstantChrome()).toBe(true);
         expect(document.getElementById('hami-settings-instant-bridge')).toBeTruthy();
 
-        const host = document.createElement('div');
-        host.setAttribute('data-testid', 'hami-settings-overlay-host');
-        document.body.appendChild(host);
+        const host = document.querySelector('[data-testid="hami-settings-overlay-host"]');
+        expect(host).toBeTruthy();
+        const shell = document.createElement('div');
+        shell.setAttribute('data-settings-root', '');
+        host?.appendChild(shell);
+
+        expect(dismissSettingsInstantBridgeIfHostReady()).toBe(false);
+        expect(document.getElementById('hami-settings-instant-bridge')).toBeTruthy();
+    });
+
+    it('يزيل الجسر عندما يكون القسم الظاهر تفاعلياً', () => {
+        expect(paintSettingsInstantChrome()).toBe(true);
+        expect(document.getElementById('hami-settings-instant-bridge')).toBeTruthy();
+
+        const host = document.querySelector('[data-testid="hami-settings-overlay-host"]');
+        expect(host).toBeTruthy();
+        const shell = document.createElement('div');
+        shell.setAttribute('data-settings-root', '');
+        const frame = document.createElement('div');
+        frame.className = 'hami-settings-section-frame';
+        const wrap = document.createElement('div');
+        const interactive = document.createElement('div');
+        interactive.setAttribute('data-settings-interactive', 'true');
+        wrap.appendChild(interactive);
+        frame.appendChild(wrap);
+        shell.appendChild(frame);
+        host?.appendChild(shell);
 
         expect(dismissSettingsInstantBridgeIfHostReady()).toBe(true);
         expect(document.getElementById('hami-settings-instant-bridge')).toBeNull();
-        expect(host.style.visibility).toBe('visible');
+        expect((host as HTMLElement).style.visibility).toBe('visible');
     });
 
-    it('skips bridge when host already has laid-out settings header', () => {
+    it('لا يزيل الجسر على تبويب مركون ولو كان تفاعلياً', () => {
+        expect(paintSettingsInstantChrome()).toBe(true);
+        const host = document.querySelector('[data-testid="hami-settings-overlay-host"]');
+        const shell = document.createElement('div');
+        shell.setAttribute('data-settings-root', '');
+        const frame = document.createElement('div');
+        frame.className = 'hami-settings-section-frame';
+        const wrap = document.createElement('div');
+        wrap.setAttribute('data-settings-section-park', '1');
+        const interactive = document.createElement('div');
+        interactive.setAttribute('data-settings-interactive', 'true');
+        wrap.appendChild(interactive);
+        frame.appendChild(wrap);
+        shell.appendChild(frame);
+        host?.appendChild(shell);
+
+        expect(dismissSettingsInstantBridgeIfHostReady()).toBe(false);
+        expect(document.getElementById('hami-settings-instant-bridge')).toBeTruthy();
+    });
+
+    it('لا يزيل الجسر أثناء غطاء التحميل ولو وُجد قسم تفاعلي', () => {
+        expect(paintSettingsInstantChrome()).toBe(true);
+        const host = document.querySelector('[data-testid="hami-settings-overlay-host"]');
+        const shell = document.createElement('div');
+        shell.setAttribute('data-settings-root', '');
+        const frame = document.createElement('div');
+        frame.className = 'hami-settings-section-frame';
+        const wrap = document.createElement('div');
+        const cover = document.createElement('div');
+        cover.setAttribute('data-settings-section-cover', '1');
+        cover.setAttribute('aria-busy', 'true');
+        const interactive = document.createElement('div');
+        interactive.setAttribute('data-settings-interactive', 'true');
+        wrap.appendChild(cover);
+        wrap.appendChild(interactive);
+        frame.appendChild(wrap);
+        shell.appendChild(frame);
+        host?.appendChild(shell);
+
+        expect(dismissSettingsInstantBridgeIfHostReady()).toBe(false);
+        expect(document.getElementById('hami-settings-instant-bridge')).toBeTruthy();
+    });
+
+    it('skips bridge when host already has an interactive shown section', () => {
         const host = document.createElement('div');
         host.setAttribute('data-testid', 'hami-settings-overlay-host');
         const header = document.createElement('header');
@@ -151,6 +273,18 @@ describe('settingsInstantPaint', () => {
         Object.defineProperty(header, 'getBoundingClientRect', {
             value: () => ({ height: 72, width: 320, top: 0, left: 0, bottom: 72, right: 320, x: 0, y: 0, toJSON: () => ({}) }),
         });
+        const shell = document.createElement('div');
+        shell.setAttribute('data-testid', 'hami-settings-shell');
+        shell.setAttribute('data-settings-root', '');
+        const frame = document.createElement('div');
+        frame.className = 'hami-settings-section-frame';
+        const wrap = document.createElement('div');
+        const interactive = document.createElement('div');
+        interactive.setAttribute('data-settings-interactive', 'true');
+        wrap.appendChild(interactive);
+        frame.appendChild(wrap);
+        shell.appendChild(frame);
+        host.appendChild(shell);
         host.appendChild(header);
         document.body.appendChild(host);
 
@@ -192,23 +326,35 @@ describe('settingsInstantPaint', () => {
         expect(isSettingsReopenSuppressed()).toBe(false);
     });
 
+    it('لا يطلي أثناء كبح إعادة الفتح أو سمة الإغلاق', () => {
+        suppressSettingsReopen(200);
+        expect(paintSettingsInstantChrome()).toBe(false);
+        expect(isSettingsForceVisible()).toBe(false);
+        expect(document.documentElement.getAttribute('data-hami-settings-open')).toBeNull();
+
+        clearSettingsReopenSuppress();
+        document.documentElement.setAttribute('data-hami-settings-closing', '1');
+        expect(paintSettingsInstantChrome()).toBe(false);
+        expect(isSettingsForceVisible()).toBe(false);
+        document.documentElement.removeAttribute('data-hami-settings-closing');
+    });
+
     it('arms the connected host after the instant bridge is removed', () => {
         expect(paintSettingsInstantChrome()).toBe(true);
         const bridge = document.getElementById('hami-settings-instant-bridge');
         expect(bridge).toBeTruthy();
 
-        const host = document.createElement('div');
-        host.setAttribute('data-testid', 'hami-settings-overlay-host');
-        host.classList.add('hami-settings-overlay-layer--visible');
-        document.body.appendChild(host);
+        const host = document.querySelector('[data-testid="hami-settings-overlay-host"]');
+        expect(host).toBeTruthy();
+        host?.classList.add('hami-settings-overlay-layer--visible');
         bridge?.remove();
 
         window.dispatchEvent(new Event('pointerup', { bubbles: true }));
         window.dispatchEvent(new Event('click', { bubbles: true }));
 
         expect(isSettingsCloseGuarded()).toBe(false);
-        expect(isSettingsOverlayInteractionArmed(host)).toBe(true);
-        expect(host.classList.contains('hami-settings-overlay-layer--interact')).toBe(true);
+        expect(isSettingsOverlayInteractionArmed(host as HTMLElement)).toBe(true);
+        expect(host?.classList.contains('hami-settings-overlay-layer--interact')).toBe(true);
     });
 
     it('arms interaction immediately after open-gesture click is swallowed', () => {

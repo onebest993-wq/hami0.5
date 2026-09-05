@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
     loadGlobalSearchOverlayModule,
@@ -10,7 +10,6 @@ import {
 import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 
 type UseGlobalSearchHostLifecycleParams = {
-    userId: string | null;
     initialSessionOpen: boolean;
 };
 

@@ -132,7 +132,7 @@ export function HqTrustedDevicesPanel({ gated = false }: { gated?: boolean }) {
     const showLoading = loading && devices.length === 0;
     const showError = failedLoad && devices.length === 0;
     const summary = showLoading
-        ? 'جاري التحميل'
+        ? undefined
         : showError
           ? 'تعذّر التحميل'
           : failedLoad
@@ -152,7 +152,7 @@ export function HqTrustedDevicesPanel({ gated = false }: { gated?: boolean }) {
             action={<HqGhostButton onClick={() => void reload()}>تحديث</HqGhostButton>}
         >
             {showLoading ? (
-                <HqStateBlock kind="loading" title="جاري تحميل الأجهزة..." />
+                <HqStateBlock kind="loading" title="الأجهزة الموثّقة" />
             ) : showError ? (
                 <HqStateBlock
                     kind="error"

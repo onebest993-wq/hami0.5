@@ -32,8 +32,6 @@ const UNSIGNED_PROTECTED: Hit[] = [
   { method: 'POST', path: '/api/admin/otp/verify', body: { code: '000000' } },
   { method: 'POST', path: '/api/admin/otp/dev-unlock', body: { deviceFingerprint: 'x'.repeat(32) } },
   { method: 'POST', path: '/api/audit/log', body: { action: 'FORGED' } },
-  { method: 'GET', path: '/api/calendar/tombstones' },
-  { method: 'POST', path: '/api/calendar/tombstones', body: { action: 'mark', eventId: 'ev-1' } },
   { method: 'GET', path: '/api/case-share' },
   { method: 'POST', path: '/api/case-share', body: { action: 'create', recipientId: VICTIM } },
   { method: 'GET', path: `/api/case-share/detail?shareId=${VICTIM}` },

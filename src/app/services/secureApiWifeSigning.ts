@@ -1,4 +1,3 @@
-import { RequestSigningService } from './RequestSigningService';
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { fetchBffWifeSignedHeaders, isWifeSignCircuitOpen } from '@/app/utils/bffWifeSign';
 import { SecureFetchError } from '@/app/services/SecureFetchError';
@@ -119,6 +118,7 @@ export async function attachWifeClientHeaders(input: {
             signal: input.signal,
         });
     } else {
+        const { RequestSigningService } = await import('./RequestSigningService');
         signedHeaders = await RequestSigningService.createSignedHeaders(
             input.method,
             input.resolvedUrl,

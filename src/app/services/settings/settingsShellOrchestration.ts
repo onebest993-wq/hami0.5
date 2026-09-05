@@ -1,5 +1,5 @@
 /** إغلاق overlays المتنافسة قبل فتح مركز الإعدادات — نفس نمط المنتدى والمعاملات */
-export type CloseOverlaysBeforeSettingsInput = {
+type CloseOverlaysBeforeSettingsInput = {
     closeNotifications: () => void;
     closeGlobalSearch: () => void;
     closeVault: () => void;

@@ -32,13 +32,11 @@ describe('threading alerts', () => {
                     clientName: 'شركة الأفق',
                     targetDepartment: 'الطابو',
                     status: 'Paused',
-                    agreedFees: 0,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 },
             ],
             tasks: [],
-            financeRecords: [],
             documents: [],
         });
     });

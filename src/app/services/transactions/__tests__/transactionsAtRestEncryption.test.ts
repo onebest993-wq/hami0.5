@@ -48,7 +48,6 @@ describe('transactions at-rest encryption (behavior)', () => {
             userId: 'lawyer-at-rest-1',
             transactions: [],
             tasks: [{ id: 'k1', title: 'مهمة سرّية' }],
-            financeRecords: [],
             documents: [],
             updatedAt: new Date().toISOString(),
         });

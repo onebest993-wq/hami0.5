@@ -96,4 +96,23 @@ describe('transactionsBootHydrator', () => {
 
         expect(prefetchTransactionsHubModule).toHaveBeenCalled();
     });
+
+    it('prefetch على lite/محلي ما زال يحمّل مقطع المعاملات', async () => {
+        vi.mocked(
+            (await import('@/app/services/settings/settingsSnapshot')).getLawyerSettingsSnapshot,
+        ).mockReturnValue({
+            security: { localOnlyMode: true },
+            performance: { prefetchScreens: true, litePerformance: true },
+        } as never);
+        vi.mocked((await import('@/app/runtime/devicePerformanceTier')).isLitePerformanceActive).mockReturnValue(
+            true,
+        );
+
+        const { resetTransactionsBootHydratorForTests, prefetchTransactionsAfterBootReveal } = await import(
+            '@/app/runtime/transactionsBootHydrator'
+        );
+        resetTransactionsBootHydratorForTests();
+        prefetchTransactionsAfterBootReveal('lawyer-1');
+        expect(prefetchTransactionsHubModule).toHaveBeenCalled();
+    });
 });

@@ -270,7 +270,10 @@ export function buildLawyerDashboardTabBundle(
                     void import('@/app/runtime/executionArchiveOpenSession').then((m) =>
                         m.prefetchExecutionArchiveOpen(),
                     );
-                    warmExecutionWorkspaceIntent({ includeSecondary: false, secondaryDelayMs: 1_200 });
+                    void import('@/app/runtime/executionOverlayEntryLoader')
+                        .then((m) => m.prefetchExecutionOverlayEntries({ parallel: true }))
+                        .catch(() => undefined);
+                    warmExecutionWorkspaceIntent({ includeSecondary: true, secondaryDelayMs: 0 });
                 }
             },
             userId: params.user?.id || '',

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     mergeThreadingRecordsById,
     mergeTransactionsThreadingStates,
+    parseTransactionsThreadingState,
 } from '@/app/services/transactions/transactionsThreadingMirror';
 import type { TransactionsThreadingState } from '@/app/services/cloud/lawyerTransactionTypes';
 
@@ -14,7 +15,6 @@ function state(
         updatedAt: partial.updatedAt ?? '2026-01-01T00:00:00.000Z',
         transactions: partial.transactions,
         tasks: partial.tasks ?? [],
-        financeRecords: partial.financeRecords ?? [],
         documents: partial.documents ?? [],
     };
 }
@@ -62,16 +62,55 @@ describe('mergeTransactionsThreadingStates', () => {
         expect((result[0] as { title: string }).title).toBe('local');
     });
 
-    it('لا يدمج حركات مالية مهجورة من أي طرف', () => {
-        const local = state({
-            transactions: [{ id: 'tx-1' }],
+    it('لا يحتفظ بحركات مالية مهجورة من أي طرف', () => {
+        const local = {
+            ...state({ transactions: [{ id: 'tx-1' }] }),
             financeRecords: [{ id: 'f-local', amount: 10 }],
-        });
-        const remote = state({
-            transactions: [{ id: 'tx-1' }],
+        };
+        const remote = {
+            ...state({ transactions: [{ id: 'tx-1' }] }),
             financeRecords: [{ id: 'f-remote', amount: 20 }],
-        });
+        };
         const merged = mergeTransactionsThreadingStates(local, remote);
-        expect(merged?.financeRecords).toEqual([]);
+        expect(merged).not.toHaveProperty('financeRecords');
+    });
+
+    it('حمولة قديمة فيها financeRecords تُقرأ دون إسقاط المعاملات ودون الإبقاء على المالية', () => {
+        const parsed = parseTransactionsThreadingState('u1', {
+            schemaVersion: 1,
+            userId: 'u1',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            transactions: [
+                {
+                    id: 'tx-1',
+                    title: 'معاملة',
+                    clientName: 'موكل',
+                    targetDepartment: 'دائرة',
+                    status: 'Active',
+                    agreedFees: 40,
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                },
+            ],
+            tasks: [],
+            financeRecords: [{ id: 'f1', amount: 10 }],
+            documents: [],
+        });
+        expect(parsed?.transactions).toHaveLength(1);
+        expect(parsed?.transactions[0]).not.toHaveProperty('agreedFees');
+        expect(parsed).not.toHaveProperty('financeRecords');
+    });
+
+    it('حمولة بلا financeRecords تُقبل', () => {
+        const parsed = parseTransactionsThreadingState('u1', {
+            schemaVersion: 1,
+            userId: 'u1',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            transactions: [],
+            tasks: [],
+            documents: [],
+        });
+        expect(parsed).not.toBeNull();
+        expect(parsed).not.toHaveProperty('financeRecords');
     });
 });

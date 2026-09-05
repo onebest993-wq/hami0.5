@@ -19,6 +19,12 @@ export type CommitSettingsShellOpenParams = {
     onAfterCommit?: () => void;
 };
 
+function prefetchOpenSettingsTabs(): void {
+    void import('@/app/components/lawyer/HamiSettings/settingsSectionLoad')
+        .then((m) => m.prefetchSettingsOpenTabChunks())
+        .catch(() => undefined);
+}
+
 function schedulePostOpenWork(showSettingsRef: MutableRefObject<boolean>): void {
     const run = () => {
         if (!showSettingsRef.current) return;
@@ -43,6 +49,7 @@ export function commitSettingsShellOpen({
     showSettingsRef.current = true;
     prefetchSettingsOverlayEntry();
     paintSettingsInstantChrome();
+    prefetchOpenSettingsTabs();
     markSettingsPerfPhase('first-paint');
 
     ensureSettingsHostMounted();

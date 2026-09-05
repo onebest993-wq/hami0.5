@@ -48,10 +48,10 @@ describe('repositoryIntentWarm', () => {
         expect(prefetchSmartVaultDocs).toHaveBeenCalledWith('u1');
     });
 
-    it('warmRepositoryHubOnHover يحمّل chunk وبيانات المخزن', () => {
+    it('warmRepositoryHubOnHover يحمّل chunk فقط بلا وثائق', () => {
         warmRepositoryHubOnHover('u1');
         expect(prefetchRepositoryHubModule).toHaveBeenCalled();
-        expect(prefetchSmartVaultDocs).toHaveBeenCalledWith('u1');
+        expect(prefetchSmartVaultDocs).not.toHaveBeenCalled();
     });
 
     it('idle prefetch لا يعمل عند منع التسخين الخلفي', () => {

@@ -1,7 +1,7 @@
 /** فتح لوحة الإشعارات من هيدر اللوحة */
 export const NOTIFICATIONS_SHELL_FEATURE = 'الإشعارات';
 
-export type OpenNotificationsShellInput = {
+type OpenNotificationsShellInput = {
     signedIn: boolean;
     onOpen: () => void;
     onSignedOut?: () => void;

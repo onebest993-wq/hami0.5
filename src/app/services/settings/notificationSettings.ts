@@ -39,11 +39,11 @@ export interface NotificationChannelPrefs {
     inApp: boolean;
 }
 
-export interface NotificationQuietHours {
+type NotificationQuietHours = {
     enabled: boolean;
     start: string;
     end: string;
-}
+};
 
 export interface NotificationSettings {
     masterEnabled: boolean;
@@ -207,11 +207,20 @@ export function toDatetimeLocalValue(ms: number): string {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** يحول datetime-local إلى ms؛ يرفض الماضي */
+/** يحول datetime-local إلى ms بالتوقيت المحلي؛ يرفض الماضي والقريب جداً */
 export function parseDatetimeLocalToMuteUntil(value: string): number | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
-    const ms = new Date(trimmed).getTime();
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(trimmed);
+    if (!match) return null;
+    const ms = new Date(
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3]),
+        Number(match[4]),
+        Number(match[5]),
+        Number(match[6] ?? 0),
+    ).getTime();
     if (!Number.isFinite(ms) || ms <= Date.now() + 30_000) return null;
     return ms;
 }

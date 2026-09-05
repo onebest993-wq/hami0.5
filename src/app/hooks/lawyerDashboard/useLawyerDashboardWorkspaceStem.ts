@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { useLawsuitFilesState } from '@/app/hooks/useLawsuitFilesState';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type {
+    LawyerDashboardWorkspaceStem,
+    UseLawyerDashboardWorkspaceStemParams,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardWorkspaceStem.types';
 
-export type UseLawyerDashboardWorkspaceStemParams = {
-    localAutoSave: boolean;
-    backgroundRuntimeEnabled: boolean;
-};
+export type {
+    LawyerDashboardWorkspaceStem,
+    UseLawyerDashboardWorkspaceStemParams,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardWorkspaceStem.types';
 
 export function useLawyerDashboardWorkspaceStem({
     localAutoSave,
     backgroundRuntimeEnabled,
-}: UseLawyerDashboardWorkspaceStemParams) {
+}: UseLawyerDashboardWorkspaceStemParams): LawyerDashboardWorkspaceStem {
     const [activeFile, setActiveFile] = useState<FileData | ExecutionFile | null>(null);
 
     const lawsuitFiles = useLawsuitFilesState({
@@ -25,5 +29,3 @@ export function useLawyerDashboardWorkspaceStem({
         ...lawsuitFiles,
     };
 }
-
-export type LawyerDashboardWorkspaceStem = ReturnType<typeof useLawyerDashboardWorkspaceStem>;

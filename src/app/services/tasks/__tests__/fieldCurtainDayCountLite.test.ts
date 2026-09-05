@@ -6,10 +6,7 @@ import {
     countFieldDaySheetTasksLite,
     isEligibleFieldDaySheetTaskLite,
 } from '@/app/services/tasks/fieldCurtainDayCountLite';
-import {
-    countFieldDaySheetTasks,
-    listFieldDaySheetTasks,
-} from '@/app/services/tasks/fieldCurtainTasks';
+import { listFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
 import { legalTaskStub as task } from './legalTaskStub';
 
 describe('fieldCurtainDayCountLite', () => {
@@ -42,6 +39,20 @@ describe('fieldCurtainDayCountLite', () => {
         expect(isEligibleFieldDaySheetTaskLite(future, now)).toBe(false);
         expect(isEligibleFieldDaySheetTaskLite(dueToday, now)).toBe(true);
         expect(isEligibleFieldDaySheetTaskLite(overdue, now)).toBe(true);
+        const fatalToday = task({
+            id: 'fatal-today',
+            title: 'حتمي اليوم',
+            isFatalDeadline: true,
+            parsedDate: new Date('2026-08-03T09:00:00'),
+        });
+        const fatalFuture = task({
+            id: 'fatal-future',
+            title: 'حتمي لاحق',
+            isFatalDeadline: true,
+            parsedDate: new Date('2026-08-20T09:00:00'),
+        });
+        expect(isEligibleFieldDaySheetTaskLite(fatalToday, now)).toBe(true);
+        expect(isEligibleFieldDaySheetTaskLite(fatalFuture, now)).toBe(false);
     });
 
     it('lite count equals sorted list length', () => {
@@ -52,6 +63,5 @@ describe('fieldCurtainDayCountLite', () => {
             task({ id: 'c', title: 'ج', pinnedToFieldCurtain: true }),
         ];
         expect(countFieldDaySheetTasksLite(tasks, now)).toBe(listFieldDaySheetTasks(tasks, now).length);
-        expect(countFieldDaySheetTasks(tasks, now)).toBe(countFieldDaySheetTasksLite(tasks, now));
     });
 });

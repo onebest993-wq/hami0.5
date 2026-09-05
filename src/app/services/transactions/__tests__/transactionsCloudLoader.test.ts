@@ -13,7 +13,6 @@ vi.mock('@/app/services/cloud/lawyerTransactionsCloud', () => ({
             updatedAt: '2026-01-01T00:00:00.000Z',
             transactions: [],
             tasks: [],
-            financeRecords: [],
             documents: [],
         }),
     },

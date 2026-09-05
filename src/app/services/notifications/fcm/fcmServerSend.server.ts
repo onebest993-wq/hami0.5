@@ -82,7 +82,7 @@ async function getAccessToken(account: ServiceAccount): Promise<string | null> {
     return json.access_token;
 }
 
-export type FcmInboxPushInput = {
+type FcmInboxPushInput = {
     userId: string;
     title: string;
     body: string;
@@ -155,6 +155,7 @@ async function sendToToken(
                         channel_id: channelId,
                         sound: input.channel === 'calendar' ? HAMI_LEGAL_ALARM_SOUND_RAW : HAMI_ARRIVAL_SOUND_RAW,
                         default_vibrate_timings: true,
+                        vibrate_timings: ['0.18s', '0.09s', '0.18s', '0.09s', '0.32s'],
                         visibility: 'PRIVATE',
                     },
                 },

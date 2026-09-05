@@ -1,45 +1,24 @@
 /**
- * calendarTombstones — منع "deletion resurrection".
- *
- * المشكلة (قبل هذا الملف):
- *   جهاز A يحذف حدثاً → cloud يفقده.
- *   جهاز B (offline سابقاً) لا يزال يحمله محلياً.
- *   عند مزامنة B → merge يُعيد إحياء الحدث في cloud وفي A.
- *
- * الحلّ:
- *   جدول calendar_tombstones في Supabase يحفظ معرّفات الأحداث المحذوفة.
- *   عند الحذف: نُسجّل tombstone (سحابة + cache محلي).
- *   عند القراءة: نُسقط أي حدث id موجود في tombstones.
- *
- * يعمل مع RLS (auth.uid() = user_id)، لا يحتاج kv-proxy.
+ * شواهد حذف محلية — تمنع إحياء موعد محذوف عند إعادة بناء الجدول من الإضبارة.
+ * لا /api ولا KV.
  */
 
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
-import { SecureFetchError } from '@/app/services/SecureFetchError';
-import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
-import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
-import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
-import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
-import { isSupabaseMissingRelationError } from '@/app/utils/supabaseErrors';
+import { CALENDAR_TOMBSTONES_STORAGE_KEY } from '@/app/services/calendar/calendarStorageKeys';
 import {
     clearLegacyPlaintextMirror,
     readSecureOrDrainLegacySync,
 } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
-const LOCAL_TOMBSTONES_KEY = 'hami:calendar:tombstones:v1';
-const CLOUD_DISABLED_STORAGE_KEY = 'hami:calendar:tombstones:cloud-disabled:v1';
-
 interface TombstoneRecord {
     eventId: string;
-    deletedAt: string; // ISO
+    deletedAt: string;
 }
 
 interface LocalTombstoneStore {
     [userId: string]: TombstoneRecord[];
 }
 
-// ============== Local cache (نسخة احتياطية للأوفلاين) ==============
 function parseLocalTombstoneStore(raw: string | null): LocalTombstoneStore {
     if (!raw) return {};
     try {
@@ -52,16 +31,16 @@ function parseLocalTombstoneStore(raw: string | null): LocalTombstoneStore {
 
 async function loadLocalTombstones(): Promise<LocalTombstoneStore> {
     try {
-        const raw = await SecureStoreService.getItem(LOCAL_TOMBSTONES_KEY);
+        const raw = await SecureStoreService.getItem(CALENDAR_TOMBSTONES_STORAGE_KEY);
         if (raw) {
-            clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
+            clearLegacyPlaintextMirror(CALENDAR_TOMBSTONES_STORAGE_KEY);
             return parseLocalTombstoneStore(raw);
         }
     } catch {
         /* fall through — ترحيل المرآة */
     }
     try {
-        return parseLocalTombstoneStore(readSecureOrDrainLegacySync(LOCAL_TOMBSTONES_KEY));
+        return parseLocalTombstoneStore(readSecureOrDrainLegacySync(CALENDAR_TOMBSTONES_STORAGE_KEY));
     } catch {
         return {};
     }
@@ -70,128 +49,44 @@ async function loadLocalTombstones(): Promise<LocalTombstoneStore> {
 async function saveLocalTombstones(store: LocalTombstoneStore): Promise<void> {
     const payload = JSON.stringify(store);
     try {
-        await SecureStoreService.setItem(LOCAL_TOMBSTONES_KEY, payload);
-        clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
+        await SecureStoreService.setItem(CALENDAR_TOMBSTONES_STORAGE_KEY, payload);
+        clearLegacyPlaintextMirror(CALENDAR_TOMBSTONES_STORAGE_KEY);
         return;
     } catch {
         /* setItemSync يملأ الكاش إن نجح — لا مرآة صريحة */
     }
     try {
-        SecureStoreService.setItemSync(LOCAL_TOMBSTONES_KEY, payload);
-        clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
+        SecureStoreService.setItemSync(CALENDAR_TOMBSTONES_STORAGE_KEY, payload);
+        clearLegacyPlaintextMirror(CALENDAR_TOMBSTONES_STORAGE_KEY);
     } catch {
         /* الجلسة تحتفظ بالكاش في الذاكرة */
     }
 }
 
-// ============== In-memory cache (تجنّب network call في كل getEvents) ==============
-interface TombstoneCacheEntry {
-    set: Set<string>;
-    loadedAt: number;
-}
-const tombstoneCache = new Map<string, TombstoneCacheEntry>();
-const TOMBSTONE_CACHE_TTL_MS = 60_000; // 1 دقيقة
-
-/** عند غياب الجدول في Supabase — لا نُعيد طلب REST (يمنع أخطاء 404 في الـ console). */
-let cloudTombstonesDisabled = (() => {
-    try {
-        if (localStorage.getItem(CLOUD_DISABLED_STORAGE_KEY) === '1') return true;
-    } catch {
-        /* ignore */
-    }
-    // التطوير: لا نستدعي REST إلا إذا فُعّل صراحة (الجدول غالباً غير منشور بعد)
-    if (shouldSkipCloudTombstonesInDev()) {
-        return true;
-    }
-    return false;
-})();
-
-function shouldSkipCloudTombstonesInDev(): boolean {
-    if (import.meta.env.MODE === 'test') return false;
-    return import.meta.env.DEV && import.meta.env.VITE_ENABLE_CALENDAR_TOMBSTONES_CLOUD !== 'true';
-}
-
-function isCloudTombstonesSyncEnabled(): boolean {
-    if (cloudTombstonesDisabled) return false;
-    try {
-        if (localStorage.getItem(CLOUD_DISABLED_STORAGE_KEY) === '1') {
-            cloudTombstonesDisabled = true;
-            return false;
-        }
-    } catch {
-        /* ignore */
-    }
-    if (shouldSkipCloudTombstonesInDev()) {
-        return false;
-    }
-    return true;
-}
+const tombstoneCache = new Map<string, Set<string>>();
 
 function readCache(userId: string): Set<string> | null {
-    const entry = tombstoneCache.get(userId);
-    if (!entry) return null;
-    if (Date.now() - entry.loadedAt > TOMBSTONE_CACHE_TTL_MS) return null;
-    return entry.set;
+    return tombstoneCache.get(userId) ?? null;
 }
 
 function writeCache(userId: string, set: Set<string>): void {
-    tombstoneCache.set(userId, { set, loadedAt: Date.now() });
+    tombstoneCache.set(userId, set);
 }
 
-function canReachCalendarTombstonesCloud(): boolean {
-    if (!isCloudTombstonesSyncEnabled()) return false;
-    if (!isLawyerWorkCloudLive()) return false;
-    const userId = getLiveAuthUserId();
-    if (!userId) return false;
-    const persisted = readPersistedSupabaseAuth();
-    const meta = (persisted.user?.user_metadata ?? null) as Record<string, unknown> | null;
-    return canReachProtectedServerNetwork(userId, meta);
-}
-
-function disableCloudTombstones(error: unknown): void {
-    if (error instanceof SecureFetchError && error.status === 403) {
-        cloudTombstonesDisabled = true;
-        return;
-    }
-    if (!isSupabaseMissingRelationError(error)) return;
-    cloudTombstonesDisabled = true;
-    try {
-        localStorage.setItem(CLOUD_DISABLED_STORAGE_KEY, '1');
-    } catch {
-        /* ignore */
-    }
-}
-
-/**
- * يُبطل cache الـ tombstones (مفيد بعد restore).
- */
 export function invalidateTombstoneCache(userId?: string): void {
     if (userId) tombstoneCache.delete(userId);
     else tombstoneCache.clear();
 }
 
 /** للاختبارات فقط */
-export function resetCloudTombstoneProbeForTests(): void {
-    cloudTombstonesDisabled = false;
-    tombstoneCache.clear();
-    try {
-        localStorage.removeItem(CLOUD_DISABLED_STORAGE_KEY);
-    } catch {
-        /* ignore */
-    }
+export function resetTombstoneStateForTests(): void {
+    invalidateTombstoneCache();
 }
 
-// ============== Public API ==============
-
-/**
- * يُسجّل tombstone للحدث (سحابة + محلي).
- * فشل السحابة لا يُلقي خطأ — الـ tombstone المحلي كافٍ.
- */
 export async function recordTombstone(userId: string, eventId: string): Promise<void> {
     if (!userId || !eventId) return;
     const now = new Date().toISOString();
 
-    // إضافة للـ cache فوراً
     const cached = readCache(userId);
     if (cached) {
         cached.add(eventId);
@@ -199,7 +94,6 @@ export async function recordTombstone(userId: string, eventId: string): Promise<
         writeCache(userId, new Set([eventId]));
     }
 
-    // local
     try {
         const store = await loadLocalTombstones();
         const list = store[userId] ?? [];
@@ -209,65 +103,15 @@ export async function recordTombstone(userId: string, eventId: string): Promise<
         store[userId] = list;
         await saveLocalTombstones(store);
     } catch {
-        /* ignore */
-    }
-
-    // cloud
-    if (!canReachCalendarTombstonesCloud()) return;
-    try {
-        await SecureAPIClient.fetchSecure('/api/calendar/tombstones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'mark', eventId }),
-        });
-    } catch (err) {
-        disableCloudTombstones(err);
+        /* الكاش يكفي لهذه الجلسة */
     }
 }
 
-/**
- * يجمع كل معرّفات الأحداث المحذوفة (محلية + سحابية، moded into Set).
- * يُستخدم لتصفية getEvents.
- */
-let cloudSyncInFlight = false;
-async function syncTombstonesFromCloud(userId: string): Promise<void> {
-    if (!userId || !canReachCalendarTombstonesCloud()) return;
-    if (cloudSyncInFlight) return;
-    cloudSyncInFlight = true;
-    try {
-        const res = await SecureAPIClient.fetchSecure<{ ok: boolean; eventIds?: string[] }>(
-            '/api/calendar/tombstones',
-            { method: 'GET' },
-        );
-        const data = Array.isArray(res?.eventIds)
-            ? res.eventIds.map((event_id) => ({ event_id }))
-            : [];
-        if (!data.length) return;
-        const set = readCache(userId) ?? new Set<string>();
-        for (const row of data) {
-            if (row && typeof row.event_id === 'string') {
-                set.add(row.event_id);
-            }
-        }
-        writeCache(userId, set);
-    } catch (err) {
-        disableCloudTombstones(err);
-    } finally {
-        cloudSyncInFlight = false;
-    }
-}
-
-/**
- * يقرأ tombstones من localStorage فقط (سريع، non-blocking).
- * مزامنة سحابية مرة واحدة عند انتهاء صلاحية الـ cache — لا تُكرَّر مع كل getEvents.
- */
 export async function loadTombstoneIds(userId: string): Promise<Set<string>> {
     if (!userId) return new Set<string>();
 
     const cached = readCache(userId);
-    if (cached) {
-        return cached;
-    }
+    if (cached) return cached;
 
     const set = new Set<string>();
     try {
@@ -277,34 +121,56 @@ export async function loadTombstoneIds(userId: string): Promise<Set<string>> {
         /* ignore */
     }
     writeCache(userId, set);
-    void syncTombstonesFromCloud(userId);
     return set;
 }
 
-/**
- * يحذف tombstone (مثلاً عند restore عمدي للحدث).
- * يستدعى نادراً.
- */
+export type CalendarTombstoneStore = LocalTombstoneStore;
+
+export async function exportTombstoneStoreForCheckpoint(): Promise<CalendarTombstoneStore> {
+    return loadLocalTombstones();
+}
+
+function isTombstoneRecord(value: unknown): value is TombstoneRecord {
+    if (!value || typeof value !== 'object') return false;
+    const row = value as Record<string, unknown>;
+    return typeof row.eventId === 'string' && row.eventId.trim().length > 0;
+}
+
+/** دمج شواهد الحذف من نقطة الحفظ المشفّرة — اتحاد بالمعرّف، بلا KV. */
+export async function mergeTombstoneStoreFromCheckpoint(incoming: unknown): Promise<number> {
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return 0;
+    const incomingStore = incoming as Record<string, unknown>;
+    const local = await loadLocalTombstones();
+    let added = 0;
+    for (const [userId, rows] of Object.entries(incomingStore)) {
+        if (!userId.trim() || !Array.isArray(rows)) continue;
+        const list = local[userId] ?? [];
+        const seen = new Set(list.map((t) => t.eventId));
+        for (const row of rows) {
+            if (!isTombstoneRecord(row) || seen.has(row.eventId)) continue;
+            list.push({
+                eventId: row.eventId,
+                deletedAt: typeof row.deletedAt === 'string' ? row.deletedAt : new Date().toISOString(),
+            });
+            seen.add(row.eventId);
+            added += 1;
+        }
+        local[userId] = list;
+        writeCache(userId, seen);
+    }
+    if (added > 0) await saveLocalTombstones(local);
+    return added;
+}
+
 export async function clearTombstone(userId: string, eventId: string): Promise<void> {
     if (!userId || !eventId) return;
     const cached = readCache(userId);
     if (cached) cached.delete(eventId);
     try {
         const store = await loadLocalTombstones();
-        const list = (store[userId] ?? []).filter((t) => t.eventId !== eventId);
-        store[userId] = list;
+        store[userId] = (store[userId] ?? []).filter((t) => t.eventId !== eventId);
         await saveLocalTombstones(store);
     } catch {
         /* ignore */
-    }
-    if (!canReachCalendarTombstonesCloud()) return;
-    try {
-        await SecureAPIClient.fetchSecure('/api/calendar/tombstones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'clear', eventId }),
-        });
-    } catch (err) {
-        disableCloudTombstones(err);
     }
 }

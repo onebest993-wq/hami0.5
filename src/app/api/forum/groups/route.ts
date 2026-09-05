@@ -2,6 +2,8 @@ import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumGroupRepository } from '../../../services/forum/forumGroupRepository.ts';
 import type { CreateForumGroupInput } from '../../../services/forum/forumGroupTypes.ts';
 import { requireForumAuthAndUnbanned, jsonResponse, requireForumAuth, forumCatchJsonResponse } from '../_auth.ts';
+import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
+import { sanitizeForumCoverImage } from '../../../services/forum/forumUrlSafety.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -59,10 +61,14 @@ export async function POST(request: Request): Promise<Response> {
             });
         }
 
+        if (!(await checkForumActionRateLimit(auth.userId, 'group_create'))) {
+            return jsonResponse(429, { ok: false, error: 'تجاوزت حد إنشاء المجموعات، انتظر قليلاً' });
+        }
+
         const input: CreateForumGroupInput = {
             name,
             description,
-            coverImage,
+            coverImage: sanitizeForumCoverImage(coverImage),
             isOfficial: wantsOfficial,
         };
         const group = await ForumGroupRepository.createGroup(auth.userId, input, auth.isAdmin);

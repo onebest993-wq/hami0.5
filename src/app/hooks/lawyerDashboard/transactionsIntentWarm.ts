@@ -1,6 +1,9 @@
 import { prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
 import { warmTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
-import { prefetchTransactionsCloudModule } from '@/app/services/transactions/transactionsCloudLoader';
+import {
+    fetchTransactionsThreadingState,
+    prefetchTransactionsCloudModule,
+} from '@/app/services/transactions/transactionsCloudLoader';
 import { warmTransactionsDiskRead } from '@/app/services/transactions/transactionsDiskWarm';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
@@ -34,8 +37,16 @@ function warmTransactionsDataNow(userId?: string | null): void {
 }
 
 /** السحابة فقط على idle — لا تسرق إطار الفتح. بعد prime/هوية لا تُعاد بيانات. */
-export function warmTransactionsCloudIdle(): void {
-    scheduleIdleWork(() => prefetchTransactionsCloudModule(), { minDelayMs: 0, timeoutMs: 5_000 });
+export function warmTransactionsCloudIdle(userId?: string | null): void {
+    scheduleIdleWork(
+        () => {
+            prefetchTransactionsCloudModule();
+            const uid = resolveWarmUserId(userId);
+            if (!uid) return;
+            void fetchTransactionsThreadingState(uid).catch(() => undefined);
+        },
+        { minDelayMs: 0, timeoutMs: 5_000 },
+    );
 }
 
 /**
@@ -53,7 +64,7 @@ export function warmTransactionsOnHover(userId?: string | null): void {
 export function warmTransactionsOnOpen(userId?: string | null): void {
     prefetchTransactionsOpenChain();
     warmTransactionsDataNow(userId);
-    warmTransactionsCloudIdle();
+    warmTransactionsCloudIdle(userId);
 }
 
 /** تسخين خفيف قبل الفتح — chunks + مخزن إن وُجد userId */

@@ -1,5 +1,5 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { backupDomainForStorageKey } from './protectedStorageKeys';
+import { backupDomainForStorageKey, isTransactionsThreadingStateKey } from './protectedStorageKeys';
 import { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorageKey';
 import type { BackupDomain, DossierDomain } from './dossierPersistenceTypes';
 
@@ -32,6 +32,23 @@ function parseBackupPayload(storageKey: string, raw: string): unknown[] | null {
         if (storageKey === QUANTUM_TASKS_STORAGE_KEY && parsed && typeof parsed === 'object') {
             const tasks = (parsed as { tasks?: unknown }).tasks;
             return Array.isArray(tasks) && tasks.length > 0 ? tasks : null;
+        }
+        if (
+            isTransactionsThreadingStateKey(storageKey) &&
+            parsed &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed)
+        ) {
+            const state = parsed as {
+                transactions?: unknown;
+                tasks?: unknown;
+                documents?: unknown;
+            };
+            const n =
+                (Array.isArray(state.transactions) ? state.transactions.length : 0) +
+                (Array.isArray(state.tasks) ? state.tasks.length : 0) +
+                (Array.isArray(state.documents) ? state.documents.length : 0);
+            return n > 0 ? [parsed] : null;
         }
         return null;
     } catch {

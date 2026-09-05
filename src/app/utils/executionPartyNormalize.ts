@@ -9,8 +9,17 @@ export function resolvePartyStoredName(party: unknown): string {
     if (!party) return '';
     if (typeof party === 'string') return party.trim();
     if (!isRecord(party)) return '';
-    const name = party.fullName ?? party.name ?? party.label;
-    return typeof name === 'string' ? name.trim() : '';
+    const name =
+        party.fullName ??
+        party.name ??
+        party.label ??
+        party.full_name ??
+        party.arabicName ??
+        party.displayName;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+    const first = typeof party.firstName === 'string' ? party.firstName.trim() : '';
+    const last = typeof party.lastName === 'string' ? party.lastName.trim() : '';
+    return `${first} ${last}`.trim();
 }
 
 export function normalizeExecutionParty(

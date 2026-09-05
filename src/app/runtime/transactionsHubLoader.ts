@@ -1,3 +1,6 @@
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
+import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+
 type TransactionsOverlayEntryModule =
     typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardTransactionsOverlayEntry');
 
@@ -6,12 +9,6 @@ let overlayEntryResolved = false;
 
 export function isTransactionsHubModuleResolved(): boolean {
     return overlayEntryResolved;
-}
-
-/** للاختبارات */
-export function resetTransactionsHubModuleCacheForTests(): void {
-    overlayEntryPromise = null;
-    overlayEntryResolved = false;
 }
 
 function ensureTransactionsOverlayEntry(): Promise<TransactionsOverlayEntryModule> {
@@ -32,18 +29,30 @@ function ensureTransactionsOverlayEntry(): Promise<TransactionsOverlayEntryModul
     return overlayEntryPromise;
 }
 
+export const LazyTransactionsOverlayEntry = createPreloadableLazyComponent(() =>
+    ensureTransactionsOverlayEntry().then((m) => ({
+        default: m.LawyerDashboardTransactionsOverlayEntry as unknown as LazyComponent,
+    })),
+);
+
+/** للاختبارات */
+export function resetTransactionsHubModuleCacheForTests(): void {
+    overlayEntryPromise = null;
+    overlayEntryResolved = false;
+    LazyTransactionsOverlayEntry.resetForTests();
+}
+
 /** مقطع Entry (Host + System ثابتان داخله) — مسار واحد بلا تسخين SystemEntry منفصل */
 export function prefetchTransactionsHubModule(): void {
     if (typeof window === 'undefined') return;
-    void ensureTransactionsOverlayEntry().catch(() => undefined);
+    void LazyTransactionsOverlayEntry.preload();
 }
 
 export function loadTransactionsHubModule(): Promise<TransactionsOverlayEntryModule> {
+    void LazyTransactionsOverlayEntry.preload();
     return ensureTransactionsOverlayEntry();
 }
 
 export function hydrateTransactionsShellForInstantOpen(): Promise<boolean> {
-    return ensureTransactionsOverlayEntry()
-        .then(() => isTransactionsHubModuleResolved())
-        .catch(() => false);
+    return LazyTransactionsOverlayEntry.preload().then(() => isTransactionsHubModuleResolved());
 }

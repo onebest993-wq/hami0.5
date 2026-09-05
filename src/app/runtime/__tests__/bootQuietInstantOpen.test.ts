@@ -29,7 +29,7 @@ describe('boot quiet instant open — quiet shared cold path', () => {
         expect(grid).toContain('scheduleHomeMainGridPainted');
     });
 
-    it('intent prefetch للدعاوى يستخدم includeSecondary: false', () => {
+    it('intent prefetch: الدعاوى بلا secondary؛ التنفيذ يسخّن secondary عند الفتح فقط', () => {
         const src = readFileSync(
             join(root, 'src/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch.ts'),
             'utf8',
@@ -37,9 +37,8 @@ describe('boot quiet instant open — quiet shared cold path', () => {
         expect(src).toMatch(
             /case 'lawsuit':[\s\S]{0,200}warmLawsuitWorkspace\(\{\s*includeSecondary:\s*false/,
         );
-        expect(src).toMatch(
-            /warmExecutionWorkspace\(\{[\s\S]{0,80}includeSecondary:\s*false/,
-        );
+        expect(src).toMatch(/includeSecondary:\s*phase === 'open'/);
+        expect(src).toMatch(/prefetchExecutionOverlayEntries\(\{\s*parallel:\s*true\s*\}\)/);
     });
 
     it('useBootReveal: flushSync في finishExit فقط؛ layout بلا flush؛ لا قصّ قسري للغطاء', () => {

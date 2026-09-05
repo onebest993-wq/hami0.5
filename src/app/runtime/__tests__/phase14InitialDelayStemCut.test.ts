@@ -34,6 +34,7 @@ describe('phase-14 initial-delay stem cuts', () => {
         expect(src).toContain('createBootChromeFeatureStubs');
         expect(src).toContain('deferredFeatureSurfacesProps');
         expect(src).toContain('preDockFeatureSurfacesProps');
+        expect(src).toContain('repositoryFeatureSurfacesProps');
         expect(src).toContain('createNavigationStubs');
         expect(src).toContain('navigationSurfacesProps');
         expect(src).not.toMatch(/import \{[^}]*useLawyerDashboardNavigation[^}]*\} from/);
@@ -66,6 +67,14 @@ describe('phase-14 initial-delay stem cuts', () => {
         expect(src).toContain('LazyLawyerDashboardPreDockFeatureSurfaces');
         expect(src).toContain(
             "import('@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces')",
+        );
+        expect(src).toContain('LazyLawyerDashboardRepositoryFeatureSurfaces');
+        expect(src).toContain(
+            "import('@/app/components/lawyer/dashboard/LawyerDashboardRepositoryFeatureSurfaces')",
+        );
+        expect(src).toContain('LazyLawyerDashboardFieldTasksFeatureSurfaces');
+        expect(src).toContain(
+            "import('@/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces')",
         );
         expect(src).toContain('LazyLawyerDashboardNavigationIsland');
         expect(src).toContain('onLawyerDashboardFirstTabOpen');

@@ -43,6 +43,16 @@ export async function wipeAuthenticatedUserCloud(
     } catch {
         /* الجدول أو الهجرة غير موجودين على هذه القاعدة */
     }
+    try {
+        await admin.from('forum_repository_docs').delete().eq('author_id', userId);
+    } catch {
+        /* الفهرس غير موجود على هذه القاعدة */
+    }
+    try {
+        await admin.from('forum_repository_orphan_paths').delete().eq('author_id', userId);
+    } catch {
+        /* طابور اليتيم غير موجود على هذه القاعدة */
+    }
 
     const database =
         data && typeof data === 'object' && !Array.isArray(data)

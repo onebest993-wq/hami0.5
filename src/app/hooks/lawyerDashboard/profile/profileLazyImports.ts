@@ -20,6 +20,9 @@ export function prefetchProfileShellChunks(): void {
     void ensureDeferredFeatureStylesLoaded();
     void ensureDeferredAppStylesLoaded().catch(() => undefined);
     void import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').catch(() => undefined);
+    void import('@/app/runtime/profileTabHostLoader')
+        .then((m) => m.prefetchProfileTabHost())
+        .catch(() => undefined);
     void import('@/app/runtime/royalLawyerProfileLoader')
         .then((m) => {
             m.prefetchProfileHubModule();

@@ -2,6 +2,8 @@
  * Variable FPS Engine — إيقاع إطارات متكيّف مع الشاشة (60–120Hz عبر rAF)
  * ويتوقف عند 0 FPS عندما يكون الـ viewport ساكناً لتوفير البطارية.
  */
+import { isAppForeground, subscribeAppForeground } from '@/app/runtime/appForegroundGate';
+
 const JANK_FRAME_MS = 22; /** ~45fps */
 const RECOVER_FRAME_MS = 17; /** ~58fps */
 const BAD_FRAMES_TO_GUARD = 5;
@@ -18,6 +20,7 @@ let bound = false;
 let loopRunning = false;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 let lastInteractionAt = 0;
+let unsubForeground: (() => void) | null = null;
 
 function setJankGuard(active: boolean): void {
     if (typeof document === 'undefined') return;
@@ -55,7 +58,7 @@ function stopLoop(): void {
 
 function scheduleIdleStop(): void {
     clearIdleTimer();
-    if (typeof document !== 'undefined' && document.hidden) {
+    if (typeof document !== 'undefined' && !isAppForeground()) {
         stopLoop();
         return;
     }
@@ -67,7 +70,7 @@ function scheduleIdleStop(): void {
 
 function startLoop(): void {
     if (!bound || typeof window === 'undefined') return;
-    if (typeof document !== 'undefined' && document.hidden) {
+    if (typeof document !== 'undefined' && !isAppForeground()) {
         stopLoop();
         return;
     }
@@ -86,7 +89,7 @@ function noteInteraction(): void {
 
 function onVisibilityChange(): void {
     if (typeof document === 'undefined') return;
-    if (document.hidden) {
+    if (!isAppForeground()) {
         document.documentElement.dataset.hamiPageHidden = '1';
         clearIdleTimer();
         stopLoop();
@@ -101,7 +104,7 @@ function onVisibilityChange(): void {
 function tick(now: number): void {
     if (!bound || !loopRunning || typeof document === 'undefined') return;
 
-    if (document.hidden) {
+    if (!isAppForeground()) {
         stopLoop();
         return;
     }
@@ -147,7 +150,19 @@ export function bindFramePacingGuard(): () => void {
     goodStreak = 0;
     lastInteractionAt = 0;
 
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    unsubForeground = subscribeAppForeground({
+        onSuspend: () => {
+            document.documentElement.dataset.hamiPageHidden = '1';
+            clearIdleTimer();
+            stopLoop();
+            badStreak = 0;
+            goodStreak = 0;
+        },
+        onResume: () => {
+            delete document.documentElement.dataset.hamiPageHidden;
+            noteInteraction();
+        },
+    });
     for (const evt of INTERACTION_EVENTS) {
         window.addEventListener(evt, noteInteraction, {
             passive: true,
@@ -155,7 +170,6 @@ export function bindFramePacingGuard(): () => void {
         });
     }
     onVisibilityChange();
-    noteInteraction();
 
     return () => {
         bound = false;
@@ -163,7 +177,8 @@ export function bindFramePacingGuard(): () => void {
         stopLoop();
         badStreak = 0;
         goodStreak = 0;
-        document.removeEventListener('visibilitychange', onVisibilityChange);
+        unsubForeground?.();
+        unsubForeground = null;
         for (const evt of INTERACTION_EVENTS) {
             window.removeEventListener(evt, noteInteraction, {
                 capture: evt === 'scroll',
@@ -196,7 +211,8 @@ export function resetFramePacingGuardForTests(): void {
     guardActive = false;
     lastInteractionAt = 0;
     if (typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', onVisibilityChange);
+        unsubForeground?.();
+        unsubForeground = null;
         for (const evt of INTERACTION_EVENTS) {
             window.removeEventListener(evt, noteInteraction, {
                 capture: evt === 'scroll',

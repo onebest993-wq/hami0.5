@@ -46,6 +46,15 @@ describe('CryptoService', () => {
             expect(service.masterKey).toBeNull();
         });
 
+        it('restores AES key material from the keystore after destroy', async () => {
+            if (typeof indexedDB === 'undefined') return;
+            const cipher = await CryptoService.encrypt('reload-secret');
+            CryptoService.destroy();
+            expect(CryptoService.hasMasterKey()).toBe(false);
+            await CryptoService.initialize('test-password-123');
+            expect(await CryptoService.decrypt(cipher)).toBe('reload-secret');
+        });
+
         it('does not decrypt ciphertext after live user switch', async () => {
             const { setLiveAuthUserId } = await import('@/app/utils/liveAuthUserId');
             CryptoService.destroy();
@@ -55,6 +64,68 @@ describe('CryptoService', () => {
             setLiveAuthUserId('user-b');
             await CryptoService.initialize('test-password-123');
             await expect(CryptoService.decrypt(cipher)).rejects.toThrow();
+            setLiveAuthUserId(null);
+        });
+
+        it('keeps the AES key when the shell guest hops to the signed-in uid', async () => {
+            const { setLiveAuthUserId } = await import('@/app/utils/liveAuthUserId');
+            CryptoService.destroy();
+            setLiveAuthUserId('guest-lawyer-1');
+            await CryptoService.initialize('test-password-123');
+            const cipher = await CryptoService.encrypt('hop-secret');
+            setLiveAuthUserId('dev-user-uuid-1');
+            await CryptoService.initialize('test-password-123');
+            expect(await CryptoService.decrypt(cipher)).toBe('hop-secret');
+            if (typeof indexedDB !== 'undefined') {
+                CryptoService.destroy();
+                setLiveAuthUserId('dev-user-uuid-1');
+                await CryptoService.initialize('test-password-123');
+                expect(await CryptoService.decrypt(cipher)).toBe('hop-secret');
+                CryptoService.destroy();
+                setLiveAuthUserId('guest-lawyer-1');
+                await CryptoService.initialize('test-password-123');
+                expect(await CryptoService.decrypt(cipher)).toBe('hop-secret');
+                await (
+                    CryptoService as unknown as {
+                        deleteMasterKeyRecord: (id: string) => Promise<void>;
+                    }
+                ).deleteMasterKeyRecord('master-key-v3:u:guest-lawyer-1');
+                CryptoService.destroy();
+                setLiveAuthUserId('guest-lawyer-1');
+                await CryptoService.initialize('test-password-123');
+                expect(await CryptoService.decrypt(cipher)).toBe('hop-secret');
+                CryptoService.destroy();
+                setLiveAuthUserId(null);
+                await CryptoService.initialize('test-password-123');
+                expect(await CryptoService.decrypt(cipher)).toBe('hop-secret');
+            }
+            setLiveAuthUserId(null);
+        });
+
+        it('rehydrates the disk AES key when memory holds a different key', async () => {
+            if (typeof indexedDB === 'undefined') return;
+            const cipher = await CryptoService.encrypt('rehydrate-secret');
+            const random = crypto.getRandomValues(new Uint8Array(32));
+            const adopted = await (
+                CryptoService as unknown as {
+                    adoptMasterKeyFromBits: (bits: ArrayBuffer) => Promise<boolean>;
+                }
+            ).adoptMasterKeyFromBits(random.buffer.slice(0));
+            expect(adopted).toBe(true);
+            await expect(CryptoService.decrypt(cipher)).rejects.toThrow();
+            expect(await CryptoService.rehydrateMasterKeyFromDisk()).toBe(true);
+            expect(await CryptoService.decrypt(cipher)).toBe('rehydrate-secret');
+        });
+
+        it('keeps the AES key when live identity flickers to empty', async () => {
+            const { setLiveAuthUserId } = await import('@/app/utils/liveAuthUserId');
+            CryptoService.destroy();
+            setLiveAuthUserId('guest-lawyer-1');
+            await CryptoService.initialize('test-password-123');
+            const cipher = await CryptoService.encrypt('flicker-secret');
+            setLiveAuthUserId(null);
+            await CryptoService.initialize('test-password-123');
+            expect(await CryptoService.decrypt(cipher)).toBe('flicker-secret');
             setLiveAuthUserId(null);
         });
 
@@ -170,13 +241,46 @@ describe('CryptoService', () => {
             
             expect(decrypted).toBe(plaintext);
         });
+
+        it('round-trips JSON empty array used by lawsuit segment clears', async () => {
+            const ciphertext = await CryptoService.encrypt('[]');
+            expect(await CryptoService.decrypt(ciphertext)).toBe('[]');
+        });
+
+        it('still decrypts after re-importing the same raw bits', async () => {
+            const ciphertext = await CryptoService.encrypt('[]');
+            expect(await CryptoService.ensureMasterKeyObjectFromBits()).toBe(true);
+            expect((CryptoService as unknown as { masterKeyBits: ArrayBuffer | null }).masterKeyBits?.byteLength).toBe(
+                32,
+            );
+            expect(await CryptoService.decrypt(ciphertext)).toBe('[]');
+        });
     });
     
     describe('Error Handling', () => {
-        it('hasMasterKey reflects whether a master key is in memory', () => {
+        it('keeps the in-memory AES key while pinned even if destroy is called', async () => {
+            const cipher = await CryptoService.encrypt('pinned-secret');
+            CryptoService.pinMasterKeyForAtomicWrite();
+            CryptoService.destroy();
             expect(CryptoService.hasMasterKey()).toBe(true);
+            expect(await CryptoService.decrypt(cipher)).toBe('pinned-secret');
+            CryptoService.unpinMasterKeyForAtomicWrite();
             CryptoService.destroy();
             expect(CryptoService.hasMasterKey()).toBe(false);
+        });
+
+        it('does not adopt a different AES key while a write is pinned', async () => {
+            const cipher = await CryptoService.encrypt('pinned-secret');
+            CryptoService.pinMasterKeyForAtomicWrite();
+            const foreign = new Uint8Array(32);
+            crypto.getRandomValues(foreign);
+            await (
+                CryptoService as unknown as {
+                    adoptMasterKeyFromBits: (bits: ArrayBuffer) => Promise<boolean>;
+                }
+            ).adoptMasterKeyFromBits(foreign.buffer);
+            expect(await CryptoService.decrypt(cipher)).toBe('pinned-secret');
+            CryptoService.unpinMasterKeyForAtomicWrite();
         });
 
         it('should throw error when encrypting without initialization', async () => {

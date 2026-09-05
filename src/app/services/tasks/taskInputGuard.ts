@@ -74,7 +74,7 @@ export function isAllowedTaskVoiceRef(ref: string | null | undefined): boolean {
     return true;
 }
 
-export function sanitizeTaskVoiceRef(ref: string | null | undefined): string | null {
+function sanitizeTaskVoiceRef(ref: string | null | undefined): string | null {
     if (ref == null) return null;
     const trimmed = String(ref).trim();
     return isAllowedTaskVoiceRef(trimmed) ? trimmed : null;

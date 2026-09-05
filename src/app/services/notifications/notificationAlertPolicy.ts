@@ -11,6 +11,7 @@ import {
     getNotificationSettings,
     isSessionMuted,
 } from '@/app/services/notifications/notificationSessionMute';
+import { HAMI_OS_NOTIFICATION_VIBRATE_PATTERN } from '@/app/services/platform/deviceHaptic';
 
 const PREFS_CACHE_KEY = 'hami:notification-prefs-cache:v1';
 
@@ -138,7 +139,7 @@ export function pushOptionsForChannel(
     return {
         ...base,
         silent: !push || !shouldPlayChannelSound(channel, settings, critical),
-        vibrate: push && vibrate ? [180, 90, 180, 90, 320] : undefined,
+        vibrate: push && vibrate ? [...HAMI_OS_NOTIFICATION_VIBRATE_PATTERN] : undefined,
     };
 }
 

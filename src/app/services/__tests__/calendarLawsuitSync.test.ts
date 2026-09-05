@@ -72,7 +72,7 @@ describe('lawsuit appointment → calendar', () => {
         );
 
         await act(async () => {
-            result.current.handleAddAppointment({
+            await result.current.handleAddAppointment({
                 date: '2026-08-20',
                 title: 'جلسة مرافعة',
                 details: 'اختبار',

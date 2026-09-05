@@ -2,8 +2,9 @@ import { useNotificationStore } from '@/app/stores/notificationStore';
 import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
 import { syncForumNotificationsToAppStore } from '@/app/services/forum/forumNotificationBridge';
 import { invalidateAccountNetworkGateCache } from '@/app/services/auth/accountNetworkGate';
+import { canReachCollaborationNetwork } from '@/app/services/settings/collaborationNetworkGate';
 
-export type RefreshNotificationShellBadgeOptions = {
+type RefreshNotificationShellBadgeOptions = {
     /** جلب blob الإشعارات من KV — يُتخطّى عند فتح اللوحة (polling اللوحة يكفي). */
     includeStoreFetch?: boolean;
     /** مزامنة إشعارات المنتدى مع notificationStore. */
@@ -20,6 +21,8 @@ export async function refreshNotificationShellBadge(
     const includeStoreFetch = options?.includeStoreFetch !== false;
     const includeForumSync = options?.includeForumSync !== false;
     const includeLegacyPurge = options?.includeLegacyPurge !== false;
+
+    if (!canReachCollaborationNetwork()) return;
 
     if (includeLegacyPurge) {
         const [{ purgeLegacyNotificationsIfNeeded }, { retryLegacyPrefixCleanupIfPartial }] =

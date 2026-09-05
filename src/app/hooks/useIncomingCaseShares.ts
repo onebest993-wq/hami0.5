@@ -4,14 +4,20 @@ import { CASE_SHARE_CHANGED_EVENT } from '@/app/services/caseShare/caseShareSess
 import { peekCaseSharePendingCount } from '@/app/services/caseShare/caseSharePeekLite';
 import { TIMING } from '@/app/utils/constants';
 import { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootEvents';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 
 const CASE_SHARE_CHANGED = CASE_SHARE_CHANGED_EVENT;
 
-export type UseIncomingCaseSharesOptions = {
+type UseIncomingCaseSharesOptions = {
     /** null = بدون interval — أحداث + visibility فقط (شارة الجرس) */
     pollIntervalMs?: number | null;
     /** يؤجل أول fetch حتى اكتمال موجة boot المؤجّلة */
     deferInitialFetch?: boolean;
+    /**
+     * شارة الجرس على الرئيسية: قراءة محلية فقط — بلا `/api/case-share` ولا توقيع WIFE.
+     * الشبكة تبقى للوحة الإشعارات المفتوحة ومسار الاستشارة الصريح.
+     */
+    localPeekOnly?: boolean;
 };
 
 function loadCaseShareApiService() {
@@ -24,6 +30,7 @@ export function useIncomingCaseShares(
     options?: UseIncomingCaseSharesOptions,
 ) {
     const pollIntervalMs = options?.pollIntervalMs ?? TIMING.NOTIFICATION_POLL;
+    const localPeekOnly = options?.localPeekOnly === true;
     const [shares, setShares] = useState<CaseShareRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [pendingCountLite, setPendingCountLite] = useState(() =>
@@ -40,6 +47,10 @@ export function useIncomingCaseShares(
             setPendingCountLite(0);
             return;
         }
+        if (localPeekOnly) {
+            setPendingCountLite(peekCaseSharePendingCount(userId));
+            return;
+        }
         setLoading(true);
         try {
             const { CaseShareApiService } = await loadCaseShareApiService();
@@ -51,7 +62,7 @@ export function useIncomingCaseShares(
         } finally {
             setLoading(false);
         }
-    }, [userId]);
+    }, [localPeekOnly, userId]);
 
     useEffect(() => {
         if (!enabled || !userId) {
@@ -69,28 +80,23 @@ export function useIncomingCaseShares(
 
         const onBootIdle = () => runInitialFetch();
 
-        if (options?.deferInitialFetch) {
+        if (localPeekOnly) {
+            /* الشارة من peek — بلا مؤقت ولا /api/case-share */
+        } else if (options?.deferInitialFetch) {
             window.addEventListener(STAGGERED_BOOT_IDLE_EVENT, onBootIdle, { once: true });
             bootIdleTimer = window.setTimeout(onBootIdle, 18_000);
         } else {
             runInitialFetch();
         }
 
-        const intervalId =
-            pollIntervalMs != null && pollIntervalMs > 0
-                ? window.setInterval(() => {
-                      void refresh();
-                  }, pollIntervalMs)
-                : null;
-
         const onChanged = () => {
             setPendingCountLite(peekCaseSharePendingCount(userId));
-            void refresh();
+            if (!localPeekOnly) void refresh();
         };
         window.addEventListener(CASE_SHARE_CHANGED, onChanged);
 
         const onVisibility = () => {
-            if (document.visibilityState === 'visible') void refresh();
+            if (document.visibilityState === 'visible' && !localPeekOnly) void refresh();
         };
         document.addEventListener('visibilitychange', onVisibility);
 
@@ -98,11 +104,18 @@ export function useIncomingCaseShares(
             cancelled = true;
             if (bootIdleTimer !== undefined) window.clearTimeout(bootIdleTimer);
             window.removeEventListener(STAGGERED_BOOT_IDLE_EVENT, onBootIdle);
-            if (intervalId != null) window.clearInterval(intervalId);
             window.removeEventListener(CASE_SHARE_CHANGED, onChanged);
             document.removeEventListener('visibilitychange', onVisibility);
         };
-    }, [enabled, options?.deferInitialFetch, pollIntervalMs, userId, refresh]);
+    }, [enabled, localPeekOnly, options?.deferInitialFetch, userId, refresh]);
+
+    useVisibilityAwareInterval(
+        () => {
+            void refresh();
+        },
+        pollIntervalMs ?? 0,
+        enabled && Boolean(userId) && !localPeekOnly && pollIntervalMs != null && pollIntervalMs > 0,
+    );
 
     const incoming = shares.filter((s) => s.recipientId === userId);
     const pending = incoming.filter((s) => s.status === 'pending');

@@ -9,7 +9,9 @@ import {
 } from '@/app/services/search/globalSearchIndexWorkerClient';
 
 const indexCache = new Map<string, GlobalSearchEntry[]>();
+const inflightByKey = new Map<string, Promise<GlobalSearchEntry[]>>();
 const MAX_INDEX_CACHE = 4;
+let cacheEpoch = 0;
 
 function trimIndexCache(): void {
     while (indexCache.size > MAX_INDEX_CACHE) {
@@ -20,9 +22,9 @@ function trimIndexCache(): void {
 }
 
 function buildOnIdleThread(input: BuildGlobalSearchIndexInput): Promise<GlobalSearchEntry[]> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const run = () => {
-            void buildGlobalSearchIndexOffThread(input).then(resolve);
+            void buildGlobalSearchIndexOffThread(input).then(resolve, reject);
         };
         if (typeof requestIdleCallback !== 'undefined') {
             requestIdleCallback(run, { timeout: 160 });
@@ -41,18 +43,35 @@ export async function resolveGlobalSearchIndex(
     const hit = indexCache.get(key);
     if (hit) return hit;
 
-    const index =
-        priority === 'interactive'
-            ? await buildGlobalSearchIndexOffThread(input)
-            : await buildOnIdleThread(input);
+    const existing = inflightByKey.get(key);
+    if (existing) return existing;
 
-    indexCache.set(key, index);
-    trimIndexCache();
-    return index;
+    const epoch = cacheEpoch;
+    let promise: Promise<GlobalSearchEntry[]>;
+    promise = (
+        priority === 'interactive'
+            ? buildGlobalSearchIndexOffThread(input)
+            : buildOnIdleThread(input)
+    )
+        .then((index) => {
+            if (epoch === cacheEpoch) {
+                indexCache.set(key, index);
+                trimIndexCache();
+            }
+            return index;
+        })
+        .finally(() => {
+            if (inflightByKey.get(key) === promise) inflightByKey.delete(key);
+        });
+
+    inflightByKey.set(key, promise);
+    return promise;
 }
 
 export function invalidateGlobalSearchIndexCache(): void {
+    cacheEpoch += 1;
     indexCache.clear();
+    inflightByKey.clear();
 }
 
 export function getCachedGlobalSearchIndex(key: string): GlobalSearchEntry[] | null {

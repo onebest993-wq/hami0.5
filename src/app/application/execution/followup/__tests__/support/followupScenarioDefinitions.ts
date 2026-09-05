@@ -486,6 +486,7 @@ export const FOLLOWUP_SCENARIO_CATALOG: FollowupScenarioDefinition[] = [
             financialCenterTotalIqd: 400_000,
         },
         expectedEffectiveTabIds: [
+            'seizure_requests',
             'correspondences',
             'admin',
             'dossier_controls',

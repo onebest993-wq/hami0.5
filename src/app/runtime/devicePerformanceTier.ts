@@ -29,17 +29,22 @@ export function isModestDevice(): boolean {
         if (typeof mem !== 'number' || mem <= 6) return true;
     }
 
-    const conn = nav.connection;
-    if (conn?.saveData) return true;
-
-    const effective = String(conn?.effectiveType ?? '');
-    if (effective === 'slow-2g' || effective === '2g' || effective === '3g') return true;
+    if (isMeteredOrSlowNetwork()) return true;
 
     if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) {
         if (window.innerWidth <= 520 && !isNativeShellStampedOnDom()) return true;
     }
 
     return false;
+}
+
+/** توفير البيانات أو 2G/3G — مستقل عن إعداد الخفيف (قد يكون off) */
+export function isMeteredOrSlowNetwork(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const conn = (navigator as NavigatorWithHints).connection;
+    if (conn?.saveData) return true;
+    const effective = String(conn?.effectiveType ?? '');
+    return effective === 'slow-2g' || effective === '2g' || effective === '3g';
 }
 
 export function normalizeLitePerformanceMode(value: unknown): LitePerformanceMode {

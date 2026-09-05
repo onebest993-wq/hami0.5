@@ -6,6 +6,10 @@ export type RepositoryDocument = {
     authorId: string;
     authorName: string;
     uploadDate: string;
+    /** طابع تعديل دقيق — يرجّح الأحدث عند دمج المحلي مع فهرس الخادم */
+    updatedAt?: string;
+    /** إعادة محاولة الفهرسة بعد فشل الشبكة — لا يُرسل للخادم */
+    indexSync?: 'create' | 'update';
     fileName: string;
     mimeType: string;
     storagePath: string;

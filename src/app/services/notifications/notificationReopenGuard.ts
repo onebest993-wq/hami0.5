@@ -1,7 +1,7 @@
 const BELL_SELECTOR = '[data-testid="header-notifications-trigger"]';
 
 /** يمنع إعادة فتح الإشعارات بنقرة شبحية بعد الإغلاق (pointerdown يغلق → click يفتح). */
-export const NOTIFICATION_REOPEN_SUPPRESS_MS = 90;
+const NOTIFICATION_REOPEN_SUPPRESS_MS = 90;
 
 let reopenSuppressedUntil = 0;
 let reopenSuppressCleanup: (() => void) | null = null;

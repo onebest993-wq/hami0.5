@@ -140,8 +140,9 @@ export function HqSystemNotifyComposer({
                 disabled={!canSend}
                 onClick={() => void submit()}
                 data-testid="hq-system-notify-send"
+                aria-busy={sending || undefined}
             >
-                {sending ? 'جاري الإرسال…' : 'إرسال إشعار النظام'}
+                إرسال إشعار النظام
             </HqGhostButton>
         </div>
     );

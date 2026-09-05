@@ -1,5 +1,5 @@
 /**
- * تسخين مقاطع مداخل الطبقات بعد استقرار المحتوى.
+ * تسخين مقاطع مداخل الطبقات بعد استقرار المحتوى — موجات حسب الوزن.
  *
  * كانت هذه المداخل تُستورد ساكناً في `LawyerDashboardMainView` بحجّة «الفتح بلا
  * Suspense»، فتدخل مقطع اللوحة كاملةً: الجدول ~١٧٦٥ ك.ب، المنتدى ~١٤٧١، الإعدادات
@@ -11,12 +11,21 @@
  * ترتيب الاستيراد في هذا الملف يُبقي ProfileTabHost قبل ExecutionOverlayEntry.
  *
  * المنتدى (~١٫٤ م.ب): ليس هنا — hover/فتح عبر forumIntentWarm وcommunityShellOpenFlow.
- * الجدول: التسخين عبر scheduleHubLoader؛ الفتح فوري وقشرة InstantChrome تغطي Suspense.
+ * البحث: لا prefetch هنا. قشرة الطلاء بعد interactive؛ المقطع الكامل عند pointerdown.
  *
- * البحث: لا prefetch هنا. بعد interactive تُسخَّن قشرة الطلاء فقط؛ المقطع الكامل
- * عند pointerdown/فتح. Motion داخل idle (الجسر ينتظر هدوء الإقلاع أصلاً).
+ * حجم المنتج: لا تُطلق كل الكِسَر في idle واحد بعد المنزل. خفيف فوراً،
+ * مداخل التنفيذ/الجزائي فور انتهاء الخفيف (بلا انتظار المتوسط)،
+ * متوسط بعد هدوء قصير (إعدادات/دعاوى/ملف ذكي)،
+ * ثقيل أخيراً (جدول ~١٫٧ م.ب + طبقة workspace). الوضع الخفيف
+ * وتوفير البيانات / 2G: آخر قسم + motion + بطاقة المنزل فقط؛ الملف/الإشعارات/المستودع
+ * خلفية. كِسرة ستارة المهام وحدها (بلا hydrate/بطاقات) تُؤجَّل بعد استقرار المنزل
+ * حتى لا يبقى أول فتح بارد معلّقاً على المقطع. الشبكة البطيئة تُحجب.
+ *
+ * تحليل الشيفرة: داخل كل موجة الخطوات متسلسلة مع yieldToMain — لا دفعة parse
+ * متوازية على الـ main thread (خصوصاً الأصل حيث القرص فوري).
  */
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { runWarmSteps } from '@/app/runtime/yieldToMain';
 import {
     getCachedLawyerHomeHubCard,
     prefetchLawyerHomeHubCardModule,
@@ -26,58 +35,204 @@ import { prefetchLawsuitsOverlayEntry } from '@/app/runtime/lawsuitsOverlayEntry
 import { prefetchSmartFileOverlayEntry } from '@/app/runtime/smartFileOverlayEntryLoader';
 import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
 import { prefetchOverlayMotion } from '@/app/motion/loadOverlayMotion';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    isRepositoryHubJsWarmAllowed,
+    isTransactionsHubJsWarmAllowed,
+} from '@/app/runtime/sectionPrefetchPolicy';
 
 let warmed = false;
+
+const swallow = () => undefined;
+
+/** مداخل التنفيذ/الجزائي — بعد الموجة الخفيفة مباشرة، بلا انتظار إعدادات/دعاوى */
+export function overlayEntryExecutionHostWaveDelayMs(): number {
+    return 0;
+}
+
+/** متوسط: إعدادات/دعاوى/ملف ذكي — لا ينافس أول إطار */
+export function overlayEntryMediumWaveDelayMs(): number {
+    return isCapacitorNativePlatform() ? 480 : 1_050;
+}
+
+/** ثقيل: جدول ~١٫٧ م.ب — بلا مداخل التنفيذ (تلك بعد الخفيف فوراً) */
+export function overlayEntryHeavyWaveDelayMs(): number {
+    return isCapacitorNativePlatform() ? 1_800 : 3_200;
+}
+
+export function resetOverlayEntryChunksForTests(): void {
+    warmed = false;
+}
+
+function overlayEntryBackgroundWavesAllowed(): boolean {
+    return isSectionBackgroundPrefetchAllowed();
+}
+
+/** كِسرة الستارة على lite بعد استقرار المنزل — بلا hydrate. الشبكة البطيئة تُحجب. */
+function overlayEntryLiteSheetPrefetchAllowed(): boolean {
+    return isSectionBackgroundPrefetchAllowed({ allowOnLite: true, allowOnLocalOnly: true });
+}
 
 /** يُعيد دالّة إلغاء الجدولة */
 export function warmOverlayEntryChunks(): () => void {
     if (typeof window === 'undefined' || warmed) return () => undefined;
     warmed = true;
 
-    const swallow = () => undefined;
+    const nestedCancels: Array<() => void> = [];
+    let chainCancelled = false;
 
-    return scheduleIdleWork(
+    const cancelLight = scheduleIdleWork(
         () => {
-            prefetchOverlayMotion();
-            void import('@/app/runtime/hubArchiveAfterHomePaint')
-                .then((m) => m.prefetchHubArchivesAfterHomePaint())
-                .catch(swallow);
-            /* الملف أولاً بين مداخل الطبقات في هذا الملف — عقد اختبارات الملف */
-            void import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').catch(swallow);
-            void import('@/app/runtime/royalLawyerProfileLoader')
-                .then((m) => m.prefetchProfileHubModule())
-                .catch(swallow);
-            prefetchSettingsOverlayEntry();
-            if (!getCachedLawyerHomeHubCard()) prefetchLawyerHomeHubCardModule();
-            prefetchNotificationShellModule();
-            prefetchLawsuitsOverlayEntry();
-            prefetchSmartFileOverlayEntry();
-            void import('@/app/runtime/scheduleHubLoader')
-                .then((m) => {
-                    m.prefetchScheduleTabHostModule();
-                    m.prefetchScheduleHubModule();
-                })
-                .catch(swallow);
-            void import('@/app/runtime/transactionsHubLoader')
-                .then((m) => m.prefetchTransactionsHubModule())
-                .catch(swallow);
-            void import('@/app/runtime/fieldTasksHubLoader')
-                .then((m) => m.prefetchFieldTasksSheetModule())
-                .catch(swallow);
-            void import('@/app/runtime/repositoryHubLoader')
-                .then((m) => m.prefetchRepositoryHubModule())
-                .catch(swallow);
-            void import(
-                '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionOverlayEntry'
-            ).catch(swallow);
-            void import(
-                '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionDossierOverlayEntry'
-            ).catch(swallow);
-            void import(
-                '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionCreateOverlayEntry'
-            ).catch(swallow);
-            void import('@/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceHeavyLayer').catch(swallow);
+            void runWarmSteps(
+                [
+                    () => {
+                        if (!isRepositoryHubJsWarmAllowed()) return;
+                        return import('@/app/runtime/repositoryHubLoader').then((m) =>
+                            m.prefetchRepositoryHubModule(),
+                        );
+                    },
+                    () => {
+                        if (!isTransactionsHubJsWarmAllowed()) return;
+                        return import('@/app/runtime/transactionsHubLoader').then((m) =>
+                            m.prefetchTransactionsHubModule(),
+                        );
+                    },
+                    () =>
+                        import('@/app/runtime/sectionChunkRecency').then((m) =>
+                            m.warmLastOpenedSectionChunk(),
+                        ),
+                    () => {
+                        prefetchOverlayMotion();
+                    },
+                    () =>
+                        import('@/app/runtime/hubArchiveAfterHomePaint').then((m) =>
+                            m.prefetchHubArchivesAfterHomePaint(),
+                        ),
+                    () => {
+                        if (!getCachedLawyerHomeHubCard()) prefetchLawyerHomeHubCardModule();
+                    },
+                    /* الملف/إشعارات/مستودع/مهام: خلفية — على lite تغطّيها كِسرة recency */
+                    () => {
+                        if (!overlayEntryBackgroundWavesAllowed()) return;
+                        return import('@/app/runtime/profileTabHostLoader').then((m) =>
+                            m.prefetchProfileTabHost(),
+                        );
+                    },
+                    () => {
+                        if (!overlayEntryBackgroundWavesAllowed()) return;
+                        return import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
+                            m.prefetchProfileHubModule(),
+                        );
+                    },
+                    () => {
+                        if (!overlayEntryBackgroundWavesAllowed()) return;
+                        prefetchNotificationShellModule();
+                    },
+                    () => {
+                        if (!overlayEntryBackgroundWavesAllowed()) return;
+                        return import('@/app/runtime/fieldTasksHubLoader').then((m) => {
+                            m.prefetchFieldTasksSheetModule();
+                            m.prefetchFieldTasksCurtainCardSurfaces();
+                            return m.hydrateFieldTasksSheetForInstantOpen();
+                        });
+                    },
+                ],
+                () => chainCancelled,
+            )
+                .catch(swallow)
+                .finally(() => {
+                    if (chainCancelled) return;
+                    if (!overlayEntryBackgroundWavesAllowed()) {
+                        if (!overlayEntryLiteSheetPrefetchAllowed()) return;
+                        nestedCancels.push(
+                            scheduleIdleWork(
+                                () => {
+                                    void import('@/app/runtime/fieldTasksHubLoader').then((m) => {
+                                        m.prefetchFieldTasksSheetModule();
+                                    });
+                                },
+                                {
+                                    minDelayMs: overlayEntryMediumWaveDelayMs(),
+                                    timeoutMs: overlayEntryMediumWaveDelayMs() + 4_000,
+                                },
+                            ),
+                        );
+                        return;
+                    }
+
+                    nestedCancels.push(
+                        scheduleIdleWork(
+                            () => {
+                                void
+                                    /* LawyerDashboardExecutionOverlayEntry + dossier + create عبر الختم */
+                                    import('@/app/runtime/overlayHeavyStamp')
+                                        .then((m) => m.stampMainViewOverlayEntryPreloads())
+                                        .catch(swallow);
+                            },
+                            {
+                                minDelayMs: overlayEntryExecutionHostWaveDelayMs(),
+                                timeoutMs: overlayEntryExecutionHostWaveDelayMs() + 4_000,
+                            },
+                        ),
+                    );
+
+                    nestedCancels.push(
+                        scheduleIdleWork(
+                            () => {
+                                void runWarmSteps(
+                                    [
+                                        () => {
+                                            prefetchSettingsOverlayEntry();
+                                        },
+                                        () => {
+                                            prefetchLawsuitsOverlayEntry();
+                                        },
+                                        () => {
+                                            prefetchSmartFileOverlayEntry();
+                                        },
+                                    ],
+                                    () => chainCancelled,
+                                ).catch(swallow);
+                            },
+                            {
+                                minDelayMs: overlayEntryMediumWaveDelayMs(),
+                                timeoutMs: overlayEntryMediumWaveDelayMs() + 4_000,
+                            },
+                        ),
+                    );
+
+                    nestedCancels.push(
+                        scheduleIdleWork(
+                            () => {
+                                void runWarmSteps(
+                                    [
+                                        () =>
+                                            import('@/app/runtime/scheduleHubLoader').then((m) =>
+                                                m.prefetchScheduleTabHostModule(),
+                                            ),
+                                        () =>
+                                            import(
+                                                '@/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceHeavyLayer'
+                                            ).then(swallow, swallow),
+                                    ],
+                                    () => chainCancelled,
+                                ).catch(swallow);
+                            },
+                            {
+                                minDelayMs: overlayEntryHeavyWaveDelayMs(),
+                                timeoutMs: overlayEntryHeavyWaveDelayMs() + 6_000,
+                            },
+                        ),
+                    );
+                });
         },
         { minDelayMs: 0, timeoutMs: 6_000 },
     );
+
+    return () => {
+        chainCancelled = true;
+        cancelLight();
+        for (const cancel of nestedCancels) cancel();
+    };
 }

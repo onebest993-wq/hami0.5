@@ -12,6 +12,10 @@ export function isTransactionsTaskTemplatesKey(_key: string): boolean {
     return false;
 }
 
+export function isTaskHelpRequestsKey(_key: string): boolean {
+    return false;
+}
+
 export function isProtectedStorageKey(_key: string): boolean {
     return false;
 }

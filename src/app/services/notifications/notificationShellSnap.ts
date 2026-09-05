@@ -9,7 +9,7 @@ const CLOSING_ATTR = 'data-hami-notifications-closing';
 
 export const NOTIFICATION_SHELL_SNAP_EVENT = 'hami:notification-shell-snap';
 
-export type NotificationShellSnapState = {
+type NotificationShellSnapState = {
     open: boolean;
     /** الورقة ما زالت مرئية وهي تهبط — ليست مفتوحة ولا غائبة */
     closing: boolean;
@@ -53,11 +53,6 @@ export function snapNotificationShellClose(): void {
     document.documentElement.removeAttribute(CLOSING_ATTR);
     document.documentElement.removeAttribute(ATTR);
     emitNotificationShellSnap();
-}
-
-export function hasNotificationOverlayHost(): boolean {
-    if (typeof document === 'undefined') return false;
-    return Boolean(document.querySelector(ROOT_SELECTOR));
 }
 
 /** للاختبارات */

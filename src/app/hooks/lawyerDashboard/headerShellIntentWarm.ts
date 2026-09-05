@@ -8,6 +8,7 @@ import {
     loadNotificationPanelModule,
     prefetchNotificationPanel,
 } from '@/app/runtime/notificationPanelLoader';
+import { runWarmSteps } from '@/app/runtime/yieldToMain';
 
 function loadGlobalSearchIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
@@ -85,96 +86,92 @@ export function warmLawyerDashboardHeaderShell(
 }
 
 /**
- * prefetch خفيف أثناء تحميل chunk اللوحة — بلا تحميل كامل للوحدات (لا منافسة TTFI).
- * يُستدعى من lawyerDashboardChunk قبل اكتمال auth.
+ * prefetch خفيف بعد content-ready — تحليل متسلسل، الأرخص أولاً ثم الإعدادات (~٨٣٦ ك.ب).
+ * lite / prefetch-off: لا — النية عند اللمسة وrecency يغطيان آخر قسم.
  */
 export function preloadLawyerDashboardHeaderShellChunks(): void {
     if (typeof window === 'undefined') return;
 
-    prefetchHamiSettingsModule();
-    prefetchSettingsOverlayEntry();
-    prefetchNotificationPanel();
-    void import('@/app/runtime/globalSearchLoader')
-        .then((m) => m.prefetchGlobalSearchOverlayChunk())
-        .catch(() => undefined);
-    void loadProfileHubLoader().then((m) => m.prefetchProfileHubModule());
+    void shouldAggressiveHeaderShellWarm().then((ok) => {
+        if (!ok) return;
+        void runWarmSteps([
+            () => {
+                prefetchNotificationPanel();
+            },
+            () => loadProfileHubLoader().then((m) => m.prefetchProfileHubModule()),
+            () =>
+                import('@/app/runtime/globalSearchLoader').then((m) =>
+                    m.prefetchGlobalSearchOverlayChunk(),
+                ),
+            () => {
+                prefetchHamiSettingsModule();
+                prefetchSettingsOverlayEntry();
+            },
+        ]);
+    });
 }
 
 function scheduleHeaderShellHeavyWarm(userId: string): void {
-    // الملف المهني أولاً — فتح فوري بعد الإقلاع/إعادة التشغيل
-    scheduleIdleWork(
-        () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            void loadProfileBootHydrator()
-                .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, false))
-                .catch(() => undefined);
-            void loadRoyalLawyerProfileLoader()
-                .then((m) => m.loadRoyalLawyerProfileWithData(userId))
-                .catch(() => undefined);
-        },
-        {
-            minDelayMs: 0,
-            timeoutMs: 8_000,
-        },
-    );
-
-    scheduleIdleWork(
-        () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            void loadSettingsBootHydrator()
-                .then((m) => m.hydrateSettingsShellForInstantOpen())
-                .catch(() => undefined);
-        },
-        {
-            minDelayMs: 0,
-            timeoutMs: 8_000,
-        },
-    );
-
-    scheduleIdleWork(
-        () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            void loadNotificationPanelModule().catch(() => undefined);
-            void import('@/app/runtime/notificationBootHydrator')
-                .then((m) => m.hydrateNotificationShellForInstantOpen(true))
-                .catch(() => undefined);
-        },
-        {
-            minDelayMs: import.meta.env.DEV ? 200 : 600,
-            timeoutMs: 8_000,
-        },
-    );
-
-    scheduleIdleWork(
-        () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            void import('@/app/runtime/globalSearchLoader')
-                .then((m) => m.loadGlobalSearchOverlayWithEngine())
-                .catch(() => undefined);
-        },
-        {
-            minDelayMs: import.meta.env.DEV ? 900 : 2_000,
-            timeoutMs: 8_000,
-        },
-    );
+    void shouldAggressiveHeaderShellWarm().then((ok) => {
+        if (!ok) return;
+        scheduleIdleWork(
+            () => {
+                void runWarmSteps(
+                    [
+                        () =>
+                            loadProfileBootHydrator().then((m) =>
+                                m.hydrateProfileShellForInstantOpenWithData(userId, false),
+                            ),
+                        () =>
+                            loadRoyalLawyerProfileLoader().then((m) =>
+                                m.loadRoyalLawyerProfileWithData(userId),
+                            ),
+                        () =>
+                            loadSettingsBootHydrator().then((m) =>
+                                m.hydrateSettingsShellForInstantOpen(),
+                            ),
+                        () => loadNotificationPanelModule(),
+                        () =>
+                            import('@/app/runtime/notificationBootHydrator').then((m) =>
+                                m.hydrateNotificationShellForInstantOpen(true),
+                            ),
+                        () =>
+                            import('@/app/runtime/globalSearchLoader').then((m) =>
+                                m.loadGlobalSearchOverlayWithEngine(),
+                            ),
+                    ],
+                    () => typeof document !== 'undefined' && document.hidden,
+                );
+            },
+            {
+                minDelayMs: 0,
+                timeoutMs: 8_000,
+            },
+        );
+    });
 }
 
 /**
- * بعد جاهزية اللوحة: prefetch خفيف فوراً، ثم تحميل تدريجي idle للـ chunks الثقيلة.
- * لا warm*OnOpen دفعة واحدة — يُحجّب التفاعل الأول.
+ * بعد جاهزية اللوحة: hover متسلسل ثم idle للوحدات الثقيلة.
+ * لا warm*OnOpen دفعة واحدة — يُحجّب التفاعل الأول ويضاعف parse على الأصل.
  */
-export function hydrateLawyerDashboardHeaderShellChunks(userId: string | null | undefined): void {
+export function hydrateLawyerDashboardHeaderShellChunks(
+    userId: string | null | undefined,
+): Promise<void> {
     const uid = userId?.trim();
-    if (!uid || !hasLocalAppSession(uid)) return;
-    if (headerShellHydrateStarted) return;
+    if (!uid || !hasLocalAppSession(uid)) return Promise.resolve();
+    if (headerShellHydrateStarted) return Promise.resolve();
     headerShellHydrateStarted = true;
 
-    warmLawyerDashboardHeaderShell(uid, 'hover');
-
-    void shouldAggressiveHeaderShellWarm().then((aggressive) => {
-        if (aggressive) {
-            warmLawyerDashboardHeaderShell(uid, 'open');
-        }
-        scheduleHeaderShellHeavyWarm(uid);
+    return shouldAggressiveHeaderShellWarm().then((aggressive) => {
+        if (!aggressive) return;
+        return runWarmSteps([
+            () => loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover()),
+            () => loadProfileIntentWarm().then((m) => m.warmProfileOnHover(uid)),
+            () => loadGlobalSearchIntentWarm().then((m) => m.warmGlobalSearchOnHover()),
+            () => loadSettingsIntentWarm().then((m) => m.warmSettingsOnHover()),
+        ]).then(() => {
+            scheduleHeaderShellHeavyWarm(uid);
+        });
     });
 }

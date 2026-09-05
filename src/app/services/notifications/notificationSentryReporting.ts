@@ -64,7 +64,3 @@ export function reportNotificationsOpenToSentry(
         });
     });
 }
-
-export function resetNotificationsSentryModuleForTests(): void {
-    sentryModulePromise = null;
-}

@@ -33,6 +33,21 @@ export function prefetchHubArchiveIntent(
     userId?: string | null,
 ): void {
     if (typeof window === 'undefined') return;
+    if (phase === 'open') {
+        const recencyId =
+            archiveId === 'execution'
+                ? 'execution'
+                : archiveId === 'lawsuit'
+                  ? 'lawsuit'
+                  : archiveId === 'transaction'
+                    ? 'transaction'
+                    : null;
+        if (recencyId) {
+            void import('@/app/runtime/sectionChunkRecency')
+                .then((m) => m.rememberOpenedSectionChunk(recencyId))
+                .catch(() => undefined);
+        }
+    }
     switch (archiveId) {
         case 'execution': {
             void import('@/app/runtime/executionArchivePrimeHost').then((m) =>
@@ -43,10 +58,18 @@ export function prefetchHubArchiveIntent(
             );
             void import('@/app/runtime/executionWorkspaceWarm').then((m) =>
                 m.warmExecutionWorkspace({
-                    includeSecondary: false,
-                    secondaryDelayMs: 1_200,
+                    includeSecondary: phase === 'open',
+                    secondaryDelayMs: 0,
                 }),
             );
+            if (phase === 'open') {
+                void import('@/app/runtime/executionOverlayEntryLoader')
+                    .then((m) => m.prefetchExecutionOverlayEntries({ parallel: true }))
+                    .catch(() => undefined);
+                void import('@/app/components/lawyer/dashboard/overlayInstantChromeLazy')
+                    .then((m) => m.LazyExecutionArchiveInstantChrome.preload())
+                    .catch(() => undefined);
+            }
             break;
         }
         case 'lawsuit':
@@ -74,6 +97,11 @@ export function prefetchDockWidgetIntent(
     phase: DockWidgetPrefetchPhase = 'hover',
 ): void {
     if (typeof window === 'undefined') return;
+    if (phase === 'open') {
+        void import('@/app/runtime/sectionChunkPreload')
+            .then((m) => m.rememberOpenedSectionChunkFromDock(widgetId))
+            .catch(() => undefined);
+    }
 
     switch (widgetId) {
         case 'dockRepository':
@@ -131,7 +159,7 @@ export function prefetchDockWidgetIntent(
         case 'hubLawsuit':
         case 'hubTransaction': {
             const archiveId = hubArchiveIdFromWidget(widgetId);
-            if (archiveId) prefetchHubArchiveIntent(archiveId);
+            if (archiveId) prefetchHubArchiveIntent(archiveId, phase);
             break;
         }
         default:

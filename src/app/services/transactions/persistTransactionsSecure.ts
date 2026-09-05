@@ -1,9 +1,9 @@
 import { persistSecurePayloadWhenReady } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import { notifyTransactionsPersistFailure } from '@/app/services/transactions/notifyTransactionsPersistFailure';
 
-/** كتابة غير متزامنة: لا تُترك الرفض بلا معالجة بعد أن صار المسار تشفيراً أو فشلاً */
+/** بعد setItemSync: false حتى لا تُتخطى كتابة IndexedDB لأن الذاكرة تطابقت */
 export function persistTransactionsSecure(key: string, payload: string): void {
-    void persistSecurePayloadWhenReady(key, payload).catch((error: unknown) => {
+    void persistSecurePayloadWhenReady(key, payload, { skipIfUnchanged: false }).catch((error: unknown) => {
         notifyTransactionsPersistFailure(error);
     });
 }

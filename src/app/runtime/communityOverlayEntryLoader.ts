@@ -1,7 +1,10 @@
 /**
  * Chunk بوابة المنتدى في MainView (LawyerDashboardCommunityOverlayEntry).
  * منفصل عن communityHubLoader — بدون هذا الـ prefetch يعلق Suspense على InstantShell عند أول نقرة.
+ * preload-aware: بعد التسخين تُرسم مباشرة بلا إطار React.lazy.
  */
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
+import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 
 type CommunityOverlayEntryModule =
     typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCommunityOverlayEntry');
@@ -11,12 +14,6 @@ let entryResolved = false;
 
 export function isCommunityOverlayEntryResolved(): boolean {
     return entryResolved;
-}
-
-/** للاختبارات */
-export function resetCommunityOverlayEntryCacheForTests(): void {
-    entryPromise = null;
-    entryResolved = false;
 }
 
 function ensureEntryPromise(): Promise<CommunityOverlayEntryModule> {
@@ -34,11 +31,25 @@ function ensureEntryPromise(): Promise<CommunityOverlayEntryModule> {
     return entryPromise;
 }
 
+export const LazyCommunityOverlayEntry = createPreloadableLazyComponent(() =>
+    ensureEntryPromise().then((m) => ({
+        default: m.LawyerDashboardCommunityOverlayEntry as unknown as LazyComponent,
+    })),
+);
+
+/** للاختبارات */
+export function resetCommunityOverlayEntryCacheForTests(): void {
+    entryPromise = null;
+    entryResolved = false;
+    LazyCommunityOverlayEntry.resetForTests();
+}
+
 export function prefetchCommunityOverlayEntry(): void {
     if (typeof window === 'undefined') return;
-    void ensureEntryPromise().catch(() => undefined);
+    void LazyCommunityOverlayEntry.preload();
 }
 
 export function loadCommunityOverlayEntry(): Promise<CommunityOverlayEntryModule> {
+    void LazyCommunityOverlayEntry.preload();
     return ensureEntryPromise();
 }

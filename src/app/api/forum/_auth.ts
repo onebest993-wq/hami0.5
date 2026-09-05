@@ -254,7 +254,7 @@ export function forumCatchJsonResponse(err: unknown): Response {
         return jsonResponse(500, { ok: false, error: FORUM_GENERIC_500 });
     }
     let status = 400;
-    if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة') || message.includes('لا يمكنك')) {
+    if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة') || message.includes('لا يمكنك') || message.includes('لا يخصّك')) {
         status = 403;
     } else if (message.includes('أفضل إجابة')) {
         status = 409;

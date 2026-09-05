@@ -54,8 +54,9 @@ describe('home hub card security close honesty', () => {
         expect(sentry).toContain("userId: context.userId ? '[redacted]' : null");
         const perf = readFileSync(join(alerts, 'homeHubPerfMetrics.ts'), 'utf8');
         expect(perf).toContain('userId: _omitUser');
+        const peek = readFileSync(join(alerts, 'homeHubRadarPeek.ts'), 'utf8');
         const radar = readFileSync(join(alerts, 'homeHubRadarWarmCache.ts'), 'utf8');
-        expect(radar).toContain('warmed.lawyerId !== lawyerId');
+        expect(peek).toContain('warmed.lawyerId !== lawyerId');
         expect(radar).toContain('warmLawyerId !== lawyerId');
         const secretary = readFileSync(join(alerts, 'homeHubSecretaryAlertsWarmCache.ts'), 'utf8');
         expect(secretary).toContain('warmed.lawyerId !== lawyerId');

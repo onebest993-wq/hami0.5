@@ -43,7 +43,6 @@ export class TransactionsThreadingService {
         input.status === TransactionStatus.Paused || input.status === TransactionStatus.Completed
           ? input.status
           : TransactionStatus.Active,
-      agreedFees: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -52,7 +51,6 @@ export class TransactionsThreadingService {
   async persistTransaction(transaction: Transaction): Promise<void> {
     await this.repo.saveTransaction(transaction);
   }
-
 
   async addTask(input: {
     transactionId: string;

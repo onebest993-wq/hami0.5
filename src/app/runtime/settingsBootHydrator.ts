@@ -15,8 +15,6 @@ import {
     SETTINGS_SHELL_HYDRATED_EVENT,
 } from '@/app/runtime/settingsShellEvents';
 
-export { SETTINGS_PRIME_HOST_EVENT, SETTINGS_SHELL_HYDRATED_EVENT };
-
 let hydrateInflight: Promise<boolean> | null = null;
 let bootHydratorArmed = false;
 let coldBootPrefetchStarted = false;
@@ -29,7 +27,7 @@ function hydrateDelayMs(): number {
     return sectionBackgroundHydrateDelayMs();
 }
 
-/** جاهز للفتح التفاعلي — مقطع الشِل + المنظر (باقي التبويبات كسولة) */
+/** جاهز للفتح التفاعلي — مقطع الشِل + الأمن (المنظر/البيانات/الحساب كسولة عند النية) */
 export function isSettingsShellFullyHydrated(): boolean {
     return isHamiSettingsModuleResolved();
 }
@@ -44,7 +42,7 @@ export function dispatchSettingsPrimeHost(): void {
     window.dispatchEvent(new Event(SETTINGS_PRIME_HOST_EVENT));
 }
 
-export function prefetchSettingsAfterBootReveal(): void {
+function prefetchSettingsAfterBootReveal(): void {
     if (typeof window === 'undefined' || coldBootPrefetchStarted) return;
     if (!settingsPrefetchAllowed()) return;
     coldBootPrefetchStarted = true;
@@ -54,7 +52,7 @@ export function prefetchSettingsAfterBootReveal(): void {
 }
 
 /**
- * تحميل مقطع الإعدادات (الشِل + المنظر؛ الأمن/البيانات/الحساب كسولة).
+ * تحميل مقطع الشِل (الأمن sync؛ المنظر/البيانات/الحساب كسولة عند نية التبويب).
  * @param force — عند الفتح من المستخدم: يتجاوز تعطيل prefetch الخلفي
  */
 export function hydrateSettingsShellForInstantOpen(force = false): Promise<boolean> {

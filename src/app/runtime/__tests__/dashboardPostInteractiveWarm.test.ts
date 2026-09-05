@@ -32,6 +32,8 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isMeteredOrSlowNetwork: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({
@@ -79,7 +81,7 @@ describe('dashboardPostInteractiveWarm', () => {
         expect(hydrateLawyerDashboardHeaderShellChunks).toHaveBeenCalledWith('lawyer-1');
         expect(scheduleIdleWork).toHaveBeenCalledTimes(1);
         expect(scheduleHeavyDashboardSectionWarm).toHaveBeenCalledTimes(1);
-        expect(scheduleLawsuitArchiveEarlyWarm).toHaveBeenCalledTimes(1);
+        expect(scheduleLawsuitArchiveEarlyWarm).not.toHaveBeenCalled();
         expect(scheduleLawyerShellPrefetch).toHaveBeenCalledTimes(1);
     });
 

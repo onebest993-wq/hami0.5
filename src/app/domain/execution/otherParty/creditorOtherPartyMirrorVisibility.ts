@@ -78,13 +78,13 @@ function readCoerciveStates(ctx: CreditorMirrorWorkflowContext) {
         forcedPending: forced.pending,
         outcome: ed?.forced_bring_in_personal_outcome ?? null,
         appealBlocksFieldwork: appealSync?.forced_bring_in.blocksFieldwork,
-        requestEffectivelyEnforced: appealSync?.forced_bring_in.enforced,
         appealCycleSuperseded: appealSync?.forced_bring_in.cycleSuperseded,
     });
 
     const forcedShowStartStrip =
         !ctx.hidePersonalForcedBringActivation &&
         !forced.pending &&
+        !forced.approved &&
         !forced.rejected &&
         !forcedNeedsOutcomeUi &&
         !appealSync?.forced_bring_in.followupBlock &&

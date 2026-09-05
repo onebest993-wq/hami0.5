@@ -1,18 +1,32 @@
 /**
  * مرآة هوية الجلسة الحية — مصدر عزل التخزين بلا AuthService الزومبي.
  * يحدّثها AuthProvider؛ القراءة متاحة من utils متزامنة (خارج React).
+ *
+ * تصفير كروم الملف/المنتدى عند تبديل الحساب مؤجَّل بـ import() حتى لا يسحب
+ * SecureStore/التقويم المشفّر كسرة lawyer-boot-peek (هوية + رادار الهاب).
  */
-import { resetLawyerSessionUiForIdentityChange } from '@/app/services/auth/resetLawyerSessionUiForIdentityChange';
 import { readDevMockUser, readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 let liveAuthUserId: string | null = null;
+
+type IdentityResetModule = typeof import('@/app/services/auth/resetLawyerSessionUiForIdentityChange');
+let identityResetPromise: Promise<IdentityResetModule> | null = null;
+
+function resetLawyerSessionUiAfterIdentityChange(): void {
+    if (!identityResetPromise) {
+        identityResetPromise = import('@/app/services/auth/resetLawyerSessionUiForIdentityChange');
+    }
+    void identityResetPromise.then((mod) => {
+        mod.resetLawyerSessionUiForIdentityChange();
+    });
+}
 
 export function setLiveAuthUserId(userId: string | null | undefined): void {
     const id = String(userId ?? '').trim() || null;
     const previous = liveAuthUserId;
     liveAuthUserId = id;
     if (previous !== null && previous !== id) {
-        resetLawyerSessionUiForIdentityChange();
+        resetLawyerSessionUiAfterIdentityChange();
     }
 }
 

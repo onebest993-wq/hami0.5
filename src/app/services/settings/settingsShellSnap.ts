@@ -1,7 +1,6 @@
 /**
- * فتح/إغلاق مركز الإعدادات لحظياً.
- * المصدر البصري: html[data-hami-settings-open]
- * (React يعيد className ويمسح --visible — هذا العلم لا يُمسَح.)
+ * إسقاط CSS لفتح/إغلاق المركز (`html[data-hami-settings-open]`).
+ * حقيقة الكشف المنطقي في `settingsOverlayPresence` — هذه السمة لا تُقرأ هناك.
  */
 
 const HOST_SELECTOR = '[data-testid="hami-settings-overlay-host"]';

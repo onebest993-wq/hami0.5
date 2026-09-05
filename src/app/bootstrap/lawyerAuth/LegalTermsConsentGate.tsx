@@ -111,10 +111,11 @@ export function LegalTermsConsentGate({
                             type="button"
                             className={authGateSecondaryBtnClass}
                             disabled={exiting}
+                            aria-busy={exiting || undefined}
                             onClick={() => void onExit()}
                             data-testid="legal-terms-exit-app"
                         >
-                            {exiting ? 'جاري الخروج…' : 'الخروج من التطبيق'}
+                            الخروج من التطبيق
                         </button>
                         {onBack ? (
                             <button

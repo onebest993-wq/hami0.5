@@ -37,7 +37,7 @@ test.describe('المستودع الذكي الموحّد', () => {
         await expect(modal.getByTestId('repository-unified-feed')).toBeVisible();
         await clickRepositoryChrome(modal.getByTestId('repository-classification-toggle'));
         await expect(page.getByTestId('repository-classification-panel')).toBeVisible();
-        await expect(page.getByTestId('repository-filter-all')).toBeVisible();
+        await expect(page.getByTestId('repository-filter-all')).toBeVisible({ timeout: 10_000 });
     });
 
     test('يغلق بـ Escape ويعاد فتحه', async ({ page }) => {

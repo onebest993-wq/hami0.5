@@ -1,15 +1,9 @@
 import { useCallback } from 'react';
 import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import {
-    applyLawsuitArchiveSegments,
-    applyLawsuitPermanentDeleteSegments,
-    applyLawsuitRestoreFromArchiveSegments,
-    applyLawsuitRestoreFromTrashSegments,
-    applyLawsuitTrashSegments,
-    findLawsuitFileInSegments,
-    type LawsuitFileSegments,
-} from '@/app/domain/lawsuit/lawsuitFilesRepository';
+import { findLawsuitFileInSegments } from '@/app/domain/lawsuit/lawsuitFilesRepository';
+import type { LawsuitFileSegments } from '@/app/domain/lawsuit/lawsuitFileSegments';
+import type { LawsuitLifecycleMutationKind } from '@/app/domain/lawsuit/lawsuitLifecycleTransaction';
 import {
     pruneOrphanedBridgeEvents,
     removeAllBridgedEventsForEntity,
@@ -19,25 +13,15 @@ import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 import { scheduleRevokeLawsuitCaseShares } from '@/app/services/caseShare/caseShareDossierRevocation';
-import { commitLawsuitDossierTombstone } from '@/app/utils/lawsuitDossierTombstones';
-import { commitLawsuitPersistOrWarn } from '@/app/hooks/lawsuitCommitWarn';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
 type ActiveFile = FileData | ExecutionFile | null;
 
-/** تحذير واحد للدفعة كلها — لا توست لكل معرّف. */
-async function commitLawsuitTombstonesOrWarn(ids: Array<string | number>): Promise<void> {
-    let failed = 0;
-    for (const id of ids) {
-        if (!(await commitLawsuitDossierTombstone(id))) failed++;
-    }
-    if (failed > 0) {
-        SmartToast.warning('حُذف محلياً — تعذّر تثبيت سجل الحذف، قد يعود عند المزامنة');
-    }
-}
-
 type UseLawsuitFileMutationsOptions = {
-    setLawsuitSegments: React.Dispatch<React.SetStateAction<LawsuitFileSegments>>;
+    commitLawsuitLifecycleMutation: (
+        kind: LawsuitLifecycleMutationKind,
+        ids: readonly (string | number)[],
+    ) => Promise<LawsuitFileSegments | null>;
     setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile>>;
     userId?: string | null;
     authUserId?: string | null;
@@ -46,7 +30,7 @@ type UseLawsuitFileMutationsOptions = {
 };
 
 export function useLawsuitFileMutations({
-    setLawsuitSegments,
+    commitLawsuitLifecycleMutation,
     setActiveFile,
     userId,
     authUserId,
@@ -56,132 +40,131 @@ export function useLawsuitFileMutations({
     const calendarUid = resolveCalendarUserId(userId ?? authUserId ?? null);
 
     const moveLawsuitToTrash = useCallback(
-        (fileId: string | number) => {
+        async (fileId: string | number): Promise<boolean> => {
             const idStr = String(fileId);
-            setLawsuitSegments((prev) => applyLawsuitTrashSegments(prev, fileId));
+            const next = await commitLawsuitLifecycleMutation('trash', [fileId]);
+            if (!next || next.active.some((file) => String(file.id) === idStr)) {
+                SmartToast.error('تعذّر تثبيت النقل إلى المهملات على القرص');
+                return false;
+            }
             setActiveFile((cur) => (cur && String(cur.id) === idStr ? null : cur));
             void removeAllBridgedEventsForEntity('lawsuit', fileId, calendarUid);
             void pruneOrphanedBridgeEvents(calendarUid);
             void refreshAppAlerts();
-            void commitLawsuitPersistOrWarn('النقل إلى المهملات', [fileId]);
+            return true;
         },
-        [calendarUid, refreshAppAlerts, setActiveFile, setLawsuitSegments],
+        [calendarUid, commitLawsuitLifecycleMutation, refreshAppAlerts, setActiveFile],
     );
 
     const restoreLawsuitFromTrash = useCallback(
-        (fileId: string | number) => {
-            setLawsuitSegments((prev) => {
-                const next = applyLawsuitRestoreFromTrashSegments(prev, fileId);
-                const restored = findLawsuitFileInSegments(next, fileId);
-                if (restored) {
-                    syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
-                }
-                return next;
-            });
-            void commitLawsuitPersistOrWarn('الاستعادة من المهملات', [fileId]);
+        async (fileId: string | number): Promise<boolean> => {
+            const next = await commitLawsuitLifecycleMutation('restore-trash', [fileId]);
+            const restored = next ? findLawsuitFileInSegments(next, fileId) : undefined;
+            if (!restored || !next?.active.some((file) => String(file.id) === String(fileId))) {
+                SmartToast.error('تعذّر تثبيت الاستعادة من المهملات على القرص');
+                return false;
+            }
+            syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
+            return true;
         },
-        [setLawsuitSegments, userId],
+        [commitLawsuitLifecycleMutation, userId],
     );
 
     const archiveLawsuit = useCallback(
-        (fileId: string | number) => {
+        async (fileId: string | number): Promise<boolean> => {
             const idStr = String(fileId);
-            setLawsuitSegments((prev) => applyLawsuitArchiveSegments(prev, fileId));
+            const next = await commitLawsuitLifecycleMutation('archive', [fileId]);
+            if (!next || next.active.some((file) => String(file.id) === idStr)) {
+                SmartToast.error('تعذّر تثبيت الأرشفة على القرص');
+                return false;
+            }
             setActiveFile((cur) => (cur && String(cur.id) === idStr ? null : cur));
             void removeAllBridgedEventsForEntity('lawsuit', fileId, calendarUid);
             void pruneOrphanedBridgeEvents(calendarUid);
             void refreshAppAlerts();
-            void commitLawsuitPersistOrWarn('الأرشفة', [fileId]);
+            return true;
         },
-        [calendarUid, refreshAppAlerts, setActiveFile, setLawsuitSegments],
+        [calendarUid, commitLawsuitLifecycleMutation, refreshAppAlerts, setActiveFile],
     );
 
     const restoreArchivedLawsuit = useCallback(
-        (fileId: string | number) => {
-            setLawsuitSegments((prev) => {
-                const next = applyLawsuitRestoreFromArchiveSegments(prev, fileId);
-                const restored = findLawsuitFileInSegments(next, fileId);
-                if (restored) {
-                    syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
-                }
-                return next;
-            });
-            void commitLawsuitPersistOrWarn('الاستعادة من الأرشيف', [fileId]);
+        async (fileId: string | number): Promise<boolean> => {
+            const next = await commitLawsuitLifecycleMutation('restore-archive', [fileId]);
+            const restored = next ? findLawsuitFileInSegments(next, fileId) : undefined;
+            if (!restored || !next?.active.some((file) => String(file.id) === String(fileId))) {
+                SmartToast.error('تعذّر تثبيت الاستعادة من الأرشيف على القرص');
+                return false;
+            }
+            syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
+            return true;
         },
-        [setLawsuitSegments, userId],
+        [commitLawsuitLifecycleMutation, userId],
     );
 
     const permanentlyDeleteLawsuits = useCallback(
-        (ids: Array<string | number>) => {
+        async (ids: Array<string | number>): Promise<boolean> => {
             const idSet = new Set(ids.map(String));
-            /*
-             * الشاهد أولاً ثم المسح المحلي. عكس ذلك يفتح نافذة: قائمة بلا ملف
-             * وشاهد لم يُكتب بعد، فيعيده دمج السحابة إن تداخلت المزامنة.
-             */
-            return (async () => {
-                await commitLawsuitTombstonesOrWarn([...idSet]);
-                idSet.forEach((id) => {
-                    void removeAllBridgedEventsForEntity('lawsuit', id, calendarUid);
-                    if (calendarUid) {
-                        scheduleRevokeLawsuitCaseShares(calendarUid, id);
-                    }
-                    if (typeof id === 'string' || Number.isFinite(Number(id))) {
-                        const externalId = String(id);
-                        if (isLiveCloudSyncBucketEnabled('files')) {
-                            void SupabaseService.deleteLawsuitFile(externalId).catch(() => undefined);
-                        }
-                    }
-                });
-                setLawsuitSegments((prev) => applyLawsuitPermanentDeleteSegments(prev, ids));
-                setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
-                void pruneOrphanedBridgeEvents(calendarUid);
-                void commitLawsuitPersistOrWarn('الحذف النهائي', ids);
-            })();
+            const next = await commitLawsuitLifecycleMutation('permanent-delete', ids);
+            if (!next) {
+                SmartToast.error('تعذّر تثبيت الحذف النهائي — بقيت الإضبارة في السلة');
+                return false;
+            }
+            for (const segment of [next.active, next.archived ?? [], next.trash ?? []]) {
+                if (segment.some((file) => idSet.has(String(file.id)))) {
+                    SmartToast.error('فشل تحقق الحذف النهائي على القرص');
+                    return false;
+                }
+            }
+            idSet.forEach((id) => {
+                void removeAllBridgedEventsForEntity('lawsuit', id, calendarUid);
+                if (calendarUid) {
+                    scheduleRevokeLawsuitCaseShares(calendarUid, id);
+                }
+                if (isLiveCloudSyncBucketEnabled('files')) {
+                    void SupabaseService.deleteLawsuitFile(id).catch(() => undefined);
+                }
+            });
+            setActiveFile((cur) => (cur && idSet.has(String(cur.id)) ? null : cur));
+            void pruneOrphanedBridgeEvents(calendarUid);
+            return true;
         },
-        [calendarUid, setActiveFile, setLawsuitSegments],
+        [calendarUid, commitLawsuitLifecycleMutation, setActiveFile],
     );
 
     const handleDeleteFile = useCallback(
         (fileToDelete: FileData) => {
-            const idStr = String(fileToDelete.id);
             const isHardDelete = fileToDelete.status === 'deleted';
             if (isHardDelete) {
-                void permanentlyDeleteLawsuits([fileToDelete.id]);
-            } else {
-                setLawsuitSegments((prev) => applyLawsuitTrashSegments(prev, fileToDelete.id));
-                setActiveFile((cur) => (cur && String(cur?.id) === idStr ? null : cur));
-                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, calendarUid);
-                void pruneOrphanedBridgeEvents(calendarUid);
-                void commitLawsuitPersistOrWarn('النقل إلى المهملات', [fileToDelete.id]);
+                void permanentlyDeleteLawsuits([fileToDelete.id]).then((ok) => {
+                    if (!ok) return;
+                    unpinWorkspaceForDeletedFile(fileToDelete);
+                    void refreshAppAlerts();
+                });
+                return;
             }
-            unpinWorkspaceForDeletedFile(fileToDelete);
-            void refreshAppAlerts();
+            void moveLawsuitToTrash(fileToDelete.id).then((ok) => {
+                if (!ok) return;
+                unpinWorkspaceForDeletedFile(fileToDelete);
+                void refreshAppAlerts();
+            });
         },
         [
-            calendarUid,
+            moveLawsuitToTrash,
             permanentlyDeleteLawsuits,
             refreshAppAlerts,
-            setActiveFile,
-            setLawsuitSegments,
             unpinWorkspaceForDeletedFile,
         ],
     );
 
     const handleRestoreFile = useCallback(
         (fileToRestore: FileData) => {
-            setLawsuitSegments((prev) => {
-                const next = applyLawsuitRestoreFromTrashSegments(prev, fileToRestore.id);
-                const restored = findLawsuitFileInSegments(next, fileToRestore.id);
-                if (restored) {
-                    setActiveFile(restored);
-                    syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
-                }
-                return next;
+            void restoreLawsuitFromTrash(fileToRestore.id).then((ok) => {
+                if (!ok) return;
+                setActiveFile({ ...fileToRestore, status: 'active', deletedAt: undefined });
+                void refreshAppAlerts();
             });
-            void refreshAppAlerts();
-            void commitLawsuitPersistOrWarn('الاستعادة من المهملات', [fileToRestore.id]);
         },
-        [refreshAppAlerts, setActiveFile, setLawsuitSegments, userId],
+        [refreshAppAlerts, restoreLawsuitFromTrash, setActiveFile],
     );
 
     return {

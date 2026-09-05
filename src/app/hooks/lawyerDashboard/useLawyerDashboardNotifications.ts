@@ -55,6 +55,7 @@ export function useLawyerDashboardNotifications(
         {
             pollIntervalMs: null,
             deferInitialFetch: true,
+            localPeekOnly: true,
         },
     );
     const notificationsUnreadCount = computeNotificationsShellUnreadCount(

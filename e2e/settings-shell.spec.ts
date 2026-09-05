@@ -51,10 +51,8 @@ test.describe('مركز الإعدادات', () => {
 
         await switchSettingsTab(shell, 'appearance');
         await expect(shell.getByTestId('settings-section-appearance')).toBeVisible({ timeout: 10_000 });
-        await shell.getByTestId('settings-font-preset-medium').scrollIntoViewIfNeeded();
-        await expect(shell.getByTestId('settings-font-preset-medium')).toBeVisible();
-        await expect(shell.getByTestId('settings-toggle-appearance-highContrast')).toBeVisible();
-        await expect(shell.getByTestId('settings-lite-auto')).toBeVisible();
+        await shell.getByTestId('settings-toggle-appearance-reduceMotion').scrollIntoViewIfNeeded();
+        await expect(shell.getByTestId('settings-toggle-appearance-reduceMotion')).toBeVisible();
     });
 
     test('Escape يغلق الإعدادات', async ({ page }) => {
@@ -105,30 +103,6 @@ test.describe('مركز الإعدادات', () => {
         );
     });
 
-    test('مفتاح التباين العالي يُحفظ بعد الإغلاق وإعادة الفتح', async ({ page }) => {
-        await gotoLawyerHomeE2E(page);
-        await dismissProductivityBlockers(page);
-
-        const shell = await openSettings(page);
-        await switchSettingsTab(shell, 'appearance');
-        const toggle = shell.getByTestId('settings-toggle-appearance-highContrast');
-        await toggle.scrollIntoViewIfNeeded();
-        const initial = await toggle.getAttribute('aria-checked');
-
-        await toggle.click();
-        const after = await toggle.getAttribute('aria-checked');
-        expect(after).not.toBe(initial);
-
-        await page.keyboard.press('Escape');
-        await expect(shell).toBeHidden({ timeout: 5_000 });
-
-        const shell2 = await openSettings(page);
-        await expect(shell2.getByTestId('settings-toggle-appearance-highContrast')).toHaveAttribute(
-            'aria-checked',
-            after!,
-        );
-    });
-
     test('Tab يبقى داخل الإعدادات (focus trap)', async ({ page }) => {
         await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
@@ -172,9 +146,6 @@ test.describe('مركز الإعدادات', () => {
         await switchSettingsTab(shell, 'security');
 
         const toggle = shell.getByTestId('settings-toggle-security-screenshotDeterrent');
-        const privacyBlur = shell.getByTestId('settings-toggle-security-privacyBlur');
-        await expect(privacyBlur).toBeVisible();
-        await expect(privacyBlur).toHaveAttribute('aria-checked', 'true');
         const before = await toggle.getAttribute('aria-checked');
         await toggle.evaluate((el) => (el as HTMLElement).click());
         await expect(toggle).not.toHaveAttribute('aria-busy', 'true', { timeout: 10_000 });

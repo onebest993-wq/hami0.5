@@ -10,9 +10,10 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { saveLawsuitFilesRaw, loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import { saveExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { CalendarDB } from '@/app/services/lawyer-cloud';
+import { resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 import { buildStableBridgeId } from '../calendarBridge';
 import { isBridgedCalendarEvent } from '../calendarBridgePersistence';
 import {
@@ -30,6 +31,7 @@ const USER = 'contract-audit-user';
 function clearAll(): void {
     SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
     localStorage.clear();
+    resetCalendarEventsCacheForTests();
     saveLawsuitFilesRaw([]);
     saveExecutionFilesRaw([]);
 }
@@ -88,7 +90,9 @@ describe('calendar contract audit — فحص مجهري للربط', () => {
 
         const bridgeId = buildStableBridgeId('lawsuit', 'contract-file', 'hearing-1');
         let events = await CalendarDB.getEvents(USER);
-        expect(events.some((e) => e.id === bridgeId)).toBe(true);
+        const bridged = events.find((e) => e.id === bridgeId);
+        expect(bridged?.sourceModule).toBe('lawsuit');
+        expect(bridged?.sourceEntityId).toBe('contract-file');
 
         const manualId = 'manual-contract-note';
         const now = new Date().toISOString();
@@ -104,8 +108,20 @@ describe('calendar contract audit — فحص مجهري للربط', () => {
         });
 
         saveLawsuitFilesRaw([{ ...activeFile, status: 'archived' }]);
-        await purgeExcludedDossierBridgedEvents(USER);
-        events = await CalendarDB.getEvents(USER);
+        const archivedLoaded = loadLawsuitFilesRaw();
+        expect(
+            archivedLoaded.some(
+                (raw) =>
+                    raw &&
+                    typeof raw === 'object' &&
+                    (raw as { id?: unknown; status?: unknown }).id === 'contract-file' &&
+                    (raw as { status?: unknown }).status === 'archived',
+            ),
+        ).toBe(true);
+        expect(shouldExcludeLawsuitFromCalendar({ status: 'archived' })).toBe(true);
+        const purged = await purgeExcludedDossierBridgedEvents(USER);
+        expect(purged).toBeGreaterThanOrEqual(1);
+        events = await CalendarDB.getEvents(USER, { forceRefresh: true });
         expect(events.some((e) => e.id === bridgeId)).toBe(false);
         expect(events.some((e) => e.id === manualId)).toBe(true);
 

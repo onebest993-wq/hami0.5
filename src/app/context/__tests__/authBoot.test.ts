@@ -52,6 +52,15 @@ describe('authBoot', () => {
         expect(boot.session?.user?.id).toBe(GUEST_LAWYER_ID);
     });
 
+    it('في npm run dev يفتح محامياً معتمداً لا ضيفاً', () => {
+        vi.stubEnv('MODE', 'development');
+        vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'true');
+        vi.mocked(isBffAuthEnabled).mockReturnValue(true);
+        const boot = resolveInitialAuthState();
+        expect(boot.user?.id).toBe(DEV_UNLOCK_LAWYER_ID);
+        expect(boot.session?.user?.id).toBe(DEV_UNLOCK_LAWYER_ID);
+    });
+
     it('يفضّل محامياً مزروعاً غير ضيف عند فتح الشِل (مسار E2E المنتدى)', () => {
         vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'true');
         vi.mocked(isBffAuthEnabled).mockReturnValue(true);

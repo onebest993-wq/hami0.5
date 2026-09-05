@@ -127,11 +127,18 @@ describe('execution weight / split honesty', () => {
         expect(build).toContain('spreadExecutionDashboardLazyChunkScopeShell');
         expect(build).not.toMatch(/LazyRegistryOverlays|executionFollowupTabPrefetch/);
         expect(base).not.toMatch(/LazyRegistryOverlays|executionDashboardLazyChunkScopeOverlays/);
-        expect(shellScope).not.toMatch(/executionDashboardLazyRegistryOverlays|executionFollowupTabPrefetch/);
-        expect(fallback).not.toMatch(/executionDashboardLazyRegistryOverlays/);
+        expect(shellScope).not.toMatch(
+            /executionDashboardLazyRegistryOverlays|executionFollowupTabPrefetch|executionFollowupModalLazy|executionDashboardFollowupTabLazy/,
+        );
+        expect(shellScope).not.toContain('LazyPersonalTab');
+        expect(fallback).not.toMatch(/executionDashboardLazyRegistryOverlays|executionDashboardFollowupTabLazy/);
         expect(fallback).toContain('executionDashboardLazyRegistryShell');
         expect(barrel).not.toMatch(/executionDashboardLazyRegistryOverlays/);
         expect(overlayBuilder).toContain('spreadExecutionDashboardLazyChunkScopeOverlays');
+        expect(barrelMod.EXECUTION_DASHBOARD_LAZY_CHUNK_SCOPE).not.toHaveProperty('LazyPersonalTab');
+        expect(barrelMod.EXECUTION_DASHBOARD_LAZY_CHUNK_SCOPE).not.toHaveProperty(
+            'LazyExecutionFollowupModalPortal',
+        );
     });
 
     it('رأس بيانات الإضبارة يلتقط شريحة مفاتيح مكتوبة', () => {
@@ -179,7 +186,8 @@ describe('execution weight / split honesty', () => {
         expect(handlerPrefetch).not.toMatch(
             /from\s+['"][^'"]*executionDashboardLazyRegistryOverlays['"]/,
         );
-        expect(handlerPrefetch).toContain("import('../../executionDashboardLazyRegistryOverlays')");
+        expect(handlerPrefetch).not.toContain("import('../../executionDashboardLazyRegistryOverlays')");
+        expect(handlerPrefetch).not.toContain('prefetchEvictionFieldProceduresPanel');
     });
 
     it('قسم المدينين يلتقط شريحة مفاتيح مكتوبة', () => {
@@ -213,7 +221,8 @@ describe('execution weight / split honesty', () => {
         expect(tertiaryHubs).not.toMatch(/from\s+['"][^'"]*executionDashboardLazyRegistryOverlays['"]/);
         expect(tertiaryHubs).toContain("from '../executionFinancialHubPortalLazy'");
         expect(tertiaryHubs).toContain('ExecutionFinancialHubInstantFrame');
-        expect(tertiaryHubs).toContain('ExecutionSeizureLogInstantFrame');
+        expect(tertiaryHubs).not.toContain('ExecutionSeizureLogInstantFrame');
+        expect(tertiaryHubs).not.toContain('LazyUnifiedSeizureLogHost');
         expect(tertiaryHubs).toContain('PreloadableOverlayGate');
         expect(tertiaryHubs).toContain('import type { ExecutionDashboardPhoneBodyDeferredScope }');
         expect(tertiarySeizure).not.toMatch(/from\s+['"][^'"]*executionDashboardLazyRegistryOverlays['"]/);

@@ -199,4 +199,40 @@ describe('useIncomingNotificationPopups', () => {
 
         expect(second.result.current.queue.map((q) => q.id)).toContain('fresh-after-remount');
     });
+
+    it('لا يصفّ منبثقاً داخل التطبيق والتبويب مخفي', () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+
+        const { result, rerender } = renderHook(() =>
+            useIncomingNotificationPopups({ userId: 'user-1', isPanelOpen: false }),
+        );
+
+        act(() => {
+            useNotificationStore.setState({
+                isLoading: false,
+                hasHydratedOnce: true,
+                notifications: [makeNotif('baseline')],
+            });
+        });
+        rerender();
+
+        act(() => {
+            useNotificationStore.setState({
+                notifications: [makeNotif('hidden-fresh'), makeNotif('baseline')],
+            });
+        });
+        rerender();
+
+        expect(result.current.queue.map((q) => q.id)).not.toContain('hidden-fresh');
+
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    });
 });

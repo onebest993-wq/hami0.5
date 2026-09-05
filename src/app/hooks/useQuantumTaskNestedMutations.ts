@@ -2,13 +2,11 @@ import { useCallback, type SetStateAction } from 'react';
 import type {
     DocumentRequirementItem,
     LegalSubTask,
+    LegalSubTaskPlanStatus,
     LegalTask,
-    TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
 import {
-    clampExpenseAmount,
     clampTaskText,
-    MAX_EXPENSE_LABEL_LENGTH,
     MAX_NESTED_ITEMS,
     MAX_TASK_LINE_LENGTH,
     MAX_TASK_LOCATION_LENGTH,
@@ -16,6 +14,14 @@ import {
 import { newTaskId } from '@/app/services/tasks/quantumPendingTaskFactory';
 
 type SetTasks = (updater: SetStateAction<LegalTask[]>) => void;
+
+function withPlanStatus(st: LegalSubTask, status: LegalSubTaskPlanStatus): LegalSubTask {
+    return {
+        ...st,
+        planStatus: status,
+        isCompleted: status === 'done',
+    };
+}
 
 export function useQuantumTaskNestedMutations(setTasks: SetTasks) {
     const addSubTask = useCallback(
@@ -28,6 +34,7 @@ export function useQuantumTaskNestedMutations(setTasks: SetTasks) {
                 location: location == null ? null : clampTaskText(location, MAX_TASK_LOCATION_LENGTH) || null,
                 isCompleted: false,
                 kind: 'branch',
+                planStatus: 'pending',
             };
             setTasks((prev) =>
                 prev.map((task) =>
@@ -47,9 +54,66 @@ export function useQuantumTaskNestedMutations(setTasks: SetTasks) {
                     if (task.id !== parentId) return task;
                     return {
                         ...task,
+                        subTasks: task.subTasks.map((st) => {
+                            if (st.id !== subTaskId) return st;
+                            const nextDone = !st.isCompleted;
+                            return {
+                                ...st,
+                                isCompleted: nextDone,
+                                planStatus: nextDone ? 'done' : 'pending',
+                            };
+                        }),
+                    };
+                }),
+            );
+        },
+        [setTasks],
+    );
+
+    const setSubTaskPlanStatus = useCallback(
+        (parentId: string, subTaskId: string, status: LegalSubTaskPlanStatus) => {
+            setTasks((prev) =>
+                prev.map((task) => {
+                    if (task.id !== parentId) return task;
+                    return {
+                        ...task,
                         subTasks: task.subTasks.map((st) =>
-                            st.id === subTaskId ? { ...st, isCompleted: !st.isCompleted } : st,
+                            st.id === subTaskId ? withPlanStatus(st, status) : st,
                         ),
+                    };
+                }),
+            );
+        },
+        [setTasks],
+    );
+
+    const renameSubTask = useCallback(
+        (parentId: string, subTaskId: string, title: string) => {
+            const t = clampTaskText(title, MAX_TASK_LINE_LENGTH);
+            if (!t) return;
+            setTasks((prev) =>
+                prev.map((task) => {
+                    if (task.id !== parentId) return task;
+                    return {
+                        ...task,
+                        subTasks: task.subTasks.map((st) =>
+                            st.id === subTaskId ? { ...st, title: t } : st,
+                        ),
+                    };
+                }),
+            );
+        },
+        [setTasks],
+    );
+
+    const removeSubTask = useCallback(
+        (parentId: string, subTaskId: string) => {
+            setTasks((prev) =>
+                prev.map((task) => {
+                    if (task.id !== parentId) return task;
+                    return {
+                        ...task,
+                        subTasks: task.subTasks.filter((st) => st.id !== subTaskId),
                     };
                 }),
             );
@@ -126,32 +190,14 @@ export function useQuantumTaskNestedMutations(setTasks: SetTasks) {
         [setTasks],
     );
 
-    const addExpense = useCallback(
-        (parentId: string, amount: number, label: string) => {
-            const amt = clampExpenseAmount(amount);
-            if (amt == null) return;
-            const entry: TaskExpenseEntry = {
-                id: newTaskId(),
-                amount: amt,
-                label: clampTaskText(label, MAX_EXPENSE_LABEL_LENGTH) || 'مصروف',
-            };
-            setTasks((prev) =>
-                prev.map((task) =>
-                    task.id === parentId
-                        ? { ...task, expenses: [...task.expenses, entry].slice(0, MAX_NESTED_ITEMS) }
-                        : task,
-                ),
-            );
-        },
-        [setTasks],
-    );
-
     return {
         addSubTask,
         toggleSubTaskComplete,
+        setSubTaskPlanStatus,
+        renameSubTask,
+        removeSubTask,
         setSubTaskLocation,
         addDocumentRequirement,
         toggleDocumentRequirement,
-        addExpense,
     };
 }

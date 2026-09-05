@@ -14,6 +14,7 @@ import {
     E2E_CALENDAR_COLD_OPEN_MS,
     E2E_CALENDAR_CACHED_OPEN_MS,
     prepareCalendarE2E,
+    commitCalendarEventsSeed,
 } from './helpers/calendarFixtures';
 
 const E2E_EVENT_TITLE = 'موعد E2E رادار';
@@ -21,9 +22,12 @@ const SEEDED_TITLE = 'موعد cache E2E';
 const SEEDED_EVENT_ID = 'e2e-radar-event-1';
 
 async function fillRadarEventTitle(page: import('@playwright/test').Page, title: string) {
-    const titleInput = page.getByTestId('radar-event-title');
-    await expect(titleInput).toBeVisible({ timeout: 10_000 });
-    await titleInput.fill(title);
+    await expect(async () => {
+        const titleInput = page.getByTestId('radar-event-title');
+        await expect(titleInput).toBeVisible({ timeout: 5_000 });
+        await titleInput.fill(title);
+        await expect(titleInput).toHaveValue(title);
+    }).toPass({ timeout: 20_000 });
     await expect(page.getByTestId('radar-event-save')).toBeEnabled({ timeout: 5_000 });
 }
 
@@ -81,7 +85,34 @@ async function openCalendarFromHome(page: import('@playwright/test').Page) {
     }).toPass({ timeout: 28_000 });
 
     await expect(radar).toBeVisible({ timeout: 15_000 });
+    await dismissBlockingOverlays(page);
     return radar;
+}
+
+async function waitForLiveRadarHandoff(page: import('@playwright/test').Page) {
+    await expect(page.getByTestId('schedule-radar-paint-cover')).toHaveAttribute('data-handoff', '1', {
+        timeout: 15_000,
+    });
+}
+
+async function waitForRadarEventForm(page: import('@playwright/test').Page) {
+    await expect(async () => {
+        const form = page.getByTestId('radar-event-form');
+        const pending = page.getByTestId('radar-event-form-pending');
+        if (await form.isVisible().catch(() => false)) return;
+        if (!(await pending.isVisible().catch(() => false))) {
+            await page.getByTestId('radar-add-event').click({ force: true });
+        }
+        await expect(form).toBeVisible({ timeout: 8_000 });
+    }).toPass({ timeout: 28_000 });
+}
+
+async function openRadarAddForm(
+    page: import('@playwright/test').Page,
+    radar: import('@playwright/test').Locator,
+) {
+    await radar.getByTestId('radar-add-event').click({ force: true });
+    await waitForRadarEventForm(page);
 }
 
 test.describe('رادار المواعيد — التقويم', () => {
@@ -97,6 +128,15 @@ test.describe('رادار المواعيد — التقويم', () => {
         await page.goto('/');
         await bootToLawyerHome(page);
         await dismissBlockingOverlays(page);
+    }
+
+    async function bootHomeWithCalendarSeed(
+        page: import('@playwright/test').Page,
+        events: Parameters<typeof seedCalendarEvents>[1],
+    ) {
+        await seedCalendarEvents(page, events);
+        await bootHome(page);
+        await commitCalendarEventsSeed(page, events);
     }
 
     test('يفتح من عنوان التقويم في الرئيسية ويعرض راداراً فارغاً', async ({ page }) => {
@@ -135,8 +175,7 @@ test.describe('رادار المواعيد — التقويم', () => {
         await bootHome(page);
 
         const radar = await openCalendarFromHome(page);
-        await radar.getByTestId('radar-add-event').click();
-        await expect(page.getByTestId('radar-event-form')).toBeVisible();
+        await openRadarAddForm(page, radar);
         await expect(page.getByTestId('radar-event-save')).toBeDisabled();
 
         await fillRadarEventTitle(page, E2E_EVENT_TITLE);
@@ -157,8 +196,7 @@ test.describe('رادار المواعيد — التقويم', () => {
         await bootHome(page);
 
         const radar = await openCalendarFromHome(page);
-        await radar.getByTestId('radar-add-event').click();
-        await expect(page.getByTestId('radar-event-form')).toBeVisible();
+        await openRadarAddForm(page, radar);
 
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('radar-event-form')).toBeHidden({ timeout: 5_000 });
@@ -169,7 +207,7 @@ test.describe('رادار المواعيد — التقويم', () => {
         await bootHome(page);
 
         const radar = await openCalendarFromHome(page);
-        await radar.getByTestId('radar-add-event').click();
+        await openRadarAddForm(page, radar);
         await fillRadarEventTitle(page, 'موعد لن يُحفظ');
         await page.getByTestId('radar-event-form-overlay').click({ position: { x: 8, y: 8 } });
         await expect(page.getByTestId('radar-event-form')).toBeHidden({ timeout: 5_000 });
@@ -181,8 +219,7 @@ test.describe('رادار المواعيد — التقويم', () => {
         await bootHome(page);
 
         const radar = await openCalendarFromHome(page);
-        await radar.getByTestId('radar-add-event').click();
-        await expect(page.getByTestId('radar-event-form')).toBeVisible({ timeout: 10_000 });
+        await openRadarAddForm(page, radar);
         await fillRadarEventTitle(page, E2E_EVENT_TITLE);
         await saveRadarEventForm(page);
         await expect(radar.getByText(E2E_EVENT_TITLE)).toBeVisible({ timeout: 10_000 });
@@ -221,9 +258,7 @@ test.describe('رادار المواعيد — التقويم', () => {
     });
 
     test('الفتح مع cache محلي ضمن حد زمني', async ({ page }) => {
-        await seedCalendarEvents(page, [buildE2eCalendarEvent({ title: SEEDED_TITLE })]);
-
-        await bootHome(page);
+        await bootHomeWithCalendarSeed(page, [buildE2eCalendarEvent({ title: SEEDED_TITLE })]);
 
         const radar = await openCalendarFromHome(page);
         await expect(radar.getByTestId('radar-empty-state')).toBeHidden();
@@ -275,12 +310,11 @@ test.describe('رادار المواعيد — التقويم', () => {
     test('محامٍ يعدّل عنوان موعد محفوظ', async ({ page }) => {
         const original = 'موعد للتعديل E2E';
         const updated = 'موعد بعد التعديل E2E';
-        await seedCalendarEvents(page, [
+        await bootHomeWithCalendarSeed(page, [
             buildE2eCalendarEvent({ id: SEEDED_EVENT_ID, title: original }),
         ]);
-
-        await bootHome(page);
         const radar = await openCalendarFromHome(page);
+        await waitForLiveRadarHandoff(page);
         await expect(radar.getByText(original)).toBeVisible({ timeout: 10_000 });
 
         await radar.getByRole('button', { name: `تعديل الموعد ${original}` }).click();
@@ -294,12 +328,11 @@ test.describe('رادار المواعيد — التقويم', () => {
 
     test('محامٍ يحذف موعداً من البطاقة فيعود اليوم فارغاً', async ({ page }) => {
         const title = 'موعد للحذف E2E';
-        await seedCalendarEvents(page, [
+        await bootHomeWithCalendarSeed(page, [
             buildE2eCalendarEvent({ id: SEEDED_EVENT_ID, title }),
         ]);
-
-        await bootHome(page);
         const radar = await openCalendarFromHome(page);
+        await waitForLiveRadarHandoff(page);
         await expect(radar.getByText(title)).toBeVisible({ timeout: 10_000 });
 
         const deleteBtn = radar.getByTestId(`radar-event-card-delete-cal_${SEEDED_EVENT_ID}`);
@@ -310,7 +343,7 @@ test.describe('رادار المواعيد — التقويم', () => {
     });
 
     test('موعدان بموقعين مختلفين يظهران تنبيه تعارض', async ({ page }) => {
-        await seedCalendarEvents(page, [
+        await bootHomeWithCalendarSeed(page, [
             buildE2eCalendarEvent({
                 id: 'e2e-loc-karkh',
                 title: 'موعد كرخ E2E',
@@ -324,40 +357,42 @@ test.describe('رادار المواعيد — التقويم', () => {
                 time: '11:00',
             }),
         ]);
-
-        await bootHome(page);
         const radar = await openCalendarFromHome(page);
-        await expect(radar.getByText('موعد كرخ E2E')).toBeVisible({ timeout: 10_000 });
-        await expect(radar.getByText('موعد رصافة E2E')).toBeVisible();
+        await waitForLiveRadarHandoff(page);
+        await expect(radar.getByTestId('radar-event-title-cal_e2e-loc-karkh')).toBeVisible({
+            timeout: 10_000,
+        });
+        await expect(radar.getByTestId('radar-event-title-cal_e2e-loc-rusafa')).toBeVisible();
         await expect(radar.getByTestId('schedule-conflict-alert')).toBeVisible();
         await expect(radar.getByTestId('schedule-conflict-alert')).toContainText('تعارض مواقع');
     });
 
     test('فتح مصدر دعوى مفقودة يعرض تنبيهاً دون مغادرة الرادار', async ({ page }) => {
         const title = 'جلسة — إضبارة مفقودة E2E';
-        await seedCalendarEvents(page, [
+        await bootHomeWithCalendarSeed(page, [
             buildE2eBridgedLawsuitEvent('missing-file-999', { title }),
         ]);
-
-        await bootHome(page);
         const radar = await openCalendarFromHome(page);
+        await waitForLiveRadarHandoff(page);
         await expect(radar.getByText('مرافعة مدنية E2E').or(radar.getByText(title))).toBeVisible({
             timeout: 10_000,
         });
 
-        await radar.getByRole('button', { name: `فتح المصدر الأصلي للموعد ${title}` }).click();
+        await dismissBlockingOverlays(page);
+        await radar.getByTestId('radar-event-open-source-cal_e2e-bridged-lawsuit-1').evaluate((el) =>
+            (el as HTMLButtonElement).click(),
+        );
         await expectToastText(page, 'الإضبارة غير متاحة');
         await expect(radar).toBeVisible();
     });
 
     test('حذف موعد مربوط بإضبارة يُرفض بتنبيه', async ({ page }) => {
         const title = 'جلسة — لا تُحذف من الرادار';
-        await seedCalendarEvents(page, [
+        await bootHomeWithCalendarSeed(page, [
             buildE2eBridgedLawsuitEvent(String(E2E_CIVIL_FILE_ID), { title }),
         ]);
-
-        await bootHome(page);
         const radar = await openCalendarFromHome(page);
+        await waitForLiveRadarHandoff(page);
         await radar.getByRole('button', { name: `حذف الموعد ${title}` }).click();
         await expectToastText(page, 'هذا الموعد مربوط بإضبارة');
         await expect(radar.getByTestId('radar-event-title-cal_e2e-bridged-lawsuit-1')).toBeVisible();
@@ -365,13 +400,15 @@ test.describe('رادار المواعيد — التقويم', () => {
 
     test('فتح المصدر لموعد دعوى موجود يخرج من التقويم إلى الإضبارة', async ({ page }) => {
         const title = 'جلسة — مرافعة مدنية E2E';
-        await seedCalendarEvents(page, [
+        await bootHomeWithCalendarSeed(page, [
             buildE2eBridgedLawsuitEvent(String(E2E_CIVIL_FILE_ID), { title }),
         ]);
-
-        await bootHome(page);
         const radar = await openCalendarFromHome(page);
-        await radar.getByRole('button', { name: `فتح المصدر الأصلي للموعد ${title}` }).click();
+        await waitForLiveRadarHandoff(page);
+        await dismissBlockingOverlays(page);
+        await radar.getByTestId('radar-event-open-source-cal_e2e-bridged-lawsuit-1').evaluate((el) =>
+            (el as HTMLButtonElement).click(),
+        );
 
         await expect(radar).toBeHidden({ timeout: 15_000 });
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 45_000 });

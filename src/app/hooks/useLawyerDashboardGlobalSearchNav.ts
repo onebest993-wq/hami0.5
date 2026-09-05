@@ -9,7 +9,7 @@ import { dispatchGlobalSearchNavigate } from '@/app/hooks/globalSearchNavDispatc
 import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import type { OpenScheduleTabOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
 
-export type UseLawyerDashboardGlobalSearchNavParams = {
+type UseLawyerDashboardGlobalSearchNavParams = {
     userId: string | null;
     files: FileData[];
     executionFiles: ExecutionFile[];

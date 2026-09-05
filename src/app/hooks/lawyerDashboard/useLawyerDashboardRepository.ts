@@ -13,7 +13,11 @@ import type { RepositoryTab } from '@/app/components/lawyer/SmartRepositoryModal
 import {
     markRepositoryPerfPhase,
 } from '@/app/services/repository/repositoryPerfMetrics';
-import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
+import {
+    isRepositoryHubModuleResolved,
+    loadRepositoryHubModule,
+    prefetchRepositoryHubModule,
+} from '@/app/runtime/repositoryHubLoader';
 import {
     loadRepositoryBootHydrator,
     loadRepositoryIntentWarm,
@@ -23,14 +27,19 @@ import {
     persistRepositorySessionOpen,
     readInitialRepositorySession,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
-import { commitRepositoryClose, commitRepositoryOpen } from '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow';
+import {
+    commitRepositoryClose,
+    commitRepositoryOpen,
+    isRepositoryOpenInFlight,
+} from '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow';
 import {
     concealRepositoryWarmShell,
     isRepositoryShellPaintedOpen,
     paintRepositoryInstantChrome,
+    REPOSITORY_INSTANT_DISMISS_EVENT,
 } from '@/app/runtime/repositoryInstantPaint';
 import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
-import { isSectionBackgroundPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
+import { isSectionBackgroundPrefetchAllowed, isRepositoryHubJsWarmAllowed } from '@/app/runtime/sectionPrefetchPolicy';
 
 /** @deprecated use OpenRepositoryOptions — kept for navigation typings */
 export type OpenNotepadOptions = {
@@ -76,6 +85,7 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
     /** جلسة مستودع مفتوحة بلا هوية — أغلق وامسح الـ host (R2) */
     useEffect(() => {
         if (hasLocalAppSession(userId)) return;
+        if (isShellHandoffPending('repository')) return;
         concealRepositoryWarmShell();
         setIsRepositoryOpen(false);
         setFocusNoteId(undefined);
@@ -90,14 +100,23 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
         void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId ?? undefined));
     }, [userId]);
 
-    /** تسخين المقطع فور وجود هوية — بلا تركيب Host حتى الفتح */
+    /** بعد اكتمال المقطع: keepAlive مخفي — الخلاصة تُركَّب عند الفتح فقط */
     useLayoutEffect(() => {
         if (!hasLocalAppSession(userId)) return;
-        if (isSectionBackgroundPrefetchAllowed()) {
-            prefetchRepositoryHubModule();
-            void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId));
-        }
-    }, [userId]);
+        if (!isRepositoryHubJsWarmAllowed()) return;
+        prefetchRepositoryHubModule();
+        void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId));
+        let cancelled = false;
+        void loadRepositoryHubModule()
+            .then(() => {
+                if (cancelled || !isRepositoryHubModuleResolved()) return;
+                armRepositoryHost();
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [armRepositoryHost, userId]);
 
     useLayoutEffect(() => {
         if (isRepositoryOpen) {
@@ -105,7 +124,7 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
             return;
         }
         return deferShellConcealAfterHandoff(() => {
-            if (isShellHandoffPending('repository')) return;
+            if (isRepositoryOpenInFlight() || isShellHandoffPending('repository')) return;
             if (isRepositoryShellPaintedOpen()) concealRepositoryWarmShell();
         });
     }, [isRepositoryOpen]);
@@ -131,6 +150,15 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
 
     useEffect(() => {
         return registerDashboardOverlayCloser('repository', closeRepository);
+    }, [closeRepository]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onInstantDismiss = () => {
+            closeRepository();
+        };
+        window.addEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, onInstantDismiss);
+        return () => window.removeEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, onInstantDismiss);
     }, [closeRepository]);
 
     useEffect(() => {
@@ -171,14 +199,10 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
         if (typeof window === 'undefined') return;
         const onPrime = () => {
             prefetchRepositoryHubModule();
-            void loadRepositoryBootHydrator()
-                .then((m) => m.hydrateRepositoryBootShellForInstantOpen(userId, true))
-                .catch(() => undefined);
-            void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId ?? undefined));
         };
         window.addEventListener(REPOSITORY_PRIME_HOST_EVENT, onPrime);
         return () => window.removeEventListener(REPOSITORY_PRIME_HOST_EVENT, onPrime);
-    }, [userId]);
+    }, []);
 
     const openRepository = useCallback(
         (opts?: OpenRepositoryOptions) => {
@@ -197,11 +221,15 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
                         setVaultOpenScanner,
                         setRepositoryOpenEpoch,
                         setIsRepositoryOpen,
+                        hostAlreadyMounted: repositoryHostMounted,
+                        isRepositoryOpen,
+                        onChunkFailed: () =>
+                            SmartToast.error(`تعذّر تحميل ${REPOSITORY_SHELL_FEATURE}`),
                     });
                 },
             });
         },
-        [armRepositoryHost, userId],
+        [armRepositoryHost, isRepositoryOpen, repositoryHostMounted, userId],
     );
 
     const resetRepositoryShell = useCallback(() => {

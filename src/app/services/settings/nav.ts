@@ -9,28 +9,28 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
     {
         id: 'security',
         label: 'الأمان',
-        labelEn: 'Security',
         keywords: ['خصوصية', 'بصمة', 'قفل', 'تمويه', 'biometric', 'blur'],
     },
     {
         id: 'appearance',
         label: 'المنظر',
-        labelEn: 'Appearance',
         keywords: ['لون', 'ثيم', 'خلفية', 'شكل', 'خط', 'theme', 'wallpaper'],
     },
     {
         id: 'data',
         label: 'البيانات',
-        labelEn: 'Data',
         keywords: ['نسخ', 'حفظ', 'تصدير', 'أرشيف', 'backup', 'استيراد'],
     },
     {
         id: 'account',
         label: 'الحساب',
-        labelEn: 'Account',
         keywords: ['ملف', 'حساب', 'profile', 'دعم', 'خصوصية'],
     },
 ];
+
+export function isSettingsSectionId(value: unknown): value is SettingsSectionId {
+    return typeof value === 'string' && SETTINGS_NAV.some((item) => item.id === value);
+}
 
 export const FONT_PRESETS = [
     { id: 'small' as const, label: 'صغير', px: 14 },

@@ -96,7 +96,8 @@ describe('abandoned feature wipe honesty', () => {
         expect(service).not.toContain('listFinanceRecords');
         expect(service).not.toContain('addFinanceRecord');
         const persist = src('src/app/services/transactions/sanitizeTransactionsThreadingPersist.ts');
-        expect(persist).toContain('financeRecords: []');
+        expect(persist).not.toContain('financeRecords');
+        expect(persist).not.toContain('agreedFees');
         const calendar = src('src/app/services/calendar/bridge/legacyCalendarBridge.ts');
         expect(calendar).not.toContain('syncThreadingFinance');
         const alerts = src('src/app/services/financialAlerts.ts');

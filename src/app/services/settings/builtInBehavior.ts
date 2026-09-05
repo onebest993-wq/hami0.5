@@ -6,7 +6,6 @@ import type { ViewMode } from './types';
 export const BUILTIN_VIEW_MODE_DEFAULT: ViewMode = 'list';
 export const BUILTIN_COMPACT_MODE = false;
 export const BUILTIN_WATERMARK_EXPORT = false;
-export const BUILTIN_AUTO_SUMMARY = false;
 
 export const BUILTIN_NOTIFICATIONS_ENABLED = true;
 export const BUILTIN_PUSH_ENABLED = true;

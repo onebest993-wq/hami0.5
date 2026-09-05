@@ -1,5 +1,6 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
 import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
 import { requireForumAuthAndUnbanned, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
@@ -17,6 +18,10 @@ export async function POST(request: Request): Promise<Response> {
 
         if (!auth.isAdmin) {
             return jsonResponse(403, { ok: false, error: 'غير مصرح لك' });
+        }
+
+        if (!(await checkForumActionRateLimit(auth.userId, 'pin'))) {
+            return jsonResponse(429, { ok: false, error: 'تجاوزت حد التثبيت، انتظر قليلاً' });
         }
 
         const payload = sanitizePayload(await request.json());

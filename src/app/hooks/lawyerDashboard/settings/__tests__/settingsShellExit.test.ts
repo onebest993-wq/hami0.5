@@ -26,7 +26,30 @@ describe('settingsShellExit', () => {
         expect(onDone).toHaveBeenCalledTimes(1);
     });
 
+    it('تقليل الحركة مع شجرة React يغلق فوراً عبر نواة الـ hub', () => {
+        document.documentElement.dataset.hamiReduceMotion = '1';
+        const host = document.createElement('div');
+        host.setAttribute('data-testid', 'hami-settings-overlay-host');
+        const shell = document.createElement('div');
+        shell.setAttribute('data-testid', 'hami-settings-shell');
+        host.appendChild(shell);
+        document.body.appendChild(host);
+        const onDone = vi.fn();
+        beginSettingsShellExit(onDone);
+        expect(onDone).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.hasAttribute('data-hami-settings-closing')).toBe(false);
+    });
+
     it('بدون Host يغلق فوراً', () => {
+        const onDone = vi.fn();
+        beginSettingsShellExit(onDone);
+        expect(onDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('قشرة بلا شجرة React تغلق فوراً', () => {
+        const host = document.createElement('div');
+        host.setAttribute('data-testid', 'hami-settings-overlay-host');
+        document.body.appendChild(host);
         const onDone = vi.fn();
         beginSettingsShellExit(onDone);
         expect(onDone).toHaveBeenCalledTimes(1);
@@ -36,6 +59,9 @@ describe('settingsShellExit', () => {
         document.documentElement.setAttribute('data-hami-settings-open', '1');
         const host = document.createElement('div');
         host.setAttribute('data-testid', 'hami-settings-overlay-host');
+        const shell = document.createElement('div');
+        shell.setAttribute('data-testid', 'hami-settings-shell');
+        host.appendChild(shell);
         document.body.appendChild(host);
 
         const onDone = vi.fn();

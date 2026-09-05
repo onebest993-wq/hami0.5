@@ -41,7 +41,7 @@ export function loadLawyerDashboardModule(): Promise<LawyerDashboardModule> {
 }
 
 export function prefetchLawyerDashboardEntry(): void {
-    if (import.meta.env.DEV || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
     if (!dashboardModulePromise) {
         dashboardModulePromise = createDashboardModuleImport();
     }

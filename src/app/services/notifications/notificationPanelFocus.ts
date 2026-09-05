@@ -26,3 +26,17 @@ export function consumeNotificationPanelFocusId(): string | null {
         return null;
     }
 }
+
+/** مهلة إعادة المحاولة حتى تظهر البطاقة (تحميل بارد / نافذة قائمة). */
+export const NOTIFICATION_FOCUS_RETRY_MS = 2_000;
+
+/** يمرّر ويُبرز البطاقة إن وُجدت في DOM — لا يُسقط المعرّف من الخارج. */
+export function highlightNotificationCard(id: string): boolean {
+    if (typeof document === 'undefined') return false;
+    const el = document.querySelector(`[data-testid="notification-card-${CSS.escape(id)}"]`);
+    if (!(el instanceof HTMLElement)) return false;
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    el.setAttribute('data-hami-notif-focus', 'true');
+    window.setTimeout(() => el.removeAttribute('data-hami-notif-focus'), 2_400);
+    return true;
+}

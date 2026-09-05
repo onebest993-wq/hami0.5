@@ -4,16 +4,17 @@ import type { LawyerDashboardWorkspaceHeavy } from '@/app/hooks/lawyerDashboard/
 
 const noop = () => undefined;
 const noopAsync = async () => undefined;
+const noopAsyncFalse = async () => false;
 const noopResolve = () => null as string | null;
 
 /** حقول workspace الثقيلة قبل تحميل المقطع — لا تُستدعى عادةً قبل interactive. */
 export function createLawyerDashboardWorkspaceHeavyStubs(): LawyerDashboardWorkspaceHeavy {
     return {
-        moveLawsuitToTrash: noopAsync,
-        restoreLawsuitFromTrash: noopAsync,
-        archiveLawsuit: noopAsync,
-        restoreArchivedLawsuit: noopAsync,
-        permanentlyDeleteLawsuits: noopAsync,
+        moveLawsuitToTrash: noopAsyncFalse,
+        restoreLawsuitFromTrash: noopAsyncFalse,
+        archiveLawsuit: noopAsyncFalse,
+        restoreArchivedLawsuit: noopAsyncFalse,
+        permanentlyDeleteLawsuits: noopAsyncFalse,
         handleDeleteFile: noopAsync,
         handleRestoreFile: noopAsync,
         isNewCaseModalOpen: false,
@@ -28,6 +29,7 @@ export function createLawyerDashboardWorkspaceHeavyStubs(): LawyerDashboardWorks
         handleStartConsolidationNewCase: noop,
         handleConsolidateWithExisting: noop,
         handleLinkWithExistingCase: noop,
+        handleSpawnIndependentChallengeFile: noop,
         handleNewCaseSave: noopAsync,
         newCaseModalKey: 0,
         consolidationSpawnNav: null as null | { label: string },

@@ -1,5 +1,6 @@
 import type { Transaction, TransactionDocument, TransactionTask } from './types';
 import { mirrorTransactionsThreadingLocalSync } from '@/app/services/transactions/transactionsThreadingMirror';
+import { emitTransactionsThreadingDump } from '@/app/services/transactions/transactionsThreadingDumpBridge';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 
 async function loadThreadingDb() {
@@ -26,7 +27,6 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
     seed?: {
       transactions?: Transaction[];
       tasks?: TransactionTask[];
-      financeRecords?: unknown[];
       documents?: TransactionDocument[];
     },
   ) {
@@ -49,15 +49,28 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
 
     if (!hasLocal) {
       this.inner.replace(remote);
+      this.emitDump();
       return;
     }
 
     this.inner.replace({
       transactions: mergeById(current.transactions, remote.transactions),
       tasks: mergeById(current.tasks, remote.tasks),
-      financeRecords: [],
       documents: mergeById(current.documents, remote.documents),
     });
+    this.emitDump();
+  }
+
+  applyDump(seed: {
+    transactions?: Transaction[];
+    tasks?: TransactionTask[];
+    documents?: TransactionDocument[];
+  }): void {
+    this.inner.replace(seed);
+  }
+
+  private emitDump(): void {
+    emitTransactionsThreadingDump(this.userId, this.inner.dump());
   }
 
   private kickHydrate(): Promise<void> {
@@ -95,13 +108,12 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
     }, PERSIST_DEBOUNCE_MS);
   }
 
+  /** قراءة محلية فقط — سحب lawyer-cloud عند list كان ينافس أول إطار بعد فك التشفير */
   async listTransactions(): Promise<Transaction[]> {
-    void this.kickHydrate();
     return await this.inner.listTransactions();
   }
 
   async getTransaction(id: string): Promise<Transaction | undefined> {
-    void this.kickHydrate();
     return await this.inner.getTransaction(id);
   }
 
@@ -119,12 +131,10 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
   }
 
   async listTasks(transactionId: string): Promise<TransactionTask[]> {
-    void this.kickHydrate();
     return await this.inner.listTasks(transactionId);
   }
 
   async getTask(id: string): Promise<TransactionTask | undefined> {
-    void this.kickHydrate();
     return await this.inner.getTask(id);
   }
 
@@ -148,12 +158,10 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
   }
 
   async listDocuments(transactionId: string): Promise<TransactionDocument[]> {
-    void this.kickHydrate();
     return await this.inner.listDocuments(transactionId);
   }
 
   async getDocument(id: string): Promise<TransactionDocument | undefined> {
-    void this.kickHydrate();
     return await this.inner.getDocument(id);
   }
 

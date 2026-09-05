@@ -97,6 +97,24 @@ describe('POST /api/auth/otp/complete', () => {
         expect(signOut).toHaveBeenCalledWith('user-1', 'global');
     });
 
+    it.each(['1234', '12345', '1234567'])(
+        'يرفض طولاً مخالفاً للرمز المُصدَر (%s) قبل مسّ المخزن',
+        async (code) => {
+            const res = await POST(
+                completeRequest({
+                    email: 'a@b.co',
+                    code,
+                    purpose: 'password_reset',
+                    newPassword: 'Abcd1234!',
+                }),
+            );
+            expect(res.status).toBe(400);
+            expect(consume).not.toHaveBeenCalled();
+            expect(lookup).not.toHaveBeenCalled();
+            expect(updateUserById).not.toHaveBeenCalled();
+        },
+    );
+
     it('يرفض الإكمال إذا الكلمة الجديدة لا تعمل كبديل حي', async () => {
         confirmPassword.mockResolvedValueOnce('failed');
         const res = await POST(

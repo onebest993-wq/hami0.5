@@ -199,9 +199,9 @@ describe('profile section surgical close honesty', () => {
             path.join(root, 'src/app/runtime/overlayEntryChunks.ts'),
             'utf8',
         );
-        expect(chunks).toContain("profile/ProfileTabHost");
+        expect(chunks).toContain('profileTabHostLoader');
         expect(chunks).toContain('royalLawyerProfileLoader');
-        const profilePrefetchIdx = chunks.indexOf("profile/ProfileTabHost");
+        const profilePrefetchIdx = chunks.indexOf('prefetchProfileTabHost');
         const executionPrefetchIdx = chunks.indexOf('LawyerDashboardExecutionOverlayEntry');
         expect(profilePrefetchIdx).toBeGreaterThan(0);
         expect(profilePrefetchIdx).toBeLessThan(executionPrefetchIdx);

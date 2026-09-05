@@ -6,6 +6,7 @@ import {
     GLOBAL_SEARCH_MAX_QUERY_LENGTH,
     GLOBAL_SEARCH_MAX_RECENT_COUNT,
     GLOBAL_SEARCH_MAX_RECENT_LABEL_LENGTH,
+    pushGlobalSearchRecentLabel,
     sanitizeRecentSearchLabels,
 } from '@/app/services/search/globalSearchQuerySecurity';
 
@@ -49,5 +50,11 @@ describe('globalSearchQuerySecurity', () => {
         expect(out[0]).toBe('دعوى');
         expect(out.filter((s) => s === 'دعوى')).toHaveLength(1);
         expect(out.every((s) => s.length <= GLOBAL_SEARCH_MAX_RECENT_LABEL_LENGTH)).toBe(true);
+    });
+
+    it('pushRecent يضع الأحدث أولاً دون تكرار', () => {
+        expect(pushGlobalSearchRecentLabel(['أ', 'ب'], 'ج')).toEqual(['ج', 'أ', 'ب']);
+        expect(pushGlobalSearchRecentLabel(['أ', 'ب'], 'أ')).toEqual(['أ', 'ب']);
+        expect(pushGlobalSearchRecentLabel(['أ'], '')).toEqual(['أ']);
     });
 });

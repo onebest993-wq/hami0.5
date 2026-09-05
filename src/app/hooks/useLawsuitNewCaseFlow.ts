@@ -18,7 +18,11 @@ import {
     consolidateLawsuitWithExisting,
     linkLawsuitWithExistingCase,
 } from '@/app/hooks/lawsuitNewCaseLinking';
+import {
+    persistIndependentChallengeSpawn,
+} from '@/app/hooks/spawnIndependentChallengeFile';
 import { performLawsuitNewCaseSave } from '@/app/hooks/lawsuitNewCaseSave';
+import type { IndependentChallengeSpawnInput } from '@/app/domain/lawsuit/independentChallengeDossier';
 import {
     saveCaseDeferred,
     syncLawsuitFileToCalendarDeferred,
@@ -87,6 +91,9 @@ export function useLawsuitNewCaseFlow({
 
     const openNormalNewCaseModal = useCallback(() => {
         prefetchLawyerNewCaseModule();
+        void import('@/app/runtime/criminalOverlayEntryLoader')
+            .then((m) => m.prefetchNewCaseOverlayEntry())
+            .catch(() => undefined);
         // لا نستدعي prepareNormal هنا: يصفّر pendingSeverance ويُفسِد الشطر.
         // مسار الجزائي من FAB يستدعي prepare في LawsuitsWorkspaceHost عند اختيار الاختصاص.
         setIsCriminalSeveranceRedirect(false);
@@ -205,6 +212,20 @@ export function useLawsuitNewCaseFlow({
         [files, activeFile, setActiveFile, setFiles, userId],
     );
 
+    const handleSpawnIndependentChallengeFile = useCallback(
+        (input: IndependentChallengeSpawnInput) => {
+            void persistIndependentChallengeSpawn({
+                input,
+                files,
+                activeFile,
+                setFiles,
+                setActiveFile,
+                userId,
+            });
+        },
+        [files, activeFile, setFiles, setActiveFile, userId],
+    );
+
     const handleNewCaseSave = useCallback(
         async (data: unknown): Promise<boolean> =>
             performLawsuitNewCaseSave({
@@ -279,6 +300,7 @@ export function useLawsuitNewCaseFlow({
         handleStartConsolidationNewCase,
         handleConsolidateWithExisting,
         handleLinkWithExistingCase,
+        handleSpawnIndependentChallengeFile,
         handleNewCaseSave,
         newCaseModalKey,
         consolidationSpawnNav,

@@ -47,7 +47,7 @@ describe('settings open snappiness honesty', () => {
             'utf8',
         );
         expect(chunks).toContain('prefetchSettingsOverlayEntry');
-        const idleCallIdx = chunks.indexOf('return scheduleIdleWork');
+        const idleCallIdx = chunks.indexOf('scheduleIdleWork(');
         const settingsCallIdx = chunks.indexOf('prefetchSettingsOverlayEntry();');
         expect(idleCallIdx).toBeGreaterThan(-1);
         expect(settingsCallIdx).toBeGreaterThan(idleCallIdx);
@@ -145,6 +145,18 @@ describe('settings open snappiness honesty', () => {
             path.join(root, 'src/app/components/lawyer/HamiSettings/SettingsSectionRouter.tsx'),
             'utf8',
         );
+        expect(router).toContain('startTransition');
+        expect(router).toContain('loadAppearanceSection');
+        expect(router).toContain('renderedSection');
+        expect(router).toContain('data-settings-section-park');
+        expect(router).toContain('SettingsSectionReveal');
+        expect(router).toContain('readyIdsRef');
+        const reveal = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/HamiSettings/SettingsSectionReveal.tsx'),
+            'utf8',
+        );
+        expect(reveal).toContain('data-settings-section-cover');
+        expect(reveal).toContain('isLaidOutSettingsInteractive');
         expect(router).toMatch(/import \{ SecuritySection \} from '\.\/security\/SecuritySection'/);
         expect(router).not.toMatch(/import \{ AppearanceSection \} from/);
         expect(router).not.toMatch(/import \{ DataSection \} from/);
@@ -164,14 +176,35 @@ describe('settings open snappiness honesty', () => {
             'utf8',
         );
         expect(header).toContain('prefetchSettingsSection');
+        expect(header).toContain('onPointerEnter');
         const warm = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/HamiSettings/hooks/useSettingsSectionWarm.ts'),
             'utf8',
         );
-        expect(warm).toContain('prefetchSecondarySettingsSections');
-        expect(warm).toContain('scheduleIdleWork');
+        expect(warm).toContain('prefetchSettingsSection(activeSection)');
+        expect(warm).toContain('prefetchSettingsOpenTabChunks');
+        expect(warm).not.toContain('prefetchSecondarySettingsSections');
+        expect(warm).not.toContain('scheduleIdleWork');
         expect(warm).not.toContain('setTimeout');
         expect(warm).not.toContain('isHamiNativeShell');
+        const intent = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/settingsIntentWarm.ts'),
+            'utf8',
+        );
+        expect(intent).not.toContain('prefetchSecondarySettingsSections');
+        expect(intent).toContain('prefetchSettingsShellChain');
+        const hostLife = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/settings/useSettingsHostLifecycle.ts'),
+            'utf8',
+        );
+        const warmChunks = hostLife.slice(
+            hostLife.indexOf('function warmSettingsChunks'),
+            hostLife.indexOf('export function primeSettingsHostMount'),
+        );
+        expect(warmChunks).toContain('prefetchSettingsShellChunks');
+        expect(warmChunks).not.toContain('prefetchSecondarySettingsSections');
+        expect(hostLife).not.toContain('prefetchSecondarySettingsSections');
+        expect(hostLife).not.toContain('settingsSectionLoad');
     });
 
     it('وثيقة الشروط ومحرك النسخ مؤجّلان عن جذع فتح المركز', () => {
@@ -242,10 +275,12 @@ describe('settings open snappiness honesty', () => {
             'settingsInstantPaint.ts',
             'settingsInstantPaintReopen.ts',
             'settingsInstantPaintBridge.ts',
+            'settingsInstantChromeMarkup.ts',
             'settingsInstantPaintConstants.ts',
             'settingsInstantPaintChrome.ts',
             'settingsInstantPaintInteract.ts',
             'settingsInstantPaintDom.ts',
+            'settingsInstantPaintHostAdopt.ts',
         ]
             .map((file) => fs.readFileSync(path.join(paintDir, file), 'utf8'))
             .join('\n');
@@ -260,9 +295,18 @@ describe('settings open snappiness honesty', () => {
         expect(paint).not.toContain('isHamiNativeShell');
         expect(paint).toContain('ensureSettingsInstantChromeBridge');
         expect(paint).toContain('مركز الإعدادات');
+        expect(paint).toContain('SETTINGS_INSTANT_DISMISS_EVENT');
+        expect(paint).toContain('SETTINGS_INSTANT_SECTION_EVENT');
+        expect(paint).toContain('SETTINGS_GHOST_CLICK_SWALLOW_SELECTOR');
+        expect(paint).toContain('settings-instant-close');
+        expect(paint).toContain('data-instant-tab');
+        expect(paint).toContain('--hami-lawyer-header-safe-top');
         expect(paint).toContain('scheduleSettingsChromeHandoff');
         expect(paint).toContain("pointerEvents: 'none'");
-        expect(paint).toContain('dismissSettingsInstantBridgeIfHostReady');
+        expect(paint).toContain('adoptSettingsOverlayHostNode');
+        expect(paint).toContain('isSettingsOverlayHostReactReady');
+        expect(paint).toContain('isSettingsOverlayHostSectionInteractive');
+        expect(paint).toContain('SETTINGS_OVERLAY_SECTION_INTERACTIVE_SELECTOR');
         expect(paint).not.toContain('registerSettingsInstantCloseHandler');
         const fixtures = fs.readFileSync(
             path.join(root, 'e2e/helpers/settingsFixtures.ts'),

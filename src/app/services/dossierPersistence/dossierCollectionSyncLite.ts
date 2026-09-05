@@ -11,6 +11,8 @@ import {
 } from './dossierStorageKeys';
 import { shouldRejectDossierWipe } from './dossierWipeGuard';
 import type { DossierDomain } from './dossierPersistenceTypes';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { mergeDossierRowsById, resolveLoadedDossierPrimary } from './dossierKeyLoad';
 import {
     readSecureOrDrainLegacySync,
     writeSecureAndClearLegacySync,
@@ -45,30 +47,33 @@ function parseArray(raw: string | null): unknown[] | null {
     }
 }
 
-function mergeUniqueById(primary: unknown[], incoming: unknown[]): unknown[] {
-    const out: unknown[] = [];
-    const seen = new Set<string>();
-    const add = (v: unknown) => {
-        if (!v || typeof v !== 'object' || Array.isArray(v)) return;
-        const id = String((v as { id?: unknown }).id ?? '').trim();
-        if (!id || seen.has(id)) return;
-        seen.add(id);
-        out.push(v);
-    };
-    primary.forEach(add);
-    incoming.forEach(add);
-    return out;
+function decidePrimaryLoad(config: DomainConfig, primary: unknown[] | null) {
+    try {
+        return resolveLoadedDossierPrimary({
+            primary,
+            unread: SecureStoreService.isUnreadSync(config.primaryKey),
+            occupied: SecureStoreService.hasItemSync(config.primaryKey),
+        });
+    } catch {
+        return resolveLoadedDossierPrimary({
+            primary,
+            unread: false,
+            occupied: false,
+        });
+    }
 }
 
 function loadFromAllKeysSync(config: DomainConfig): unknown[] {
     const primary = parseArray(readSecureOrDrainLegacySync(config.primaryKey));
-    if (primary !== null && primary.length > 0) return primary;
+    const decision = decidePrimaryLoad(config, primary);
+    if (decision === 'unread' || decision === 'canonical-empty') return [];
+    if (decision === 'use-primary') return primary ?? [];
 
     let merged: unknown[] = primary ?? [];
     for (const legacyKey of config.legacyKeys) {
         const legacy = parseArray(readSecureOrDrainLegacySync(legacyKey));
         if (legacy !== null && legacy.length > 0) {
-            merged = mergeUniqueById(merged, legacy);
+            merged = mergeDossierRowsById(merged, legacy);
         }
     }
     return merged;

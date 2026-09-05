@@ -75,6 +75,9 @@ export function warmGlobalSearchOnHover(): void {
  * الفهرس الكامل يُكمَّل داخل GlobalSearchRuntimeProvider عند الحاجة.
  */
 export function warmGlobalSearchOnOpen(): void {
+    void import('@/app/runtime/sectionChunkRecency')
+        .then((m) => m.rememberOpenedSectionChunk('search'))
+        .catch(() => undefined);
     void loadGlobalSearchLoader()
         .then((m) => {
             m.prefetchGlobalSearchOverlayChunk();

@@ -17,7 +17,12 @@ export function HeadquartersUserActivity({
     error: boolean;
 }) {
     if (loading) {
-        return <p className="mt-4 text-xs text-white/40">جاري جلب السجل الحي…</p>;
+        return (
+            <div className="mt-4 space-y-2" aria-busy="true" aria-label="السجل الحي">
+                <div className="h-3 w-32 rounded-md bg-white/10" aria-hidden />
+                <div className="h-3 w-48 rounded-md bg-white/10" aria-hidden />
+            </div>
+        );
     }
     if (error || !activity) {
         return <p className="mt-4 text-xs text-red-300">تعذّر جلب السجل من الخادم — لا تُعرض أرقام تقديرية.</p>;

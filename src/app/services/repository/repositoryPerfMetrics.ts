@@ -6,9 +6,7 @@ import {
 
 const MARK_PREFIX = 'hami:repository:';
 
-export type RepositoryPerfPhase = 'open-request' | 'first-paint' | 'interactive';
-
-export type { RepositoryPerfReportContext };
+type RepositoryPerfPhase = 'open-request' | 'first-paint' | 'interactive';
 
 export function markRepositoryPerfPhase(phase: RepositoryPerfPhase): void {
     if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
@@ -37,13 +35,6 @@ export function getRepositoryOpenToInteractiveMs(): number | null {
     const interactive = performance.getEntriesByName(`${MARK_PREFIX}interactive`, 'mark')[0];
     if (!open || !interactive) return null;
     return Math.round(interactive.startTime - open.startTime);
-}
-
-export function reportRepositoryPerfIfDev(context?: string): void {
-    if (!import.meta.env.DEV) return;
-    const ms = getRepositoryOpenToInteractiveMs();
-    if (ms == null) return;
-    debug.log(`[RepositoryPerf] open→interactive ${ms}ms`, context ?? '');
 }
 
 /** DEV: log — PROD (مع DSN): Sentry breadcrumb + metric */

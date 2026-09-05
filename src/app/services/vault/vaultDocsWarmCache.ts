@@ -32,14 +32,6 @@ export function notifySmartVaultDocsUpdated(userId: string, docs?: SmartVaultDoc
     );
 }
 
-export function forceRefreshVaultDocs(userId: string): Promise<SmartVaultDoc[]> {
-    const uid = userId.trim();
-    if (!uid) return Promise.resolve([]);
-    cache.delete(uid);
-    inflight.delete(uid);
-    return loadVaultDocsIntoCache(uid).catch(() => []);
-}
-
 function settleVaultDocsFailure(uid: string): SmartVaultDoc[] {
     return cache.get(uid) ?? [];
 }

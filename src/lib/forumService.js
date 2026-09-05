@@ -139,9 +139,24 @@ export async function fetchForumPostById(postId) {
 export function subscribeToPostComments(postId, onUpdate) {
     let stopped = false;
     let timer = null;
+    let releaseGate = null;
 
+    const clearTimer = () => {
+        if (timer != null) {
+            window.clearTimeout(timer);
+            timer = null;
+        }
+    };
+
+    /*
+     * الخلفية توقف الدورة كلها لا الطلب وحده: إعادة الجدولة كل ٤ ثوانٍ كانت تُوقظ
+     * محرّك JS إلى الأبد وورقة التعليقات مفتوحة في الجيب، بلا عمل يُنجَز. العودة
+     * للمقدّمة تستأنف من فورها فلا يرى المستخدم تعليقاً متأخراً.
+     */
     const poll = async () => {
+        timer = null;
         if (stopped || !postId) return;
+        if (typeof document !== 'undefined' && document.hidden) return;
         try {
             const post = await fetchForumPostById(postId);
             if (post?.comments) onUpdate(post.comments, post);
@@ -157,8 +172,23 @@ export function subscribeToPostComments(postId, onUpdate) {
 
     void poll();
 
+    void import('@/app/runtime/appForegroundGate')
+        .then(({ subscribeAppForeground }) => {
+            if (stopped) return;
+            releaseGate = subscribeAppForeground({
+                onSuspend: clearTimer,
+                onResume: () => {
+                    if (stopped || timer != null) return;
+                    void poll();
+                },
+            });
+        })
+        .catch(() => undefined);
+
     return () => {
         stopped = true;
-        if (timer != null) window.clearTimeout(timer);
+        clearTimer();
+        releaseGate?.();
+        releaseGate = null;
     };
 }

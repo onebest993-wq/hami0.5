@@ -2,6 +2,10 @@ import { parseJsonResponse } from '@/app/utils/bffJsonResponse';
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { getWifeNativeFetch } from '@/app/security/wifeNativeFetch';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
+import { AUTH_OTP_CODE_LEN } from '@/app/api/auth/otp/authOtpTypes';
+
+/** طول الرمز المُصدَر — الخادم يرفض أي طول مختلف، فالواجهة تمنعه قبل الشبكة. */
+export const AUTH_OTP_CODE_LENGTH = AUTH_OTP_CODE_LEN;
 
 export type AuthOtpPurpose = 'password_reset' | 'email_confirm';
 export type AuthOtpChannel = 'email' | 'whatsapp';
@@ -20,6 +24,7 @@ export type AuthOtpChannelsStatus = {
 };
 
 export type AuthOtpAccountPreview = {
+    /** لا يصل من المعاينة — يُملأ من نتيجة إرسال فعلي فقط. */
     phoneTail: string | null;
     hasWhatsAppNumber: boolean;
     emailReady: boolean;
@@ -68,7 +73,6 @@ export async function previewAuthOtpAccount(input: {
     });
     const payload = await parseJsonResponse<{
         ok?: boolean;
-        phoneTail?: unknown;
         hasWhatsAppNumber?: boolean;
         emailReady?: boolean;
         whatsappSendReady?: boolean;
@@ -83,7 +87,7 @@ export async function previewAuthOtpAccount(input: {
             ? payload.adminWhatsappUrl
             : null;
     return {
-        phoneTail: readPhoneTail(payload.phoneTail),
+        phoneTail: null,
         hasWhatsAppNumber: payload.hasWhatsAppNumber === true,
         emailReady: payload.emailReady === true,
         whatsappSendReady: payload.whatsappSendReady === true,

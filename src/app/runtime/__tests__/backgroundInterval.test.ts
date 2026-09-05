@@ -99,4 +99,15 @@ describe('startBackgroundInterval', () => {
         vi.advanceTimersByTime(5000);
         expect(tick).toHaveBeenCalledTimes(0);
     });
+
+    it('يتوقف عند حالة التطبيق الأصلية غير النشطة', () => {
+        const tick = vi.fn();
+        startBackgroundInterval({ globalKey: KEY, intervalMs: 1000, tick });
+        vi.advanceTimersByTime(1000);
+        expect(tick).toHaveBeenCalledTimes(1);
+
+        window.dispatchEvent(new CustomEvent('hami-native-app-state', { detail: { isActive: false } }));
+        vi.advanceTimersByTime(10_000);
+        expect(tick).toHaveBeenCalledTimes(1);
+    });
 });

@@ -1,10 +1,18 @@
-import { SETTINGS_NAV } from '@/app/services/settings/nav';
-import { readPersistedSettingsSection } from '@/app/services/settings/settingsSectionPersistence';
+import { persistSettingsSection, readPersistedSettingsSection } from '@/app/services/settings/settingsSectionPersistence';
+import { isSettingsSectionId } from '@/app/services/settings/nav';
+import type { SettingsSectionId } from '@/app/services/settings/types';
 import { blurFocusWithin } from '@/app/utils/inertProps';
+import { isSettingsOpenGestureBlockingClose } from './settingsInstantPaintInteract';
+import { SETTINGS_INSTANT_DISMISS_EVENT, SETTINGS_INSTANT_SECTION_EVENT } from './settingsShellEvents';
+import {
+    buildSettingsInstantChromeInnerHtml,
+    syncSettingsInstantTabActive,
+} from './settingsInstantChromeMarkup';
 import {
     SETTINGS_INSTANT_BRIDGE_ID,
     SETTINGS_INSTANT_CHROME,
 } from './settingsInstantPaintConstants';
+import { adoptSettingsOverlayHostNode } from './settingsInstantPaintHostAdopt';
 
 export function detachSettingsInstantBridge(): void {
     if (typeof document === 'undefined') return;
@@ -14,12 +22,76 @@ export function detachSettingsInstantBridge(): void {
     bridge.remove();
 }
 
+function prefetchInstantSection(id: SettingsSectionId): void {
+    if (id === 'security' || typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/HamiSettings/settingsSectionLoad')
+        .then((m) => {
+            m.prefetchSettingsSection(id);
+        })
+        .catch(() => {
+            /* Host يحمّل القسم عند التركيب */
+        });
+}
+
+function applyInstantSection(bridge: HTMLElement, id: SettingsSectionId): void {
+    persistSettingsSection(id);
+    bridge.setAttribute('data-instant-section', id);
+    syncSettingsInstantTabActive(bridge, id);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(SETTINGS_INSTANT_SECTION_EVENT, { detail: id }));
+    }
+    prefetchInstantSection(id);
+}
+
+function bindSettingsInstantClose(bridge: HTMLElement): void {
+    const closeBtn = bridge.querySelector('[data-testid="settings-instant-close"]');
+    if (!(closeBtn instanceof HTMLElement) || closeBtn.dataset.hamiBound === '1') return;
+    closeBtn.dataset.hamiBound = '1';
+    const dismiss = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isSettingsOpenGestureBlockingClose()) return;
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(new Event(SETTINGS_INSTANT_DISMISS_EVENT));
+    };
+    closeBtn.addEventListener('pointerdown', dismiss);
+    closeBtn.addEventListener('click', dismiss);
+}
+
+function bindSettingsInstantTabs(bridge: HTMLElement): void {
+    bridge.querySelectorAll('[data-instant-tab]').forEach((el) => {
+        if (!(el instanceof HTMLElement) || el.dataset.hamiBound === '1') return;
+        el.dataset.hamiBound = '1';
+        el.addEventListener('pointerdown', (event) => {
+            if (typeof event.button === 'number' && event.button !== 0) return;
+            if (isSettingsOpenGestureBlockingClose()) return;
+            const id = el.getAttribute('data-instant-tab');
+            if (!isSettingsSectionId(id)) return;
+            if (bridge.getAttribute('data-instant-section') === id) {
+                prefetchInstantSection(id);
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            applyInstantSection(bridge, id);
+        });
+    });
+}
+
+function bindSettingsInstantChrome(bridge: HTMLElement): void {
+    bindSettingsInstantClose(bridge);
+    bindSettingsInstantTabs(bridge);
+}
+
 export function ensureSettingsInstantChromeBridge(): HTMLElement | null {
     if (typeof document === 'undefined') return null;
     const active = readPersistedSettingsSection();
     const existing = document.getElementById(SETTINGS_INSTANT_BRIDGE_ID);
     if (existing instanceof HTMLElement) {
-        if (existing.getAttribute('data-instant-section') === active) return existing;
+        if (existing.getAttribute('data-instant-section') === active) {
+            bindSettingsInstantChrome(existing);
+            return existing;
+        }
         existing.remove();
     }
 
@@ -30,11 +102,11 @@ export function ensureSettingsInstantChromeBridge(): HTMLElement | null {
     bridge.setAttribute('data-instant-section', active);
     bridge.setAttribute('role', 'presentation');
     bridge.setAttribute('aria-hidden', 'true');
-    bridge.dir = 'rtl';
+    bridge.dir = document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl';
     Object.assign(bridge.style, {
-        position: 'fixed',
+        position: 'absolute',
         inset: '0',
-        zIndex: '199',
+        zIndex: '2',
         backgroundColor: SETTINGS_INSTANT_CHROME,
         color: '#fff',
         pointerEvents: 'none',
@@ -43,20 +115,10 @@ export function ensureSettingsInstantChromeBridge(): HTMLElement | null {
         fontFamily: 'inherit',
     } as CSSStyleDeclaration);
 
-    bridge.innerHTML = `
-      <div style="display:flex;flex-direction:column;height:100%;min-height:0;padding-top:max(0.65rem,env(safe-area-inset-top,0px));padding-inline-start:max(1rem,env(safe-area-inset-left,0px));padding-inline-end:max(1rem,env(safe-area-inset-right,0px));box-sizing:border-box;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem;">
-          <h1 style="margin:0;font-size:1.0625rem;font-weight:600;letter-spacing:-0.02em;line-height:1.25;color:#fff;">مركز الإعدادات</h1>
-        </div>
-        <nav aria-hidden="true" style="display:flex;align-items:stretch;gap:0.15rem;width:min(100%,22.5rem);margin-inline:auto;padding:0.2rem;border-radius:0.75rem;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.06);">
-          ${SETTINGS_NAV.map((tab) => {
-              const on = tab.id === active;
-              return `<span data-instant-tab="${tab.id}" data-instant-active="${on ? '1' : '0'}" style="flex:1 1 0;min-width:0;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:0.55rem;font-size:12.5px;font-weight:600;color:${on ? '#f4ead0' : 'rgba(255,255,255,0.48)'};background:${on ? 'rgba(230,198,115,0.14)' : 'transparent'};">${tab.label}</span>`;
-          }).join('')}
-        </nav>
-      </div>
-    `;
-
-    document.body.appendChild(bridge);
+    bridge.innerHTML = buildSettingsInstantChromeInnerHtml(active);
+    bindSettingsInstantChrome(bridge);
+    const host = adoptSettingsOverlayHostNode();
+    if (host) host.appendChild(bridge);
+    else document.body.appendChild(bridge);
     return bridge;
 }

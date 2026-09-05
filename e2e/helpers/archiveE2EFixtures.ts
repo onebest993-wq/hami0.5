@@ -58,11 +58,12 @@ export async function selectArchiveLifecycleView(
 ): Promise<void> {
     const testId = mode === 'trash' ? 'lawsuits-trash-toggle' : `lawsuits-view-${mode}`;
     const workspace = page.locator('[data-testid="lawsuits-workspace"][data-open="true"]:visible');
-    // بعد النقل للسلة قد يتأخر ظهور زر السلة حتى يتحدّث العدّاد.
+    // الغلاف الفوري يفتح الفلاتر قبل أن يصل lifecycleChrome — انتظر شريط الحالة.
     await expect(async () => {
         await openArchiveJurisdictionFilters(page);
+        await expect(workspace.getByTestId('lawsuits-view-active')).toBeVisible({ timeout: 3_000 });
         await expect(workspace.getByTestId(testId)).toBeVisible({ timeout: 3_000 });
-    }).toPass({ timeout: 20_000 });
+    }).toPass({ timeout: 30_000 });
     const btn = workspace.getByTestId(testId);
     await expect(async () => {
         await btn.evaluate((el) => (el as HTMLButtonElement).click());

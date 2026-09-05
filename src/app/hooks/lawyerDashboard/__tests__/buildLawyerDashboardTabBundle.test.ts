@@ -217,7 +217,7 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         expect(setActiveFile).toHaveBeenCalledTimes(1);
     });
 
-    it('تسخين قسم الدعاوى/التنفيذ من الـ hub بلا secondary عاجل', async () => {
+    it('تسخين قسم الدعاوى بلا secondary عاجل؛ التنفيذ يسخّن الإضبارة والإنشاء عند الفتح', async () => {
         const { homeTabProps } = buildLawyerDashboardTabBundle(minimalTabBundleParams());
         homeTabProps.onOpenArchive('lawsuit');
         await vi.waitFor(() => {
@@ -228,7 +228,7 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         homeTabProps.onOpenArchive('execution');
         await vi.waitFor(() => {
             expect(executionWarmMocks.warmExecutionWorkspace).toHaveBeenCalledWith(
-                expect.objectContaining({ includeSecondary: false }),
+                expect.objectContaining({ includeSecondary: true, secondaryDelayMs: 0 }),
             );
         });
     });

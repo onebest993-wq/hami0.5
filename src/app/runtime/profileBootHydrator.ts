@@ -60,14 +60,17 @@ export function prefetchProfileAfterBootReveal(userId?: string | null): void {
  */
 export function prefetchProfileHubAfterInteractive(): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').catch(() => undefined);
-    void loadProfileHubLoader()
-        .then((hub) => {
-            hub.prefetchProfileHubModule();
-            return hub.loadProfileHubModule();
-        })
-        .then(() => prefetchPageExtrasAfterHub())
-        .catch(() => undefined);
+    void profilePrefetchAllowed().then((ok) => {
+        if (!ok) return;
+        void import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').catch(() => undefined);
+        void loadProfileHubLoader()
+            .then((hub) => {
+                hub.prefetchProfileHubModule();
+                return hub.loadProfileHubModule();
+            })
+            .then(() => prefetchPageExtrasAfterHub())
+            .catch(() => undefined);
+    });
 }
 
 /**

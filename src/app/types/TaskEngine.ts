@@ -11,13 +11,17 @@ import type {
 export type LegalTaskStatus = 'pending' | 'completed' | 'delegated';
 
 /** فرع إجرائي (خطوة ميدانية ضمن المسار) */
+export type LegalSubTaskPlanStatus = 'pending' | 'done' | 'delayed' | 'paused';
+
 export interface LegalSubTask {
     id: string;
     title: string;
     location: string | null;
     isCompleted: boolean;
-    /** إجراء ميداني (أجندة) vs تفريع يدوي */
+    /** إجراء ميداني (أجندة) vs تفريع يدوي / خطة */
     kind?: 'field' | 'branch';
+    /** حالة حلقة الخطة — done يُزامَن مع isCompleted */
+    planStatus?: LegalSubTaskPlanStatus;
 }
 
 /** بند في حقيبة المستندات */

@@ -117,7 +117,7 @@ describe('readSecureOrDrainLegacySync', () => {
             join(root, 'src/app/services/transactions/transactionsThreadingMirror.ts'),
             'utf8',
         );
-        const repo = readFileSync(join(root, 'src/app/services/lawyer-cloud.ts'), 'utf8');
+        const repo = readFileSync(join(root, 'src/app/services/cloud/lawyerRepositoryCloud.ts'), 'utf8');
         const profile = readFileSync(join(root, 'src/app/services/cloud/lawyerProfileCloud.ts'), 'utf8');
         const urgent = readFileSync(join(root, 'src/app/services/urgent-actions-db.ts'), 'utf8');
         const templates = readFileSync(

@@ -6,6 +6,7 @@ import {
   isPostgresUuidSubject,
   rejectNonUuidCloudWrite,
 } from '../../security/postgresUuidSubject.ts';
+import { sealCloudSyncedAppData } from '@/app/services/settings/sealCloudSyncedPreferences.ts';
 
 export const runtime = 'nodejs';
 
@@ -69,7 +70,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return wifeJsonResponse(200, {
       ok: true,
-      app_data: data?.app_data ?? null,
+      app_data: data?.app_data == null ? null : sealCloudSyncedAppData(data.app_data),
       updated_at: data?.updated_at ?? null,
     });
   } catch {
@@ -98,7 +99,11 @@ export async function POST(request: Request): Promise<Response> {
     const oversized = rejectOversizedAppData(payload.app_data);
     if (oversized) return oversized;
 
-    const appData = normalizeAppData(payload.app_data);
+    const normalized = normalizeAppData(payload.app_data);
+    if (normalized === null) {
+      return wifeJsonResponse(400, { ok: false, error: 'Invalid app_data' });
+    }
+    const appData = sealCloudSyncedAppData(normalized);
     if (appData === null) {
       return wifeJsonResponse(400, { ok: false, error: 'Invalid app_data' });
     }
@@ -149,45 +154,8 @@ export async function PATCH(request: Request): Promise<Response> {
       return wifeJsonResponse(400, { ok: false, error: 'Unsupported action' });
     }
 
-    const admin = getSupabaseAdminClient();
-    if (!admin) {
-      return wifeJsonResponse(503, { ok: false, error: 'Database client not configured' });
-    }
-
-    const { data: legacy, error: legacyError } = await admin
-      .from(TABLE)
-      .select('app_data, updated_at')
-      .eq('user_key', LEGACY_DEV_USER_KEY)
-      .maybeSingle();
-
-    if (legacyError || !legacy?.app_data) {
-      return wifeJsonResponse(200, { ok: true, migrated: false });
-    }
-
-    const { data: existing } = await admin
-      .from(TABLE)
-      .select('user_key')
-      .eq('user_key', userId)
-      .maybeSingle();
-
-    if (existing?.user_key) {
-      return wifeJsonResponse(200, { ok: true, migrated: false });
-    }
-
-    const { error } = await admin.from(TABLE).upsert(
-      {
-        user_key: userId,
-        app_data: legacy.app_data,
-        updated_at: legacy.updated_at ?? new Date().toISOString(),
-      },
-      { onConflict: 'user_key' },
-    );
-
-    if (error) {
-      return wifeJsonResponse(500, { ok: false, error: 'Failed to migrate legacy cloud data' });
-    }
-
-    return wifeJsonResponse(200, { ok: true, migrated: true });
+    /* ترحيل dev_user كان يمنح أي UUID بلا صف كيس تفضيلات مشترك — ثغرة في خطة المزامنة. */
+    return wifeJsonResponse(200, { ok: true, migrated: false });
   } catch {
     return wifeJsonResponse(500, { ok: false, error: 'Internal cloud sync error' });
   }

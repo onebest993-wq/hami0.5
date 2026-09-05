@@ -56,17 +56,18 @@ export function buildWeeklyLocationBundleTask(
         details = clampTaskText(legacyMainTitle ?? '', MAX_TASK_TITLE_LENGTH);
     }
 
-    if (!loc || (!details && actionTitles.length === 0)) return null;
+    if (!details && actionTitles.length === 0 && !loc) return null;
 
     const day = startOfLocalDay(scheduledFor);
-    const parentTitle = details || actionTitles[0]!;
+    const parentTitle = details || actionTitles[0] || loc;
     const extraTitles = details ? actionTitles : actionTitles.slice(1);
     const subTasks: LegalSubTask[] = extraTitles.map((title) => ({
         id: newTaskId(),
         title,
         location: null,
         isCompleted: false,
-        kind: 'field',
+        kind: details ? 'branch' : 'field',
+        planStatus: 'pending' as const,
     }));
 
     return {
@@ -76,7 +77,7 @@ export function buildWeeklyLocationBundleTask(
             MAX_TASK_RAW_LENGTH,
         ),
         title: parentTitle,
-        location: loc,
+        location: loc || null,
         parsedDate: new Date(day.getTime()),
         reminderAt: null,
         isFatalDeadline: false,

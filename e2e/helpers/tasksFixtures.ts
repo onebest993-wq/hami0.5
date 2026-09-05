@@ -270,6 +270,33 @@ export async function fillTasksFormField(manager: Locator, testId: string, value
     }).toPass({ timeout: 45_000 });
 }
 
+/** يكشف حقول التفاصيل/الموقع الاختيارية عبر أزرار الإضافة */
+export async function revealWeekAddOptionalFields(
+    manager: Locator,
+    fields: Array<'details' | 'location' | 'step'> = ['details', 'location'],
+) {
+    for (const field of fields) {
+        const chipId =
+            field === 'details'
+                ? 'tasks-week-chip-details'
+                : field === 'location'
+                  ? 'tasks-week-chip-location'
+                  : 'tasks-week-chip-step';
+        const fieldId =
+            field === 'details'
+                ? 'tasks-week-form-details'
+                : field === 'location'
+                  ? 'tasks-week-form-location'
+                  : 'tasks-plan-chain-draft';
+        const target = manager.getByTestId(fieldId);
+        if (await target.isVisible().catch(() => false)) continue;
+        const chip = manager.getByTestId(chipId);
+        await expect(chip).toBeVisible({ timeout: 8_000 });
+        await chip.click({ force: true });
+        await expect(target).toBeVisible({ timeout: 8_000 });
+    }
+}
+
 export async function openFieldTasksFromDock(page: Page) {
     await recoverLawyerDashboardBootError(page);
     await dismissProductivityBlockers(page);

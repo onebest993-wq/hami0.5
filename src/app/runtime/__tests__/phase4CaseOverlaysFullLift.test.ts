@@ -47,4 +47,15 @@ describe('Phase 4 — CaseOverlays/Host full lift', () => {
             expect(src).not.toContain('useLawyerExecutionOverlayEscape');
         }
     });
+
+    it('NewCase overlay returns save result so a failed persist is not treated as success', () => {
+        const src = readFileSync(
+            join(
+                root,
+                'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardNewCaseOverlayEntry.tsx',
+            ),
+            'utf8',
+        );
+        expect(src).toContain('return saved;');
+    });
 });

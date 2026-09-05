@@ -3,10 +3,6 @@
  * HomeTab يستورد من هنا فقط حتى لا يدخل JPEG/المقاطع داخل lawyer-home-paint.
  */
 import {
-    isLawyerProfileBootWarmPending,
-    subscribeLawyerProfileBootWarmPending,
-} from '@/app/services/profile/profileBootWarmPending';
-import {
     bindHomeIdentityChromeReady,
     isHomeGridRevealReady,
 } from '@/app/bootstrap/homeMainGridPaintAnnounce';
@@ -24,18 +20,17 @@ export function isHomeBootChromePrepared(): boolean {
     return chromePrepared;
 }
 
+/** شبكة المنزل جاهزة للكشف — فك الملف يُغني الاسم بعد الظهور، لا يحجب الغطاء. */
 export function isHomeBootChromeReady(): boolean {
-    return chromePrepared && !isLawyerProfileBootWarmPending();
+    return chromePrepared;
 }
 
 bindHomeIdentityChromeReady(isHomeBootChromeReady);
 
 export function subscribeHomeBootChrome(listener: () => void): () => void {
     listeners.add(listener);
-    const unsubWarm = subscribeLawyerProfileBootWarmPending(listener);
     return () => {
         listeners.delete(listener);
-        unsubWarm();
     };
 }
 

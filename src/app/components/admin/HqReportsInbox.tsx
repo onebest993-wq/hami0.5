@@ -192,7 +192,7 @@ export function HqReportsInbox({ initialFocus = 'all' }: { initialFocus?: HqRepo
             </HqChipRow>
 
             {loading ? (
-                <HqStateBlock kind="loading" title="جاري تحميل البلاغات..." />
+                <HqStateBlock kind="loading" title="البلاغات" />
             ) : loadError || failed ? (
                 <HqStateBlock
                     kind="error"

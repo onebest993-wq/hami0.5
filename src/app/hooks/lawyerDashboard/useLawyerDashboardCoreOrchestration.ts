@@ -14,9 +14,13 @@ import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.type
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { useAfterFirstTabOpen } from '@/app/hooks/lawyerDashboard/useAfterFirstTabOpen';
 import type { LawyerDashboardDeferredFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
+import type { LawyerDashboardFieldTasksFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces.types';
 import { createNavigationStubs } from '@/app/components/lawyer/dashboard/createNavigationStubs';
 import type { LawyerDashboardNavigationIslandProps } from '@/app/components/lawyer/dashboard/LawyerDashboardNavigationIsland.types';
-import type { LawyerDashboardPreDockFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
+import type {
+    LawyerDashboardPreDockFeatureSurfacesProps,
+    LawyerDashboardRepositoryFeatureSurfacesProps,
+} from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
 import type { LawyerDashboardPreWorkspaceOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardPreWorkspaceOrchestration';
 
 const EMPTY_CRIMINAL_CASES_FOR_CLUSTER: unknown[] = [];
@@ -68,8 +72,10 @@ export function useLawyerDashboardCoreOrchestration(
         dashboardHome,
         earlyArm,
         forceArm,
+        fieldTasksForceArm,
         bag,
         onDeferredFeaturesReady,
+        onFieldTasksReady,
         openNotifications,
         openCommunityTab,
         openTransactionsHub,
@@ -83,6 +89,9 @@ export function useLawyerDashboardCoreOrchestration(
         preDockEarlyArm,
         preDockForceArm,
         onPreDockFeaturesReady,
+        repositoryEarlyArm,
+        repositoryForceArm,
+        onRepositoryFeaturesReady,
     } = pre;
 
     const workspace = useLawyerDashboardWorkspace();
@@ -262,9 +271,10 @@ export function useLawyerDashboardCoreOrchestration(
                 criminalCases: criminalCasesForCluster,
                 openNotifications,
                 openCommunityTab,
-                closeCommunity: communityFeature.closeCommunity,
                 setCommunityDeepLink: communityFeature.setCommunityDeepLink,
                 openTransactionsHub,
+                openTasksManager: (...args: Parameters<typeof bag.fieldTasks.openTasksManager>) =>
+                    bag.fieldTasks.openTasksManager(...args),
                 openProfileTab,
                 openScheduleTab: scheduleFeature.openScheduleTab,
                 openNotepad: repositoryFeature.openNotepad,
@@ -279,7 +289,6 @@ export function useLawyerDashboardCoreOrchestration(
         };
     }, [
         archiveAndSync.setArchiveType,
-        communityFeature.closeCommunity,
         communityFeature.setCommunityDeepLink,
         criminalCasesForCluster,
         dashboardExecutionFiles,
@@ -291,6 +300,7 @@ export function useLawyerDashboardCoreOrchestration(
         openNotifications,
         openProfileTab,
         openTransactionsHub,
+        bag.fieldTasks.openTasksManager,
         scheduleFeature.openScheduleTab,
         repositoryFeature.openNotepad,
         repositoryFeature.openVaultModal,
@@ -322,6 +332,39 @@ export function useLawyerDashboardCoreOrchestration(
         overlays.setActiveTab,
         preDockEarlyArm,
         preDockForceArm,
+        shellAuthUserId,
+    ]);
+
+    const repositoryFeatureSurfacesProps = useMemo((): LawyerDashboardRepositoryFeatureSurfacesProps => {
+        return {
+            earlyArm: repositoryEarlyArm,
+            forceArm: repositoryForceArm,
+            userId: shellAuthUserId,
+            onReady: onRepositoryFeaturesReady,
+        };
+    }, [
+        onRepositoryFeaturesReady,
+        repositoryEarlyArm,
+        repositoryForceArm,
+        shellAuthUserId,
+    ]);
+
+    const fieldTasksFeatureSurfacesProps = useMemo((): LawyerDashboardFieldTasksFeatureSurfacesProps => {
+        return {
+            earlyArm: false,
+            forceArm: fieldTasksForceArm,
+            params: {
+                userId: shellAuthUserId,
+                setActiveTab: overlays.setActiveTab,
+                closeCommunity: communityFeature.closeCommunity,
+            },
+            onReady: onFieldTasksReady,
+        };
+    }, [
+        communityFeature.closeCommunity,
+        fieldTasksForceArm,
+        onFieldTasksReady,
+        overlays.setActiveTab,
         shellAuthUserId,
     ]);
 
@@ -389,7 +432,9 @@ export function useLawyerDashboardCoreOrchestration(
         pendingFieldTasksCount: pendingFieldTasksCountResolved,
         dashboardExecutionFiles,
         deferredFeatureSurfacesProps,
+        fieldTasksFeatureSurfacesProps,
         preDockFeatureSurfacesProps,
+        repositoryFeatureSurfacesProps,
         navigationSurfacesProps,
     };
 }

@@ -9,7 +9,7 @@ import {
     snapNotificationShellClose,
 } from '@/app/services/notifications/notificationShellSnap';
 
-export type NotificationShellStateSyncParams = {
+type NotificationShellStateSyncParams = {
     userId: string | null;
     initialSessionOpen: boolean;
     showNotifications: boolean;

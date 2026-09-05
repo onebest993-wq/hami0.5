@@ -13,7 +13,7 @@ const SHELL_SELECTOR = '[data-hami-global-search-shell]';
 const BRIDGE_ID = 'hami-gs-instant-bridge';
 const DISMISS_LOCK_ATTR = 'data-hami-gs-dismiss-locked';
 /** احتياط لإصبع معلّق — ليست مهلة فتح الحقل */
-export const GLOBAL_SEARCH_DISMISS_UNLOCK_FALLBACK_MS = 700;
+const GLOBAL_SEARCH_DISMISS_UNLOCK_FALLBACK_MS = 700;
 /** ~4 ثوانٍ بـ 60fps — Entry+Host كسولاً قد يتجاوزان 36 إطاراً (~600ms) */
 export const GLOBAL_SEARCH_CHROME_HANDOFF_MAX_TICKS = 240;
 export const GLOBAL_SEARCH_INSTANT_DISMISS_EVENT = 'hami-gs-instant-dismiss';
@@ -154,7 +154,7 @@ function cancelChromeHandoff(): void {
     chromeHandoffRaf = 0;
 }
 
-export function removeGlobalSearchInstantBridge(): void {
+function removeGlobalSearchInstantBridge(): void {
     if (typeof document === 'undefined') return;
     cancelChromeHandoff();
     const bridge = document.getElementById(BRIDGE_ID);

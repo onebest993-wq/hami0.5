@@ -18,6 +18,7 @@ import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { isSectionBackgroundPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
 import { LAWSUITS_PRIME_HOST_EVENT } from '@/app/runtime/lawsuitWorkspaceEvents';
 import { EXECUTION_ARCHIVE_PRIME_HOST_EVENT } from '@/app/runtime/executionArchivePrimeHost';
+import { useLawsuitVaultCommitHold } from '@/app/runtime/lawsuitVaultCommitHold';
 import {
     loadLawsuitsOverlayEntry,
     prefetchLawsuitsOverlayEntry,
@@ -30,6 +31,9 @@ function primeLawsuitsWorkspaceChunks(): void {
         .catch(() => undefined);
     void import('@/app/runtime/hubArchiveLoader')
         .then((m) => m.prefetchLawsuitArchiveHubModule())
+        .catch(() => undefined);
+    void import('@/app/components/lawyer/dashboard/overlayInstantChromeLazy')
+        .then((m) => m.LazyLawsuitsWorkspaceInstantChrome.preload())
         .catch(() => undefined);
 }
 
@@ -177,7 +181,10 @@ export function useLawyerDashboardOverlays({
         closeHubShellOverlays();
     }, [closeHubShellOverlays]);
 
-    useKeepAliveIdleRelease(showLawsuitsWorkspace, () => setLawsuitsHostMounted(false));
+    const vaultCommitHold = useLawsuitVaultCommitHold();
+    useKeepAliveIdleRelease(showLawsuitsWorkspace || vaultCommitHold, () =>
+        setLawsuitsHostMounted(false),
+    );
 
     // أرشيف التنفيذ: بعد الإغلاق أبقِ Host دافئاً ثم حرّره بعد idle
     useKeepAliveIdleRelease(Boolean(executionArchiveOpen), () => {

@@ -76,15 +76,9 @@ export function readProtectedItemCount(
                 transactions?: unknown;
                 tasks?: unknown;
                 documents?: unknown;
-                financeRecords?: unknown;
             };
             const len = (value: unknown) => (Array.isArray(value) ? value.length : 0);
-            return (
-                len(state.transactions) +
-                len(state.tasks) +
-                len(state.documents) +
-                len(state.financeRecords)
-            );
+            return len(state.transactions) + len(state.tasks) + len(state.documents);
         }
         return Object.keys(parsed as object).length;
     }

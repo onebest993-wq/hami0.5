@@ -12,10 +12,9 @@ import {
     buildPersonalCoerciveExecutionMerge,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome';
 import {
-    buildExecutionMergeForCreditorHeirSubstitutionApproval,
-    buildExecutionMergeForCreditorPartyDeath,
-    parseCreditorPartyDeathPayload,
-} from '@/app/utils/creditorPartyDeathPersistence';
+    buildHeirSubstitutionExecutorMerge,
+    dispatchHeirSubstitutionHeirsEntry,
+} from '@/app/utils/heirSubstitutionExecutorMerge';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
     handleExecutorApproval,
@@ -79,6 +78,7 @@ export interface DecisionRowInput {
     requestKind?: string;
     evictionWorkflowKey?: string;
     creditorPartyDeathPayloadJson?: string;
+    debtorPartyDeathPayloadJson?: string;
 }
 
 /**
@@ -100,7 +100,7 @@ export function useDecisionDispatcher(params: {
     syncSeizedAssets?: (assets: SeizedAsset[]) => void;
     syncSeizureDrafts?: (drafts: Record<string, SeizedAsset>) => void;
     syncActiveCoerciveActions?: (actions: string[]) => void;
-    evictionExecutorWorkflow?: { dossierId: string; actions: ExecutorApprovalActions };
+    evictionExecutorWorkflow?: { dossierId: string; actions?: ExecutorApprovalActions | null };
 }) {
     const resolveDecision = useCallback(
         (input: {
@@ -261,38 +261,6 @@ export function useDecisionDispatcher(params: {
                     }
                 }
 
-                if (input.row.requestKind === 'creditor_party_death') {
-                    const row = input.row as DecisionRowInput;
-                    const explicit = String(row.creditorPartyDeathPayloadJson || '').trim();
-                    const body = String(row.body || '').trim();
-                    const title = String(row.title || '').trim();
-                    const id = String(row.id || '').trim();
-                    const deathTitleLikely =
-                        /وفاة\s*الدائن|إبلاغ\s*وفاة\s*الدائن|إحلال\s*الورثة\s*محل\s*الدائن|دون\s*ورثة/i.test(
-                            title
-                        );
-                    const deathIdLikely = /^creditor_death_req_/i.test(id);
-                    const raw = explicit || (deathTitleLikely || deathIdLikely ? body : '');
-                    const parsed = raw ? parseCreditorPartyDeathPayload(raw) : null;
-                    if (parsed) {
-                        const incomingHeirs = parsed.heir_names.filter((s) => /\S/.test(String(s)));
-                        if (parsed.action === 'heir_substitution' && incomingHeirs.length === 0) {
-                            Object.assign(
-                                merge,
-                                buildExecutionMergeForCreditorHeirSubstitutionApproval(
-                                    params.executionData,
-                                    parsed.creditorNameSnapshot
-                                )
-                            );
-                        } else {
-                            Object.assign(
-                                merge,
-                                buildExecutionMergeForCreditorPartyDeath(params.executionData, parsed)
-                            );
-                        }
-                    }
-                }
-
                 if (route === 'SalaryGarnishment') {
                     merge.salary_garnishment_installment_schedule = {
                         executionDecisionId: id,
@@ -331,13 +299,33 @@ export function useDecisionDispatcher(params: {
                         dispatchResidentialGraceCleared(String(params.executionId || ''));
                     }
                     if (branch !== 'other') {
-                        handleExecutorApproval(
-                            branch,
-                            params.evictionExecutorWorkflow.dossierId,
-                            id,
-                            params.evictionExecutorWorkflow.actions,
-                            { requestTitle: titleBase }
-                        );
+                        const workflowActions = params.evictionExecutorWorkflow.actions;
+                        if (workflowActions) {
+                            handleExecutorApproval(
+                                branch,
+                                params.evictionExecutorWorkflow.dossierId,
+                                id,
+                                workflowActions,
+                                { requestTitle: titleBase }
+                            );
+                        }
+                    }
+                }
+            }
+
+            if (input.resolution === 'approved' || input.resolution === 'alternative') {
+                const heirMerge = buildHeirSubstitutionExecutorMerge(
+                    input.row,
+                    params.executionData,
+                );
+                if (heirMerge) {
+                    Object.assign(merge, heirMerge.merge);
+                    if (heirMerge.openHeirsEntry) {
+                        dispatchHeirSubstitutionHeirsEntry({
+                            executionId: params.executionId,
+                            decisionId: id,
+                            party: heirMerge.party,
+                        });
                     }
                 }
             }

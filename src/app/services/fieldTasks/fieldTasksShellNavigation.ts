@@ -1,7 +1,7 @@
 /** فتح مهام الميدان من لوحة المحامي */
 export const FIELD_TASKS_SHELL_FEATURE = 'مهام اليوم الميدانية';
 
-export type OpenFieldTasksShellInput = {
+type OpenFieldTasksShellInput = {
     signedIn: boolean;
     onOpen: () => void;
     onSignedOut?: () => void;

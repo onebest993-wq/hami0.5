@@ -4,8 +4,20 @@ import {
     getCachedCalendarEvents,
     hasCachedCalendarEvents,
 } from '@/app/services/calendar/calendarEventsCache';
+import {
+    clearHomeHubRadarPeek,
+    emitHomeHubRadarWarm,
+    peekHomeHubRadarCache,
+    resetHomeHubRadarPeekForTests,
+    setHomeHubRadarPeek,
+    subscribeHomeHubRadarWarm,
+} from '@/app/services/alerts/homeHubRadarPeek';
 
-let warmed: { lawyerId: string; events: CalendarEvent[] } | null = null;
+export {
+    peekHomeHubRadarCache,
+    subscribeHomeHubRadarWarm,
+} from '@/app/services/alerts/homeHubRadarPeek';
+
 let warmPromise: Promise<CalendarEvent[]> | null = null;
 let warmLawyerId: string | null = null;
 /** يرتفع عند إبطال نفس المحامي أثناء جلب — الرد القديم يُتجاهل. */
@@ -15,18 +27,6 @@ let warmEpoch = 0;
  * تُرفع حتى تكتمل لقطة الهاب الجديدة.
  */
 let calendarFallbackBlockedFor: string | null = null;
-const warmListeners = new Set<() => void>();
-
-function emitHomeHubRadarWarm(): void {
-    for (const listener of warmListeners) listener();
-}
-
-export function subscribeHomeHubRadarWarm(listener: () => void): () => void {
-    warmListeners.add(listener);
-    return () => {
-        warmListeners.delete(listener);
-    };
-}
 
 export function isHomeHubRadarWarmInFlight(lawyerId: string | null): boolean {
     if (!lawyerId) return false;
@@ -43,23 +43,18 @@ export function warmHomeHubRadarCache(lawyerId: string | null): void {
         .then((list) => {
             if (epoch !== warmEpoch || warmLawyerId !== lawyerId) return Array.isArray(list) ? list : [];
             const events = Array.isArray(list) ? list : [];
-            warmed = { lawyerId, events };
+            setHomeHubRadarPeek(lawyerId, events);
             if (calendarFallbackBlockedFor === lawyerId) calendarFallbackBlockedFor = null;
             emitHomeHubRadarWarm();
             return events;
         })
         .catch(() => {
             if (epoch !== warmEpoch || warmLawyerId !== lawyerId) return [];
-            warmed = { lawyerId, events: [] };
+            setHomeHubRadarPeek(lawyerId, []);
             if (calendarFallbackBlockedFor === lawyerId) calendarFallbackBlockedFor = null;
             emitHomeHubRadarWarm();
             return [];
         });
-}
-
-export function peekHomeHubRadarCache(lawyerId: string | null): CalendarEvent[] | null {
-    if (!lawyerId || !warmed || warmed.lawyerId !== lawyerId) return null;
-    return warmed.events;
 }
 
 /**
@@ -78,7 +73,7 @@ export function peekHomeHubRadarSnapshot(lawyerId: string | null): readonly unkn
 export function invalidateHomeHubRadarCache(lawyerId: string | null): void {
     if (!lawyerId) return;
     calendarFallbackBlockedFor = lawyerId;
-    if (warmed?.lawyerId === lawyerId) warmed = null;
+    clearHomeHubRadarPeek(lawyerId);
     if (warmLawyerId === lawyerId) {
         warmEpoch += 1;
         warmPromise = null;
@@ -88,17 +83,16 @@ export function invalidateHomeHubRadarCache(lawyerId: string | null): void {
 }
 
 export function resetHomeHubRadarCacheForTests(): void {
-    warmed = null;
+    resetHomeHubRadarPeekForTests();
     warmPromise = null;
     warmLawyerId = null;
     warmEpoch = 0;
     calendarFallbackBlockedFor = null;
-    warmListeners.clear();
 }
 
 /** للاختبارات — حقن كاش متزامن */
 export function setHomeHubRadarCacheForTests(lawyerId: string, events: CalendarEvent[]): void {
-    warmed = { lawyerId, events };
+    setHomeHubRadarPeek(lawyerId, events);
     warmLawyerId = lawyerId;
     warmPromise = Promise.resolve(events);
     if (calendarFallbackBlockedFor === lawyerId) calendarFallbackBlockedFor = null;

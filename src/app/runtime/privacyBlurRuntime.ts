@@ -2,6 +2,7 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { isNativeSensitivePromptActive } from '@/app/runtime/nativeSensitivePrompt';
 import { applyNativePrivacyGuard } from '@/app/runtime/nativePrivacyGuard';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 
 const SHIELD_ID = 'hami-privacy-blur-shield';
 const WEB_BLUR = 'blur(14px)';
@@ -92,25 +93,19 @@ function bindNativePrivacyBlur(enabled: boolean): () => void {
     const onVis = () => applyBackgroundState(document.hidden);
     document.addEventListener('visibilitychange', onVis);
 
-    let removeAppListener: (() => void) | undefined;
-    void import('@capacitor/app')
-        .then(async ({ App }) => {
-            const state = await App.getState();
-            if (!state.isActive) applyBackgroundState(true);
-            const handle = await App.addListener('appStateChange', ({ isActive }) => {
-                applyBackgroundState(!isActive);
-            });
-            removeAppListener = () => {
-                void handle.remove();
-            };
-        })
-        .catch(() => undefined);
+    const onAppState = (event: Event) => {
+        const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+        applyBackgroundState(detail?.isActive === false);
+    };
+    window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
 
-    if (document.hidden) applyBackgroundState(true);
+    if (document.hidden || document.documentElement.dataset.hamiAppActive === '0') {
+        applyBackgroundState(true);
+    }
 
     return () => {
         document.removeEventListener('visibilitychange', onVis);
-        removeAppListener?.();
+        window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
         hideNativeShield();
         delete document.documentElement.dataset.hamiPrivacyShield;
     };

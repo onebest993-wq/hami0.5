@@ -28,8 +28,8 @@ describe('settings section surgical close honesty', () => {
         );
         expect(sec).toContain('biometricSubLabel');
         expect(sec).toContain('settings-toggle-security-biometricLock');
-        expect(sec).toContain('settings-toggle-security-privacyBlur');
-        expect(sec).toContain('togglePrivacyBlur');
+        expect(sec).not.toContain('settings-toggle-security-privacyBlur');
+        expect(sec).not.toContain('togglePrivacyBlur');
     });
 
     it('privacyBlur يتخطى CSS على Capacitor', () => {

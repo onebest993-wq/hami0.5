@@ -1,7 +1,7 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { SecretaryAlert, SecretaryAlertTarget } from '@/app/services/SecretaryOrchestrator';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { EXECUTION_VISIT_NEXT_EVENT_ID } from '@/app/services/calendar/dossierSync/visitationCalendarSync';
+import { EXECUTION_VISIT_NEXT_EVENT_ID } from '@/app/services/calendar/dossierSync/executionVisitNextEventId';
 
 export type AlertNavigationAction =
     | { kind: 'tab'; tab: 'schedule' | 'community' | 'home' }

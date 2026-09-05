@@ -56,7 +56,7 @@ export const BOOT_SHELL_WARM_KEYS = [
     WORKSPACE_STORE_KEY,
     'hami:smartvault:docs:v1',
     /*
-     * رادار المواعيد على الرئيسية يقرأ `readLocalCalendarSnapshotSync` قبل
+     * رادار المواعيد على الرئيسية يقرأ `peekLocalCalendarSnapshotSync` قبل
      * `PROTECTED_WARM_KEYS`. بلا أحداث التقويم في قشرة الإقلاع يُفرَّغ الرادار.
      * شواهد القبر صغيرة وتُصفّي المحذوف في نفس اللقطة — تُسخَّن معها.
      */
@@ -135,11 +135,17 @@ export function isTransactionsTaskTemplatesKey(key: string): boolean {
     return key.startsWith('hami:transactions:taskTemplates:v1:');
 }
 
+/** طلبات عون المهام — مصفوفة؛ المسح المتعمَّد مسموح، التفريغ فوق ciphertext بارد مرفوض */
+export function isTaskHelpRequestsKey(key: string): boolean {
+    return key === 'hami_task_help_requests_v1';
+}
+
 export function isProtectedStorageKey(key: string): boolean {
     if (PROTECTED_ARRAY_STORAGE_KEYS.has(key)) return true;
     if (PROTECTED_OBJECT_STORAGE_KEYS.has(key)) return true;
     if (isTransactionsThreadingStateKey(key)) return true;
     if (isTransactionsTaskTemplatesKey(key)) return true;
+    if (isTaskHelpRequestsKey(key)) return true;
     if (key.includes('lawyer_files')) return true;
     // فهرس التنفيذ حسب المالك: executionFiles:<userId>
     if (key.startsWith(`${EXECUTION_FILES_STORAGE_KEY}:`)) return true;
@@ -177,5 +183,6 @@ export function backupDomainForStorageKey(key: string): BackupDomain | null {
     if (key === 'hami:calendar:events:v1') return 'calendar';
     if (key === QUANTUM_TASKS_STORAGE_KEY) return 'tasks';
     if (key === 'hami:transactions:v1' || isTransactionsTaskTemplatesKey(key)) return 'transactions';
+    if (isTransactionsThreadingStateKey(key)) return 'transactionsThreading';
     return null;
 }

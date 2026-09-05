@@ -1,7 +1,10 @@
 /**
  * Prefetch لمقطع بوابة الإعدادات (تسخين الكاش / مسار الفتح).
  * التركيب الحي كسول من FullBootPath عبر Portal.
+ * preload-aware: بعد التسخين تُرسم مباشرة بلا إطار React.lazy.
  */
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
+import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 
 type SettingsOverlayEntryModule =
     typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardSettingsOverlayEntry');
@@ -11,12 +14,6 @@ let entryResolved = false;
 
 export function isSettingsOverlayEntryResolved(): boolean {
     return entryResolved;
-}
-
-/** للاختبارات */
-export function resetSettingsOverlayEntryCacheForTests(): void {
-    entryPromise = null;
-    entryResolved = false;
 }
 
 function ensureEntryPromise(): Promise<SettingsOverlayEntryModule> {
@@ -37,11 +34,25 @@ function ensureEntryPromise(): Promise<SettingsOverlayEntryModule> {
     return entryPromise;
 }
 
+export const LazySettingsOverlayEntry = createPreloadableLazyComponent(() =>
+    ensureEntryPromise().then((m) => ({
+        default: m.LawyerDashboardSettingsOverlayEntry as unknown as LazyComponent,
+    })),
+);
+
+/** للاختبارات */
+export function resetSettingsOverlayEntryCacheForTests(): void {
+    entryPromise = null;
+    entryResolved = false;
+    LazySettingsOverlayEntry.resetForTests();
+}
+
 export function prefetchSettingsOverlayEntry(): void {
     if (typeof window === 'undefined') return;
-    void ensureEntryPromise().catch(() => undefined);
+    void LazySettingsOverlayEntry.preload();
 }
 
 export function loadSettingsOverlayEntry(): Promise<SettingsOverlayEntryModule> {
+    void LazySettingsOverlayEntry.preload();
     return ensureEntryPromise();
 }

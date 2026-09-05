@@ -1,75 +1,33 @@
-import { clearOverlayEnterSettle } from '@/app/runtime/overlayEnterSettle';
+import {
+    beginHubLayerExit,
+    clearHubLayerClosing,
+    clearHubLayerEnter,
+} from '@/app/runtime/overlayHubLayerMotion';
+import { SETTINGS_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
+import { isSettingsOverlayHostReactReady } from '@/app/runtime/settingsInstantPaintHostAdopt';
 
-const CLOSING_ATTR = 'data-hami-settings-closing';
-const OPEN_ATTR = 'data-hami-settings-open';
-const HOST_SELECTOR = '[data-testid="hami-settings-overlay-host"]';
-
-export const SETTINGS_SHELL_EXIT_MS = 220;
-
-function shouldSkipSettingsShellMotion(): boolean {
-    if (typeof document === 'undefined') return true;
-    const root = document.documentElement;
-    if (
-        root.dataset.hamiReduceMotion === '1' ||
-        root.dataset.hamiAnimations === '0' ||
-        root.dataset.hamiLite === '1'
-    ) {
-        return true;
-    }
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-    try {
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    } catch {
-        return false;
-    }
-}
+/** يطابق مدة CSS للإغلاق (`220ms`) و`SETTINGS_HUB_LAYER.exitMs`. */
+export const SETTINGS_SHELL_EXIT_MS = SETTINGS_HUB_LAYER.exitMs ?? 220;
 
 export function clearSettingsShellClosing(): void {
-    if (typeof document === 'undefined') return;
-    document.documentElement.removeAttribute(CLOSING_ATTR);
+    clearHubLayerClosing(SETTINGS_HUB_LAYER);
 }
 
 /**
- * يُبقي الطبقة للخروج المركَّب ثم يستدعي onDone —
- * لا يُخفى المركز بقطع DOM قبل اكتمال الحركة.
+ * خروج الطبقة عبر نواة الـ hub المشتركة.
+ * قشرة بلا شجرة React تُغلق فوراً — لا ننتظر تلاشياً على Host فارغ (keepAlive).
  */
 export function beginSettingsShellExit(onDone: () => void): void {
-    if (typeof document === 'undefined' || shouldSkipSettingsShellMotion()) {
-        clearOverlayEnterSettle('data-hami-settings-enter');
-        clearSettingsShellClosing();
+    if (typeof document === 'undefined') {
         onDone();
         return;
     }
-
-    const host = document.querySelector(HOST_SELECTOR);
-    if (!(host instanceof HTMLElement)) {
-        clearOverlayEnterSettle('data-hami-settings-enter');
-        clearSettingsShellClosing();
+    const host = document.querySelector(SETTINGS_HUB_LAYER.layerSelector);
+    if (!(host instanceof HTMLElement) || !isSettingsOverlayHostReactReady(host)) {
+        clearHubLayerEnter(SETTINGS_HUB_LAYER);
+        clearHubLayerClosing(SETTINGS_HUB_LAYER);
         onDone();
         return;
     }
-
-    const root = document.documentElement;
-    clearOverlayEnterSettle('data-hami-settings-enter');
-    root.setAttribute(CLOSING_ATTR, '1');
-    root.removeAttribute(OPEN_ATTR);
-
-    let settled = false;
-    const finish = () => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(fallbackTimer);
-        host.removeEventListener('transitionend', onTransitionEnd);
-        clearSettingsShellClosing();
-        onDone();
-    };
-
-    const onTransitionEnd = (event: Event) => {
-        if (!(event instanceof TransitionEvent)) return;
-        if (event.propertyName !== 'transform' && event.propertyName !== 'opacity') return;
-        finish();
-    };
-
-    host.addEventListener('transitionend', onTransitionEnd);
-    const fallbackTimer = window.setTimeout(finish, SETTINGS_SHELL_EXIT_MS + 40);
+    beginHubLayerExit(SETTINGS_HUB_LAYER, onDone);
 }

@@ -35,7 +35,7 @@ describe('homeBootChrome live modules overlap', () => {
     });
 
     it('يبدأ مقاطع المنزل تحت الغطاء بينما تسخين الملف ما زال معلّقاً', async () => {
-        const { setLawyerProfileBootWarmPending } = await import(
+        const { setLawyerProfileBootWarmPending, isLawyerProfileBootWarmPending } = await import(
             '@/app/services/profile/profileBootWarmPending'
         );
         const { prepareHomeBootChrome, isHomeBootChromeReady } = await import(
@@ -50,11 +50,9 @@ describe('homeBootChrome live modules overlap', () => {
         expect(loadHomeTabContent).toHaveBeenCalled();
         expect(loadCommandHubTiles).toHaveBeenCalled();
         expect(loadLawyerHomeHubCardModule).toHaveBeenCalled();
-        expect(isHomeBootChromeReady()).toBe(false);
-
-        setLawyerProfileBootWarmPending(false);
         await chromeDone;
         expect(isHomeBootChromeReady()).toBe(true);
+        expect(isLawyerProfileBootWarmPending()).toBe(true);
     });
 
     it('لا يحجب جاهزية الكروم إن علق مقطع بطاقة المركز', async () => {

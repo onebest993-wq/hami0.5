@@ -522,9 +522,9 @@ export function HeadquartersPanel({
             ) : null}
 
             {skipFetch && users.length === 0 ? (
-                <HqStateBlock kind="loading" title="جاري تحميل المقر…" />
+                <HqStateBlock kind="loading" title="المقر" />
             ) : loading && users.length === 0 ? (
-                <HqStateBlock kind="loading" title="جاري تحميل المقر…" />
+                <HqStateBlock kind="loading" title="المقر" />
             ) : !loading && filtered.length === 0 ? (
                 <HqStateBlock
                     kind="empty"

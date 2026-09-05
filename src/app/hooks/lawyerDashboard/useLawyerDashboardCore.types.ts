@@ -3,7 +3,11 @@ import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboar
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 import type { LawyerDashboardPostInteractiveRuntimeProps } from '@/app/components/lawyer/dashboard/LawyerDashboardPostInteractiveRuntime.types';
 import type { LawyerDashboardDeferredFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
-import type { LawyerDashboardPreDockFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
+import type { LawyerDashboardFieldTasksFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces.types';
+import type {
+    LawyerDashboardPreDockFeatureSurfacesProps,
+    LawyerDashboardRepositoryFeatureSurfacesProps,
+} from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
 import type { LawyerDashboardNavigationIslandProps } from '@/app/components/lawyer/dashboard/LawyerDashboardNavigationIsland.types';
 import type { LawyerDashboardShellPropsWithoutChildren } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps';
 import type { QuantumTasksContextValue } from '@/app/context/quantumTasksContext';
@@ -53,6 +57,8 @@ export type LawyerDashboardCoreViewModel =
           overlaysBundle: LawyerDashboardOverlaysBundleProps;
           postInteractiveRuntimeProps: LawyerDashboardPostInteractiveRuntimeProps;
           deferredFeatureSurfacesProps: LawyerDashboardDeferredFeatureSurfacesProps;
+          fieldTasksFeatureSurfacesProps: LawyerDashboardFieldTasksFeatureSurfacesProps;
           preDockFeatureSurfacesProps: LawyerDashboardPreDockFeatureSurfacesProps;
+          repositoryFeatureSurfacesProps: LawyerDashboardRepositoryFeatureSurfacesProps;
           navigationSurfacesProps: LawyerDashboardNavigationIslandProps;
       };

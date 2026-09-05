@@ -118,10 +118,3 @@ export async function initializeHamiFcmBridge(userId: string | null): Promise<vo
         debug.warn('[HamiFcmBridge] init failed:', error);
     }
 }
-
-export function resetHamiFcmBridgeForTests(): void {
-    fcmInitialized = false;
-    fcmListenersBound = false;
-    lastRegisteredToken = null;
-    fcmUserId = null;
-}

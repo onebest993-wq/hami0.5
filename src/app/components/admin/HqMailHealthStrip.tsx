@@ -38,8 +38,8 @@ export function HqMailHealthStrip({
     let badge = configured ? 'جاهز' : 'يحتاج ضبط';
     let tone: 'ok' | 'warn' = configured ? 'ok' : 'warn';
     if (pending) {
-        title = gated ? 'لم تُفحص قناة الإرسال' : 'جاري التحقق من قناة الإرسال';
-        badge = gated ? 'بلا جلسة' : 'جاري التحقق';
+        title = gated ? 'لم تُفحص قناة الإرسال' : 'قناة الإرسال';
+        badge = gated ? 'بلا جلسة' : '…';
         tone = 'warn';
     }
 

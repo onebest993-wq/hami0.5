@@ -16,7 +16,12 @@
  *
  * والإيقاف عند الخفاء آمن هنا: كلا المُستهلكَين ينظّف مدخلات انتهت مدّتها،
  * وانتهاء المدّة يُفحَص عند القراءة أيضاً. فالتأجيل لا يُنتج قراءة بائتة.
+ *
+ * `HAMI_APP_STATE_EVENT` يُكمّل الرؤية: على Capacitor قد تتجمّد الصفحة دون
+ * `document.hidden`، فيبقى المؤقّت يوقظ JS في الجيب.
  */
+
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 
 type Stop = () => void;
 
@@ -52,8 +57,8 @@ export function startBackgroundInterval(options: BackgroundIntervalOptions): Sto
         timerId = window.setInterval(options.tick, options.intervalMs);
     };
 
-    const onVisibility = () => {
-        if (document.hidden) {
+    const applyForeground = (foreground: boolean) => {
+        if (!foreground) {
             stopTimer();
             return;
         }
@@ -68,18 +73,23 @@ export function startBackgroundInterval(options: BackgroundIntervalOptions): Sto
         startTimer();
     };
 
+    const onVisibility = () => applyForeground(!document.hidden);
+
     /*
      * `pageshow` يُستأنف بعد ذاكرة الصفحة، و`pagehide` يُوقف — وليس `{ once: true }`:
      * الدورة قد تتكرّر مرّات في جلسة واحدة على الهاتف.
      */
-    const onPageHide = () => stopTimer();
-    const onPageShow = () => {
-        if (!document.hidden) startTimer();
+    const onPageHide = () => applyForeground(false);
+    const onPageShow = () => applyForeground(!document.hidden);
+    const onAppState = (event: Event) => {
+        const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+        applyForeground(detail?.isActive !== false && !document.hidden);
     };
 
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', onPageHide);
     window.addEventListener('pageshow', onPageShow);
+    window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
 
     if (!document.hidden) startTimer();
 
@@ -88,6 +98,7 @@ export function startBackgroundInterval(options: BackgroundIntervalOptions): Sto
         document.removeEventListener('visibilitychange', onVisibility);
         window.removeEventListener('pagehide', onPageHide);
         window.removeEventListener('pageshow', onPageShow);
+        window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
         if (registry[options.globalKey] === stop) registry[options.globalKey] = undefined;
     };
 

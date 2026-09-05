@@ -5,7 +5,7 @@ import {
 } from '@/app/services/security/biometricSessionService';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 
-export type VerifySensitiveSettingsOptions = {
+type VerifySensitiveSettingsOptions = {
     /** نص يُطلب كتابته حرفياً عند غياب البيومتري */
     confirmPhrase: string;
     promptMessage?: string;

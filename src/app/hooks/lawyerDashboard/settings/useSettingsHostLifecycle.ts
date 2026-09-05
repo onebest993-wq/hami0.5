@@ -54,7 +54,7 @@ export function useSettingsHostLifecycle({
         if (!signedIn) return;
         let cancelIdle: (() => void) | undefined;
         const stopListen = onLawyerDashboardFirstTabOpen(() => {
-            prefetchSettingsChunks();
+            prefetchSettingsShellChunks();
             cancelIdle = scheduleIdleWork(() => {
                 ensureSettingsHostMounted();
             }, nativeIdleOptions());
@@ -69,7 +69,7 @@ export function useSettingsHostLifecycle({
         if (!signedIn) return;
         let cancelIdle: (() => void) | undefined;
         const stopInteractive = onDashboardInteractive(() => {
-            prefetchSettingsChunks();
+            prefetchSettingsShellChunks();
             if (!isLitePerformanceActive()) {
                 void loadSettingsIntentWarm()
                     .then((m) => m.warmSettingsOnHover())
@@ -101,19 +101,14 @@ export function useSettingsHostLifecycle({
     }, [ensureSettingsHostMounted, initialSessionOpen, signedIn]);
 }
 
-function prefetchSettingsChunks(): void {
+function prefetchSettingsShellChunks(): void {
     prefetchSettingsOverlayEntry();
     void loadSettingsOverlayEntry().catch(() => undefined);
     prefetchHamiSettingsModule();
-    void import('@/app/components/lawyer/HamiSettings/settingsSectionLoad')
-        .then((m) => {
-            m.prefetchSecondarySettingsSections();
-        })
-        .catch(() => undefined);
 }
 
 function warmSettingsChunks(): void {
-    prefetchSettingsChunks();
+    prefetchSettingsShellChunks();
     void loadSettingsIntentWarm()
         .then((m) => {
             m.warmSettingsOnHover();

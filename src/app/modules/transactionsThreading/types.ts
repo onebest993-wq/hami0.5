@@ -13,18 +13,12 @@ export enum TransactionTaskStatus {
   Done = 'Done',
 }
 
-export enum FinanceRecordType {
-  Expense = 'Expense',
-  AdvancePayment = 'AdvancePayment',
-}
-
 export interface Transaction {
   id: string;
   title: string;
   clientName: string;
   targetDepartment: string;
   status: TransactionStatus;
-  agreedFees: number;
   createdAt: ISODateTimeString;
   updatedAt: ISODateTimeString;
   /** أرشفة — تُخفى من القائمة الرئيسية */
@@ -47,15 +41,6 @@ export interface TransactionTask {
 }
 
 export type TransactionTaskNode = TransactionTask & { children: TransactionTaskNode[] };
-
-export interface FinanceRecord {
-  id: string;
-  transactionId: string;
-  type: FinanceRecordType;
-  amount: number;
-  description: string;
-  date: ISODateTimeString;
-}
 
 export type TransactionDocumentOwnerTag = 'للموكل' | 'للدائرة' | 'أخرى';
 

@@ -11,16 +11,24 @@ export {
     resetNativeBackHandlersForTests,
 } from '@/app/runtime/nativeBackStack';
 
+let wired = false;
+
 function applyAppActiveDataset(isActive: boolean): void {
     if (typeof document === 'undefined') return;
     document.documentElement.dataset.hamiAppActive = isActive ? '1' : '0';
     publishHamiAppState(isActive);
 }
 
-/** App plugin — زر الرجوع + حالة foreground/background */
+/**
+ * App plugin — زر الرجوع + حالة foreground/background.
+ * الإقلاع ينادي الغلاف مرتين (قبل الجسر وبعده) — الربط مرة واحدة وإلا يتضاعف
+ * الرجوع وحالة التطبيق فيُوقَظ JS مرتين عند كل خلفية/مقدّمة.
+ */
 export async function wireCapacitorAppLifecycle(): Promise<void> {
     wireOverlayEdgeBackGesture();
     if (!isCapacitorNativePlatform()) return;
+    if (wired) return;
+    wired = true;
 
     try {
         const { App } = await import('@capacitor/app');
@@ -53,6 +61,11 @@ export async function wireCapacitorAppLifecycle(): Promise<void> {
         const state = await App.getState();
         applyAppActiveDataset(state.isActive);
     } catch {
+        wired = false;
         /* plugin غير متاح على الويب */
     }
+}
+
+export function resetCapacitorAppLifecycleForTests(): void {
+    wired = false;
 }

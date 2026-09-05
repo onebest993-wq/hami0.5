@@ -1,4 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { fireEvent } from '@testing-library/react';
+import {
+    consumeNativeBackForTests,
+    resetNativeBackHandlersForTests,
+} from '@/app/runtime/nativeBackStack';
 
 const mocks = vi.hoisted(() => ({
     dismissMock: vi.fn(),
@@ -9,6 +14,9 @@ const mocks = vi.hoisted(() => ({
     prefetchHubMock: vi.fn(),
     loadOverlayEntryMock: vi.fn(() => Promise.resolve({})),
     isOverlayResolvedMock: vi.fn(() => true),
+    concealMock: vi.fn(),
+    paintMock: vi.fn(() => false),
+    applyThemeMock: vi.fn(),
 }));
 
 vi.mock('react-dom', () => ({
@@ -26,9 +34,10 @@ vi.mock('@/app/services/repository/repositoryPerfMetrics', () => ({
 }));
 
 vi.mock('@/app/runtime/repositoryInstantPaint', () => ({
+    applyRepositoryOpenTheme: () => mocks.applyThemeMock(),
     applyRepositoryOpaqueChrome: vi.fn(),
-    paintRepositoryInstantChrome: vi.fn(() => false),
-    concealRepositoryWarmShell: vi.fn(),
+    paintRepositoryInstantChrome: () => mocks.paintMock(),
+    concealRepositoryWarmShell: () => mocks.concealMock(),
     hideRepositoryKeepAliveLayer: vi.fn(),
     REPOSITORY_INSTANT_DISMISS_EVENT: 'hami:repository-instant-dismiss',
     REPOSITORY_INSTANT_CHROME_ID: 'hami-repository-instant-chrome',
@@ -59,35 +68,46 @@ vi.mock('@/app/hooks/lawyerDashboard/repository/repositoryLazyImports', async (i
     };
 });
 
+function openArgs(overrides: Record<string, unknown> = {}) {
+    return {
+        userId: 'lawyer-1',
+        armRepositoryHost: vi.fn(),
+        setRepositoryTab: vi.fn(),
+        setNotepadMode: vi.fn(),
+        setFocusNoteId: vi.fn(),
+        setVaultOpenScanner: vi.fn(),
+        setRepositoryOpenEpoch: vi.fn((fn: (epoch: number) => number) => fn(0)),
+        setIsRepositoryOpen: vi.fn(),
+        ...overrides,
+    };
+}
+
 describe('repositoryShellOpenFlow', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
         mocks.isOverlayResolvedMock.mockReturnValue(true);
         mocks.loadOverlayEntryMock.mockImplementation(() => Promise.resolve({}));
+        resetNativeBackHandlersForTests();
         const { resetRepositoryOpenFlowForTests } = await import(
             '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
         );
         resetRepositoryOpenFlowForTests();
     });
 
-    it('commitRepositoryOpen يفتح المستودع ويُسجّل perf', async () => {
+    it('commitRepositoryOpen يفتح المستودع ويُسجّل perf عندما المقطع جاهز', async () => {
         const { commitRepositoryOpen } = await import(
             '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
         );
         const armRepositoryHost = vi.fn();
         const setIsRepositoryOpen = vi.fn();
 
-        commitRepositoryOpen({
-            userId: 'lawyer-1',
-            opts: { tab: 'vault', scanner: true },
-            armRepositoryHost,
-            setRepositoryTab: vi.fn(),
-            setNotepadMode: vi.fn(),
-            setFocusNoteId: vi.fn(),
-            setVaultOpenScanner: vi.fn(),
-            setRepositoryOpenEpoch: vi.fn((fn) => fn(0)),
-            setIsRepositoryOpen,
-        });
+        commitRepositoryOpen(
+            openArgs({
+                opts: { tab: 'vault', scanner: true },
+                armRepositoryHost,
+                setIsRepositoryOpen,
+            }),
+        );
 
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.markPerfMock).toHaveBeenCalledWith('open-request');
@@ -105,30 +125,49 @@ describe('repositoryShellOpenFlow', () => {
         });
     });
 
-    it('commitRepositoryOpen يكشف Host فوراً دون انتظار المقطع', async () => {
+    it('commitRepositoryOpen يكشف فوراً إذا كان Host مركّباً حتى دون اكتمال المقطع', async () => {
         mocks.isOverlayResolvedMock.mockReturnValue(false);
-        mocks.loadOverlayEntryMock.mockImplementation(async () => {
-            mocks.isOverlayResolvedMock.mockReturnValue(true);
-            return {};
-        });
         const { commitRepositoryOpen } = await import(
             '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
         );
         const setIsRepositoryOpen = vi.fn();
 
-        commitRepositoryOpen({
-            userId: 'lawyer-1',
-            armRepositoryHost: vi.fn(),
-            setRepositoryTab: vi.fn(),
-            setNotepadMode: vi.fn(),
-            setFocusNoteId: vi.fn(),
-            setVaultOpenScanner: vi.fn(),
-            setRepositoryOpenEpoch: vi.fn((fn) => fn(0)),
-            setIsRepositoryOpen,
-        });
+        commitRepositoryOpen(
+            openArgs({
+                setIsRepositoryOpen,
+                hostAlreadyMounted: true,
+            }),
+        );
 
         expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
         expect(mocks.loadOverlayEntryMock).toHaveBeenCalled();
+    });
+
+    it('commitRepositoryOpen ينتظر المقطع قبل تركيب Host إن لم يُحمَّل', async () => {
+        mocks.isOverlayResolvedMock.mockReturnValue(false);
+        let resolveLoad: (value: unknown) => void = () => undefined;
+        mocks.loadOverlayEntryMock.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveLoad = resolve;
+                }),
+        );
+        const { commitRepositoryOpen } = await import(
+            '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
+        );
+        const setIsRepositoryOpen = vi.fn();
+
+        commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
+        expect(mocks.applyThemeMock).toHaveBeenCalled();
+        expect(mocks.paintMock).toHaveBeenCalled();
+
+        mocks.isOverlayResolvedMock.mockReturnValue(true);
+        resolveLoad({});
+        await vi.waitFor(() => {
+            expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
+        });
     });
 
     it('commitRepositoryOpen يبقي الفتح إن فشل المقطع ويُخطر', async () => {
@@ -137,34 +176,90 @@ describe('repositoryShellOpenFlow', () => {
         const { commitRepositoryOpen } = await import(
             '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
         );
-        const { concealRepositoryWarmShell } = await import('@/app/runtime/repositoryInstantPaint');
         const setIsRepositoryOpen = vi.fn();
         const onChunkFailed = vi.fn();
 
-        commitRepositoryOpen({
-            userId: 'lawyer-1',
-            armRepositoryHost: vi.fn(),
-            setRepositoryTab: vi.fn(),
-            setNotepadMode: vi.fn(),
-            setFocusNoteId: vi.fn(),
-            setVaultOpenScanner: vi.fn(),
-            setRepositoryOpenEpoch: vi.fn((fn) => fn(0)),
-            setIsRepositoryOpen,
-            onChunkFailed,
-        });
+        commitRepositoryOpen(
+            openArgs({
+                setIsRepositoryOpen,
+                onChunkFailed,
+            }),
+        );
 
-        expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
         await vi.waitFor(() => {
+            expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
             expect(onChunkFailed).toHaveBeenCalled();
         });
-        expect(concealRepositoryWarmShell).not.toHaveBeenCalled();
+        expect(mocks.concealMock).not.toHaveBeenCalled();
+    });
+
+    it('يكشف بعد مهلة إن علق تحميل مقطع الطبقة', async () => {
+        vi.useFakeTimers();
+        mocks.isOverlayResolvedMock.mockReturnValue(false);
+        mocks.loadOverlayEntryMock.mockImplementation(() => new Promise(() => undefined));
+        const { commitRepositoryOpen } = await import(
+            '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
+        );
+        const setIsRepositoryOpen = vi.fn();
+
+        commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
+        try {
+            await vi.advanceTimersByTimeAsync(3_000);
+            expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('Escape أثناء انتظار المقطع يلغي الفتح ولا يكشف بعد وصوله', async () => {
+        mocks.isOverlayResolvedMock.mockReturnValue(false);
+        let resolveLoad: (value: unknown) => void = () => undefined;
+        mocks.loadOverlayEntryMock.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveLoad = resolve;
+                }),
+        );
+        const { commitRepositoryOpen } = await import(
+            '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
+        );
+        const setIsRepositoryOpen = vi.fn();
+
+        commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
+        fireEvent.keyDown(window, { key: 'Escape' });
+        expect(mocks.concealMock).toHaveBeenCalled();
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
+
+        resolveLoad({});
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
+    });
+
+    it('Cap أثناء انتظار المقطع يلغي الفتح', async () => {
+        mocks.isOverlayResolvedMock.mockReturnValue(false);
+        mocks.loadOverlayEntryMock.mockImplementation(() => new Promise(() => undefined));
+        const { commitRepositoryOpen } = await import(
+            '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
+        );
+        const setIsRepositoryOpen = vi.fn();
+
+        commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+
+        expect(consumeNativeBackForTests()).toBe(true);
+        expect(mocks.concealMock).toHaveBeenCalled();
+        expect(setIsRepositoryOpen).not.toHaveBeenCalled();
     });
 
     it('commitRepositoryClose يغلق المستودع بعد conceal', async () => {
         const { commitRepositoryClose } = await import(
             '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
         );
-        const { concealRepositoryWarmShell } = await import('@/app/runtime/repositoryInstantPaint');
         const setIsRepositoryOpen = vi.fn();
 
         commitRepositoryClose({
@@ -174,7 +269,7 @@ describe('repositoryShellOpenFlow', () => {
             setRepositoryHostMounted: vi.fn(),
         });
 
-        expect(concealRepositoryWarmShell).toHaveBeenCalled();
+        expect(mocks.concealMock).toHaveBeenCalled();
         await new Promise<void>((resolve) => {
             if (typeof requestAnimationFrame === 'function') {
                 requestAnimationFrame(() => resolve());

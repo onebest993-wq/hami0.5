@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { CALENDAR_PERF_BUDGET } from '@/app/services/calendar/calendarPerfBudget';
+import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { prepareBootE2E, suppressWeeklyBackupReminder } from './bootFixtures';
-import { writeE2eSecureStoreKey } from './secureStoreE2EFixtures';
 
 /** يجهّز جلسة E2E لرادار المواعيد — إقلاع سريع + بدون toasts حاجبة */
 export async function prepareCalendarE2E(page: Page): Promise<void> {
@@ -17,7 +17,8 @@ export async function prepareCalendarE2E(page: Page): Promise<void> {
     });
 }
 
-export const E2E_CALENDAR_USER_ID = 'dev-user-uuid-1';
+/** يطابق جلسة VITE_SHELL_AUTH_OPEN — لا `dev-user-uuid-1` */
+export const E2E_CALENDAR_USER_ID = GUEST_LAWYER_ID;
 export const CALENDAR_LOCAL_KEY = 'hami:calendar:events:v1';
 /** يُستبدل بتاريخ اليوم المحلي داخل المتصفح عند البذر */
 export const E2E_CALENDAR_TODAY = 'TODAY';
@@ -91,56 +92,48 @@ export function buildE2eBridgedLawsuitEvent(
 export async function seedCalendarEvents(page: Page, events: E2eCalendarEvent[] = [buildE2eCalendarEvent()]) {
     const payload = JSON.stringify(events);
     await page.addInitScript(
-        ({ key, raw, dbName, dbVersion, storeName, todayToken }) => {
+        ({ key, raw, todayToken, ownerId }) => {
             const now = new Date();
             const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             let stored = raw;
             try {
-                const parsed = JSON.parse(raw) as Array<{ date?: string }>;
+                const parsed = JSON.parse(raw) as Array<{ date?: string; userId?: string }>;
                 if (Array.isArray(parsed)) {
                     stored = JSON.stringify(
-                        parsed.map((event) => (event?.date === todayToken ? { ...event, date: ymd } : event)),
+                        parsed.map((event) => ({
+                            ...event,
+                            userId: ownerId,
+                            date: event?.date === todayToken ? ymd : event.date,
+                        })),
                     );
                 }
             } catch {
                 stored = raw;
             }
+            /* leftover فقط — نص صريح في IndexedDB يُصنَّف unread فيحجب المرآة */
             localStorage.setItem(key, stored);
-            try {
-                const req = indexedDB.open(dbName, dbVersion);
-                req.onupgradeneeded = () => {
-                    const db = req.result;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        db.createObjectStore(storeName);
-                    }
-                };
-                req.onsuccess = () => {
-                    const db = req.result;
-                    const tx = db.transaction(storeName, 'readwrite');
-                    tx.objectStore(storeName).put(stored, key);
-                    tx.oncomplete = () => db.close();
-                };
-            } catch {
-                /* ignore */
-            }
         },
         {
             key: CALENDAR_LOCAL_KEY,
             raw: payload,
-            dbName: SECURE_STORE_DB,
-            dbVersion: SECURE_STORE_VERSION,
-            storeName: SECURE_KV_STORE,
             todayToken: E2E_CALENDAR_TODAY,
+            ownerId: E2E_CALENDAR_USER_ID,
         },
     );
+}
+
+/** بعد الإقلاع: يكتب كاش SecureStore المفكوك بهوية الجلسة */
+export async function commitCalendarEventsSeed(
+    page: Page,
+    events: E2eCalendarEvent[] = [buildE2eCalendarEvent()],
+): Promise<void> {
+    await primeCalendarEventsOnPage(page, events);
 }
 
 export async function hydrateCalendarEventsForE2E(
     page: Page,
     events: E2eCalendarEvent[] = [buildE2eCalendarEvent()],
 ): Promise<void> {
-    const raw = JSON.stringify(events);
-    await writeE2eSecureStoreKey(page, CALENDAR_LOCAL_KEY, raw);
     await primeCalendarEventsOnPage(page, events);
 }
 
@@ -151,15 +144,37 @@ export async function primeCalendarEventsOnPage(
 ): Promise<void> {
     const raw = JSON.stringify(events);
     await page.evaluate(
-        ({ key, payload, calendarUpdatedEvent, todayToken }) => {
+        ({ key, payload, calendarUpdatedEvent, todayToken, fallbackUserId }) => {
             const now = new Date();
             const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            let ownerId = fallbackUserId;
+            try {
+                for (let i = 0; i < localStorage.length; i += 1) {
+                    const storageKey = localStorage.key(i);
+                    if (!storageKey || !storageKey.includes('-auth-token')) continue;
+                    const parsed = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as {
+                        user?: { id?: string };
+                        currentSession?: { user?: { id?: string } };
+                    };
+                    const uid = parsed?.user?.id ?? parsed?.currentSession?.user?.id;
+                    if (typeof uid === 'string' && uid.trim()) {
+                        ownerId = uid.trim();
+                        break;
+                    }
+                }
+            } catch {
+                ownerId = fallbackUserId;
+            }
             let stored = payload;
             try {
-                const parsed = JSON.parse(payload) as Array<{ date?: string }>;
+                const parsed = JSON.parse(payload) as Array<{ date?: string; userId?: string }>;
                 if (Array.isArray(parsed)) {
                     stored = JSON.stringify(
-                        parsed.map((event) => (event?.date === todayToken ? { ...event, date: ymd } : event)),
+                        parsed.map((event) => ({
+                            ...event,
+                            userId: ownerId,
+                            date: event?.date === todayToken ? ymd : event.date,
+                        })),
                     );
                 }
             } catch {
@@ -187,6 +202,7 @@ export async function primeCalendarEventsOnPage(
             payload: raw,
             calendarUpdatedEvent: 'hami:calendar-updated',
             todayToken: E2E_CALENDAR_TODAY,
+            fallbackUserId: E2E_CALENDAR_USER_ID,
         },
     );
 }

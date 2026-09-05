@@ -27,15 +27,17 @@ vi.mock('../../security/headquartersConnectionSignal.ts', () => ({
 import { POST } from './route.ts';
 import { buildFakeJwt } from '@/app/security/__tests__/wifeRedTeamHelpers.ts';
 import { buildRefreshSetCookie } from '../../security/sessionCookie.ts';
+import { resetWifeRateLimitStoreForTests } from '../../security/wifeRateLimitStore.ts';
 
 const originalFetch = globalThis.fetch;
 
-function refreshRequest(refreshToken: string): Request {
+function refreshRequest(refreshToken: string, ip = '198.51.100.7'): Request {
     return new Request('https://app.test/api/auth/refresh', {
         method: 'POST',
         headers: {
             cookie: buildRefreshSetCookie(refreshToken, true),
             'x-forwarded-proto': 'https',
+            'x-forwarded-for': ip,
         },
     });
 }
@@ -46,12 +48,14 @@ describe('refresh route live status', () => {
         process.env.SUPABASE_URL = 'https://project.supabase.co';
         process.env.SUPABASE_ANON_KEY = 'anon-key';
         restrictionMock.mockResolvedValue(OPEN_RESTRICTION);
+        resetWifeRateLimitStoreForTests();
     });
 
     afterEach(() => {
         globalThis.fetch = originalFetch;
         vi.restoreAllMocks();
         restrictionMock.mockResolvedValue(OPEN_RESTRICTION);
+        resetWifeRateLimitStoreForTests();
     });
 
     it('rotates cookies when the account is still active', async () => {
@@ -104,7 +108,7 @@ describe('refresh route live status', () => {
             return new Response('{}', { status: 404 });
         }) as unknown as typeof fetch;
 
-        const res = await POST(refreshRequest('refresh-old'));
+        const res = await POST(refreshRequest('refresh-old', '198.51.100.8'));
         expect(res.status).toBe(403);
         await expect(res.json()).resolves.toMatchObject({
             ok: false,
@@ -118,5 +122,63 @@ describe('refresh route live status', () => {
         expect(
             vi.mocked(globalThis.fetch).mock.calls.some((call) => String(call[0]).includes('/auth/v1/logout')),
         ).toBe(true);
+    });
+});
+
+describe('refresh route abuse budget', () => {
+    beforeEach(() => {
+        process.env.NODE_ENV = 'test';
+        process.env.SUPABASE_URL = 'https://project.supabase.co';
+        process.env.SUPABASE_ANON_KEY = 'anon-key';
+        restrictionMock.mockResolvedValue(OPEN_RESTRICTION);
+        resetWifeRateLimitStoreForTests();
+    });
+
+    afterEach(() => {
+        globalThis.fetch = originalFetch;
+        vi.restoreAllMocks();
+        resetWifeRateLimitStoreForTests();
+    });
+
+    it('يوقف إعادة استخدام البطاقة نفسها قبل الوصول إلى GoTrue', async () => {
+        globalThis.fetch = vi.fn(async () =>
+            new Response(JSON.stringify({ error_description: 'Invalid Refresh Token' }), {
+                status: 400,
+            }),
+        ) as unknown as typeof fetch;
+
+        let throttled: Response | null = null;
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            const res = await POST(refreshRequest('replayed-refresh-token', '203.0.113.44'));
+            if (res.status === 429) {
+                throttled = res;
+                break;
+            }
+        }
+
+        expect(throttled).not.toBeNull();
+        expect(throttled?.headers.get('Retry-After')).toBeTruthy();
+        /* 429 لا يمسح الجلسة: العميل يعيد المحاولة لاحقاً */
+        expect(throttled?.headers.getSetCookie()).toEqual([]);
+
+        const callsAfterThrottle = vi.mocked(globalThis.fetch).mock.calls.length;
+        await POST(refreshRequest('replayed-refresh-token', '203.0.113.44'));
+        expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(callsAfterThrottle);
+    });
+
+    it('لا يُحمّل ميزانية بطاقة على بطاقة أخرى من العنوان نفسه', async () => {
+        globalThis.fetch = vi.fn(async () =>
+            new Response(JSON.stringify({ error_description: 'Invalid Refresh Token' }), {
+                status: 400,
+            }),
+        ) as unknown as typeof fetch;
+
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            const res = await POST(refreshRequest('token-a', '203.0.113.45'));
+            if (res.status === 429) break;
+        }
+
+        const other = await POST(refreshRequest('token-b', '203.0.113.45'));
+        expect(other.status).toBe(401);
     });
 });

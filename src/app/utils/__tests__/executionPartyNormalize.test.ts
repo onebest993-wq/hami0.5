@@ -7,6 +7,7 @@ describe('executionPartyNormalize', () => {
     it('resolvePartyStoredName prefers fullName then name', () => {
         expect(resolvePartyStoredName({ fullName: '  أحمد  ', name: '' })).toBe('أحمد');
         expect(resolvePartyStoredName({ name: 'علي' })).toBe('علي');
+        expect(resolvePartyStoredName({ firstName: 'سامي', lastName: 'جاسم' })).toBe('سامي جاسم');
     });
 
     it('normalizeExecutionPartyList keeps parties with fullName only', () => {

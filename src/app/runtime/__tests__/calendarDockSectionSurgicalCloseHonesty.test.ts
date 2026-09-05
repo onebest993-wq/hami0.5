@@ -212,6 +212,10 @@ describe('calendar dock section surgical close honesty', () => {
         );
         expect(tab).toContain('embedInChrome');
         expect(tab).toContain('subscribeCalendarOpenSource');
+        expect(tab).not.toMatch(/import \{ openCalendarRadarSource \}/);
+        expect(tab).toContain(
+            "import('@/app/components/lawyer/dashboard/schedule/openCalendarRadarSource')",
+        );
         expect(tab).not.toContain('h-[100dvh]');
         const radar = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/SmartLegalRadar.tsx'),
@@ -488,6 +492,21 @@ describe('calendar dock section surgical close honesty', () => {
         expect(types).toContain('CALENDAR_FILE_SAVE_SYNC_SCOPE');
         expect(pruneIds).toContain('collectStageLegalCalendarSpecs');
         expect(pruneIds).toContain('EXECUTION_VISIT_NEXT_EVENT_ID');
+        expect(pruneIds).not.toContain('TransactionDB');
+        expect(pruneIds).toContain('TransactionsThreadingDB');
+        const propagate = fs.readFileSync(
+            path.join(root, 'src/app/services/calendar/bridgePersistence/propagate.ts'),
+            'utf8',
+        );
+        expect(propagate).not.toContain('patchTransactionStep');
+        expect(propagate).toContain("case 'transaction':");
+        const bridgeShared = fs.readFileSync(
+            path.join(root, 'src/app/services/calendar/bridgePersistence/shared.ts'),
+            'utf8',
+        );
+        expect(bridgeShared).not.toContain('patchTransactionStep');
+        expect(bridgeShared).not.toContain('TransactionDB');
+        expect(bridgeShared).toContain('patchThreadingTaskDeadline');
         expect(lawsuit).toContain('collectStageLegalCalendarSpecs');
         expect(incremental).toContain('CALENDAR_BACKGROUND_SYNC_FAILED_EVENT');
         expect(incremental).toContain('ok === false');
@@ -510,6 +529,8 @@ describe('calendar dock section surgical close honesty', () => {
         expect(radar).toContain('RadarCalendarSyncError');
         expect(radar).toContain('refreshCalendar');
         expect(rules).toContain('مهجور');
+        expect(rules).toContain("transaction: ['steps.appointmentDate']");
+        expect(rules).not.toContain('syncTransactionsCalendarSnapshot');
         expect(reminder).toContain('fromUserGesture: true');
         const fingerprint = fs.readFileSync(
             path.join(root, 'src/app/services/calendar/calendarDossierFingerprint.ts'),
@@ -522,6 +543,15 @@ describe('calendar dock section surgical close honesty', () => {
         );
         expect(openSource).toContain('EXECUTION_VISIT_NEXT_EVENT_ID');
         expect(openSource).toContain('requestOpenExecutionVisitationWorkspace');
+        expect(openSource).not.toContain('visitationCalendarSync');
+        expect(openSource).toContain('executionVisitNextEventId');
+        const visitSync = fs.readFileSync(
+            path.join(root, 'src/app/services/calendar/dossierSync/visitationCalendarSync.ts'),
+            'utf8',
+        );
+        expect(visitSync).toContain("from '@/app/services/calendar/bridge/core'");
+        expect(visitSync).not.toMatch(/from '@\/app\/services\/calendar\/bridge['"]/);
+        expect(visitSync).not.toContain("from './shared'");
         const visitHook = fs.readFileSync(
             path.join(
                 root,

@@ -7,7 +7,7 @@ describe('HqMailHealthStrip', () => {
         render(<HqMailHealthStrip checking />);
         expect(screen.queryByText('يحتاج ضبط')).not.toBeInTheDocument();
         expect(screen.queryByText('قناة الإرسال غير مضبوطة')).not.toBeInTheDocument();
-        expect(screen.getByText('جاري التحقق من قناة الإرسال')).toBeInTheDocument();
+        expect(screen.getByText('قناة الإرسال')).toBeInTheDocument();
     });
 
     it('يعرض الجاهزية بعد وصول النبض', () => {

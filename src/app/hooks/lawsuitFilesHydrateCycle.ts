@@ -19,6 +19,7 @@ import {
     mergeLawsuitDurabilityOverlaysInto,
 } from '@/app/domain/lawsuit/lawsuitDurabilityOverlay';
 import { setLawsuitDecryptBlocked } from '@/app/runtime/lawsuitDecryptBlockedFlag';
+import { resolveLawsuitArchiveHydrateDeclaration } from '@/app/hooks/lawsuitArchiveHydrateDeclaration';
 
 export type LawsuitFilesHydrateCycleHost = {
     isStale: () => boolean;
@@ -26,6 +27,75 @@ export type LawsuitFilesHydrateCycleHost = {
     setSegments: Dispatch<SetStateAction<LawsuitFileSegments>>;
     setLawsuitStorageHydrated: (hydrated: boolean) => void;
 };
+
+const KEYS_EXIT_BUDGET_MS = 2_000;
+const RECOVERY_BUDGET_MS = 2_500;
+
+async function awaitWithBudget<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<undefined>((resolve) => {
+                timer = setTimeout(() => resolve(undefined), ms);
+            }),
+        ]);
+    } catch {
+        return undefined;
+    } finally {
+        if (timer !== undefined) clearTimeout(timer);
+    }
+}
+
+function markArchiveInteractive(): void {
+    void import('@/app/services/alerts/lawsuitArchivePerfMetrics').then((m) => {
+        m.markLawsuitArchivePerf('interactive');
+        m.reportLawsuitArchivePerf();
+    });
+}
+
+/**
+ * نهاية الدورة: إعلان الجاهزية أو حجب الفكّ — لا تُترك فتحات الشبكة إلى الأبد.
+ */
+async function finishLawsuitArchiveHydrate(
+    host: LawsuitFilesHydrateCycleHost,
+    input: {
+        decryptBlocked: boolean;
+        stillColdAfterHydrate: boolean;
+        mayDeclareHydrated: boolean;
+    },
+): Promise<void> {
+    if (host.isStale()) return;
+    const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+    let diskSettled = SecureStoreService.isDiskHydrationSettledSync();
+    if (!diskSettled) {
+        await awaitWithBudget(SecureStoreService.ensureLawsuitKeysReady(), KEYS_EXIT_BUDGET_MS);
+        if (host.isStale()) return;
+        host.adoptBootFromStorage();
+        diskSettled = true;
+    }
+
+    const after = applyLawsuitDurabilityOverlaysToSegments(loadLawsuitBootSegments());
+    const pending = mergeLawsuitDurabilityOverlaysInto(after.active);
+    const hasVisible =
+        bootHasLawsuitRecords(after) || pending.length > 0 || after.active.length > 0;
+    const stillUnread = lawsuitSegmentsNeedWarm();
+    const decision = resolveLawsuitArchiveHydrateDeclaration({
+        hasVisibleRecords: hasVisible,
+        mayDeclareHydrated: input.mayDeclareHydrated,
+        decryptBlocked: input.decryptBlocked,
+        stillColdAfterHydrate: input.stillColdAfterHydrate || (!hasVisible && stillUnread),
+        diskHydrationSettled: diskSettled,
+    });
+
+    if (decision.markDecryptBlocked) setLawsuitDecryptBlocked(true);
+    else setLawsuitDecryptBlocked(false);
+
+    if (decision.declareHydrated) {
+        host.setLawsuitStorageHydrated(true);
+        markArchiveInteractive();
+    }
+}
 
 /**
  * دورة فكّ/دمج/استعادة عند إقلاع مساحة الدعاوى.
@@ -75,7 +145,10 @@ export async function runLawsuitFilesHydrateCycle(
                  * حدث التسخين أو اكتمال hydrate يملأ الشبكة.
                  */
                 if (!hydrateSettledNow() && lawsuitSegmentsNeedWarm()) {
-                    await SecureStoreService.ensureLawsuitKeysReady();
+                    await awaitWithBudget(
+                        SecureStoreService.ensureLawsuitKeysReady(),
+                        KEYS_EXIT_BUDGET_MS,
+                    );
                 } else if (!hydrateSettledNow()) {
                     /* in-flight فكّ — لا getItem مكرر */
                 } else {
@@ -85,11 +158,17 @@ export async function runLawsuitFilesHydrateCycle(
                     } = await import(
                         '@/app/services/dossierPersistence/dossierStorageKeys'
                     );
-                    await SecureStoreService.ensureLawsuitKeysReady();
-                    await Promise.all([
-                        SecureStoreService.getItem(LAWSUIT_FILES_ACTIVE_KEY),
-                        SecureStoreService.getItem(LAWSUIT_FILES_INDEX_KEY),
-                    ]);
+                    await awaitWithBudget(
+                        SecureStoreService.ensureLawsuitKeysReady(),
+                        KEYS_EXIT_BUDGET_MS,
+                    );
+                    await awaitWithBudget(
+                        Promise.all([
+                            SecureStoreService.getItem(LAWSUIT_FILES_ACTIVE_KEY),
+                            SecureStoreService.getItem(LAWSUIT_FILES_INDEX_KEY),
+                        ]),
+                        KEYS_EXIT_BUDGET_MS,
+                    );
                 }
                 if (isStale()) return;
                 adoptBootFromStorage();
@@ -117,26 +196,32 @@ export async function runLawsuitFilesHydrateCycle(
                 const { recoverLawsuitWorkspaceFromLocalDisk } = await import(
                     '@/app/domain/lawsuit/lawsuitWorkspaceRecovery'
                 );
-                const recovered = await recoverLawsuitWorkspaceFromLocalDisk({
-                    includeCloud: false,
-                    fullPersistReady: false,
-                });
+                const recovered = await awaitWithBudget(
+                    recoverLawsuitWorkspaceFromLocalDisk({
+                        includeCloud: false,
+                        fullPersistReady: false,
+                    }),
+                    RECOVERY_BUDGET_MS,
+                );
                 if (isStale()) return;
-                if (recovered.ok) {
+                if (recovered?.ok) {
                     setSegments((prev) => pickRicherSegments(prev, recovered.segments));
-                } else if (recovered.diagnosis.decryptLikelyBroken) {
+                } else if (recovered?.diagnosis.decryptLikelyBroken) {
                     try {
                         const { CryptoService } = await import('@/app/services/CryptoService');
-                        await CryptoService.initialize();
+                        await awaitWithBudget(CryptoService.initialize(), KEYS_EXIT_BUDGET_MS);
                         if (isStale()) return;
-                        const retried = await recoverLawsuitWorkspaceFromLocalDisk({
-                            includeCloud: false,
-                            fullPersistReady: false,
-                        });
+                        const retried = await awaitWithBudget(
+                            recoverLawsuitWorkspaceFromLocalDisk({
+                                includeCloud: false,
+                                fullPersistReady: false,
+                            }),
+                            RECOVERY_BUDGET_MS,
+                        );
                         if (isStale()) return;
-                        if (retried.ok) {
+                        if (retried?.ok) {
                             setSegments((prev) => pickRicherSegments(prev, retried.segments));
-                        } else if (retried.diagnosis.decryptLikelyBroken) {
+                        } else if (retried?.diagnosis.decryptLikelyBroken) {
                             decryptBlocked = true;
                         }
                     } catch {
@@ -163,16 +248,6 @@ export async function runLawsuitFilesHydrateCycle(
             }
         }
 
-        /*
-         * لا تُعلن الجاهزية إن بقي مشفّر على القرص دون فكّ —
-         * وإلا تظهر «لا توجد ملفات» بينما البيانات موجودة (إخفاء كاذب).
-         */
-        if (decryptBlocked && !isStale()) {
-            setLawsuitDecryptBlocked(true);
-        } else {
-            setLawsuitDecryptBlocked(false);
-        }
-
         const afterHydrate = loadLawsuitBootSegments();
         const pendingAfterHydrate = mergeLawsuitDurabilityOverlaysInto(afterHydrate.active);
         const stillColdAfterHydrate =
@@ -188,13 +263,11 @@ export async function runLawsuitFilesHydrateCycle(
                 pendingAfterHydrate.length > 0 ||
                 bootHasLawsuitRecords(afterHydrate));
 
-        if (mayDeclareHydrated) {
-            setLawsuitStorageHydrated(true);
-            void import('@/app/services/alerts/lawsuitArchivePerfMetrics').then((m) => {
-                m.markLawsuitArchivePerf('interactive');
-                m.reportLawsuitArchivePerf();
-            });
-        }
+        await finishLawsuitArchiveHydrate(host, {
+            decryptBlocked,
+            stillColdAfterHydrate,
+            mayDeclareHydrated,
+        });
     } catch {
         if (isStale()) return;
         adoptBootFromStorage();
@@ -209,8 +282,10 @@ export async function runLawsuitFilesHydrateCycle(
             (!lawsuitDurabilityHasUncommittedWrites() ||
                 pendingAfterError.length > 0 ||
                 bootHasLawsuitRecords(afterError));
-        if (mayDeclareHydratedAfterError) {
-            setLawsuitStorageHydrated(true);
-        }
+        await finishLawsuitArchiveHydrate(host, {
+            decryptBlocked: false,
+            stillColdAfterHydrate: coldAfterError,
+            mayDeclareHydrated: mayDeclareHydratedAfterError,
+        });
     }
 }

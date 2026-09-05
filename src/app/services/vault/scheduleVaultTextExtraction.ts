@@ -2,7 +2,7 @@ import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { mergeVaultDocsWarmCache, notifySmartVaultDocsUpdated } from '@/app/services/vault/vaultDocsWarmCache';
 import { upsertVaultLocalIndexDocImmediate } from '@/app/services/vault/vaultLocalIndex';
-import { isVaultDocImage, isVaultDocPdf } from '@/app/services/vaultUploadService';
+import { isVaultDocImage, isVaultDocPdf } from '@/app/services/vault/vaultDocResolve';
 
 const inFlight = new Set<string>();
 

@@ -1,7 +1,17 @@
 /**
  * KV key/prefix ownership — مصدر واحد للقواعد (BFF + Edge legacy).
  * PRIVATE: يجب احتواء userId. الملف المهني قراءة عامة؛ المستودع ملك صاحبه.
+ *
+ * التقويم ملك صاحبه إن وُجدت بقايا KV قديمة، لكن يُحظر مروره على السحابة
+ * (`isCalendarNeverCloudKvMaterial`) — الجدول محلي مشفّر فقط.
  */
+
+/** أحداث التقويم وشواهده لا تُقرأ ولا تُكتب عبر KV — الجهاز فقط. */
+export function isCalendarNeverCloudKvMaterial(keyOrPrefix: string): boolean {
+    const k = keyOrPrefix.trim();
+    if (!k) return false;
+    return k.startsWith('calendar:') || k.startsWith('hami:calendar:');
+}
 
 function parseTwoPartySuffix(
     rawKey: string,

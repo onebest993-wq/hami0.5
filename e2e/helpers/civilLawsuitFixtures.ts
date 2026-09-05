@@ -103,17 +103,48 @@ async function nativeFillThirdPartyName(page: Page, name: string) {
 }
 
 async function fillPartyFullNames(page: Page, plaintiff: string, defendant: string) {
-    const boxes = page.getByRole('textbox', { name: 'الاسم الكامل' });
-    await expect(boxes.nth(0)).toBeVisible({ timeout: 15_000 });
-    await expect(boxes.nth(1)).toBeVisible({ timeout: 15_000 });
+    const side1 = page.locator('[data-testid="lawyer-new-case-party-name"][data-party-side="1"]');
+    const side2 = page.locator('[data-testid="lawyer-new-case-party-name"][data-party-side="2"]');
+    await expect(
+        side1
+            .or(page.getByRole('textbox', { name: 'اسم المدعي' }))
+            .or(page.getByRole('textbox', { name: 'الاسم الكامل' }))
+            .first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+        side2
+            .or(page.getByRole('textbox', { name: 'اسم المدعى عليه' }))
+            .or(page.getByPlaceholder('الاسم الكامل').nth(1))
+            .first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    if ((await side1.count()) >= 1 && (await side2.count()) >= 1) {
+        await nativeSetInputValue(
+            page,
+            '[data-testid="lawyer-new-case-party-name"][data-party-side="1"]',
+            0,
+            plaintiff,
+        );
+        await nativeSetInputValue(
+            page,
+            '[data-testid="lawyer-new-case-party-name"][data-party-side="2"]',
+            0,
+            defendant,
+        );
+        return;
+    }
+
+    const plaintiffAria = 'input[aria-label="اسم المدعي"]';
+    const defendantAria = 'input[aria-label="اسم المدعى عليه"]';
+    if ((await page.locator(plaintiffAria).count()) >= 1 && (await page.locator(defendantAria).count()) >= 1) {
+        await nativeSetInputValue(page, plaintiffAria, 0, plaintiff);
+        await nativeSetInputValue(page, defendantAria, 0, defendant);
+        return;
+    }
 
     const placeholderSel = 'input[placeholder="الاسم الكامل"]';
-    const ariaSel = 'input[aria-label="الاسم الكامل"]';
-    const placeholderCount = await page.locator(placeholderSel).count();
-    const selector = placeholderCount >= 2 ? placeholderSel : ariaSel;
-
-    await nativeSetInputValue(page, selector, 0, plaintiff);
-    await nativeSetInputValue(page, selector, 1, defendant);
+    await nativeSetInputValue(page, placeholderSel, 0, plaintiff);
+    await nativeSetInputValue(page, placeholderSel, 1, defendant);
 }
 
 export async function fillLabeledInput(page: Page, labelText: string, value: string) {

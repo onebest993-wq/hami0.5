@@ -93,6 +93,7 @@ test.describe('المنتدى القانوني', () => {
         await dismissForumBlockers(page);
         await page.getByTestId('forum-search-trigger').evaluate((el) => (el as HTMLElement).click());
         await expect(page.getByTestId('forum-search-overlay')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByTestId('forum-search-overlay')).not.toContainText('جاري');
 
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('forum-search-overlay')).toBeHidden({ timeout: 5_000 });
@@ -106,6 +107,7 @@ test.describe('المنتدى القانوني', () => {
         await dismissForumBlockers(page);
         await page.getByTestId('forum-add-question-fab').evaluate((el) => (el as HTMLElement).click());
         await expect(page.getByTestId('forum-add-question-sheet')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByTestId('forum-add-question-sheet')).not.toContainText('جاري');
 
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('forum-add-question-sheet')).toBeHidden({ timeout: 5_000 });
@@ -121,6 +123,7 @@ test.describe('المنتدى القانوني', () => {
         await expect(page.getByTestId('forum-comment-open').first()).toBeVisible({ timeout: 20_000 });
         await page.getByTestId('forum-comment-open').first().evaluate((el) => (el as HTMLElement).click());
         await expect(page.getByTestId('forum-comment-sheet')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByTestId('forum-comment-sheet')).not.toContainText('جاري');
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('forum-comment-sheet')).toBeHidden({ timeout: 5_000 });
     });

@@ -13,6 +13,8 @@ describe('section open snappiness — settings/home/execution', () => {
         );
         expect(deferred).toContain('snapTransactionsShellOpen');
         expect(deferred).toContain('snapFieldTasksShellOpen');
+        expect(deferred).toContain('paintFieldTasksInstantChrome');
+        expect(deferred).toContain('loadFieldTasksSheetModule');
         expect(deferred).toContain('snapTasksManagerShellOpen');
         expect(deferred).toContain('snapGlobalSearchShellOpen');
         const preDock = readFileSync(

@@ -53,7 +53,7 @@ describe('execution domain bridge shims', () => {
     }
 
     it('utils engines without domain twin are single-source (not duplicated shims)', () => {
-        const singleSourceEngines = ['alimonyPaymentEngine.ts', 'custodyWardDeliveryEngine.ts'];
+        const singleSourceEngines = ['custodyWardDeliveryEngine.ts'];
         for (const file of singleSourceEngines) {
             const shimPath = path.join(utilsDir, file);
             expect(fs.existsSync(shimPath)).toBe(true);

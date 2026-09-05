@@ -116,28 +116,72 @@ describe('/api/settings/cloud-sync', () => {
     expect(supabaseUpsertMock).not.toHaveBeenCalled();
   });
 
-  it('PATCH migrateLegacy copies dev_user only when current row missing', async () => {
-    const eqMock = vi
-      .fn()
-      .mockReturnValueOnce({
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: { app_data: { lawyer_settings: { legacy: true } }, updated_at: '2025-12-01' },
+    it('POST strips device-lock flags from lawyer_settings before upsert', async () => {
+    supabaseUpsertMock.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: supabaseSingleMock.mockResolvedValue({
+          data: { user_key: USER_UUID, app_data: {}, updated_at: '2026-01-02' },
           error: null,
         }),
-      })
-      .mockReturnValueOnce({
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-      });
-    supabaseSelectMock.mockReturnValue({ eq: eqMock });
-    supabaseUpsertMock.mockResolvedValue({ error: null });
+      }),
+    });
 
+    const res = await POST(
+      jsonReq('POST', {
+        app_data: {
+          lawyer_settings: {
+            security: { localOnlyMode: false, biometricLock: false },
+            data: { autoSave: true, cloudSync: true, syncNotes: true },
+            appearance: { theme: 'navy' },
+          },
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(supabaseUpsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_key: USER_UUID,
+        app_data: {
+          lawyer_settings: {
+            data: { autoSave: true },
+            appearance: { theme: 'navy' },
+          },
+        },
+      }),
+      { onConflict: 'user_key' },
+    );
+  });
+
+  it('GET seals stored app_data so device-lock flags never leave the API', async () => {
+    supabaseSelectMock.mockReturnValue({
+      eq: supabaseEqMock.mockReturnValue({
+        maybeSingle: supabaseMaybeSingleMock.mockResolvedValue({
+          data: {
+            app_data: {
+              lawyer_settings: {
+                security: { localOnlyMode: false },
+                data: { cloudSync: true, autoSave: true },
+              },
+            },
+            updated_at: '2026-01-01',
+          },
+          error: null,
+        }),
+      }),
+    });
+    const res = await GET(jsonReq('GET'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { app_data?: { lawyer_settings?: { security?: unknown; data?: unknown } } };
+    expect(body.app_data?.lawyer_settings?.security).toBeUndefined();
+    expect(body.app_data?.lawyer_settings?.data).toEqual({ autoSave: true });
+  });
+
+  it('PATCH migrateLegacy is fail-closed and never copies dev_user', async () => {
     const res = await PATCH(jsonReq('PATCH', { action: 'migrateLegacy' }));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { migrated?: boolean };
-    expect(body.migrated).toBe(true);
-    expect(supabaseUpsertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ user_key: USER_UUID }),
-      { onConflict: 'user_key' },
-    );
+    expect(body.migrated).toBe(false);
+    expect(supabaseFromMock).not.toHaveBeenCalled();
+    expect(supabaseUpsertMock).not.toHaveBeenCalled();
   });
 });

@@ -38,6 +38,7 @@ import {
 } from '@/app/context/bffAuthSyncGeneration';
 import { resolveLiveAuthUserIdForStorage } from '@/app/utils/liveAuthUserId';
 import { isPasswordRecoveryReturnUrl, isAuthCallbackReturnUrl } from '@/app/services/auth/passwordRecoveryGate';
+import { isEmailConfirmationErrorMessage } from '@/app/services/auth/emailConfirmationClient';
 import { publishAuthLogout } from '@/app/services/auth/authSessionBroadcast';
 
 function prefetchLawyerDashboardIfPhoneProduct(): void {
@@ -60,6 +61,16 @@ export type AuthProviderRuntimeBindings = {
 function systemRoleForSignup(role: 'lawyer' | 'admin'): UserRole {
     if (role === 'admin') return UserRole.SUPER_ADMIN;
     return UserRole.LAWYER;
+}
+
+/**
+ * الدخول قد يفشل بعد التسجيل لأسباب أخرى (تجاوز حد المحاولات، قفل، انقطاع خادم).
+ * إعلان «أكّد بريدك» في تلك الحالات يوجّه المستخدم لخطوة لا تحلّ مشكلته.
+ */
+function isEmailConfirmBlockedLogin(error: unknown): boolean {
+    if (!error) return false;
+    const raw = error instanceof Error ? error.message : String(error);
+    return isEmailConfirmationErrorMessage(raw);
 }
 
 /** مزامنة الجلسة بعد mount — BFF أو Supabase listener */
@@ -445,9 +456,11 @@ export async function authRegisterLawyerAccount(
     });
 
     let user: User | null = null;
+    let loginFailure: unknown = null;
     try {
         user = await authLogin(email, password, bindings);
     } catch (loginErr) {
+        loginFailure = loginErr;
         if (!signupResult.userId && !signupResult.sessionEstablished) {
             const { humanizeAuthError } = await import('@/app/services/auth/humanizeAuthError');
             throw new Error(humanizeAuthError(loginErr, 'فشل إنشاء الحساب', 'register'));
@@ -455,7 +468,8 @@ export async function authRegisterLawyerAccount(
     }
 
     const resolvedId = user?.id?.trim() || signupResult.userId;
-    const emailConfirmRequired = !user && Boolean(signupResult.userId);
+    const emailConfirmRequired =
+        !user && Boolean(signupResult.userId) && isEmailConfirmBlockedLogin(loginFailure);
     if (!resolvedId) {
         throw new Error(
             'تم إنشاء الحساب لكن تعذّر فتح الجلسة تلقائياً — سجّل الدخول يدوياً بعد تأكيد البريد إن لزم.',
@@ -636,14 +650,17 @@ export async function authRegisterLawyer(
     });
 
     let user: User | null = null;
+    let loginFailure: unknown = null;
     try {
         user = await authLogin(email, input.password, bindings);
-    } catch {
+    } catch (loginErr) {
         /* تأكيد البريد قد يمنع الجلسة — نكمل الطلب للإدارة */
+        loginFailure = loginErr;
     }
 
     const resolvedId = user?.id?.trim() || signupResult.userId;
-    const emailConfirmRequired = !user && Boolean(signupResult.userId);
+    const emailConfirmRequired =
+        !user && Boolean(signupResult.userId) && isEmailConfirmBlockedLogin(loginFailure);
     if (!resolvedId) {
         throw new Error(
             'تم إنشاء الحساب لكن تعذّر فتح الجلسة تلقائياً — سجّل الدخول يدوياً بعد تأكيد البريد إن لزم.',
@@ -812,7 +829,7 @@ async function applyMockSession(
     setIsLoading(false);
     writeDevMockAuth(mockSession);
 
-    if (params.role === 'lawyer' && !import.meta.env.DEV) {
+    if (params.role === 'lawyer') {
         prefetchLawyerDashboardIfPhoneProduct();
     }
 }
@@ -824,20 +841,13 @@ export async function authDevBypassLogin(
         throw new Error('دخول المطوّر متاح في بيئة التطوير فقط');
     }
     const { clearExplicitLocalGuest } = await import('@/app/services/auth/localGuestSession');
-    const { DEV_UNLOCK_LAWYER_ID, createDevUnlockLawyerSession, markExplicitDevUnlock } =
-        await import('@/app/services/auth/devUnlockSession');
-    const { markLegalTermsAccepted } = await import('@/app/services/auth/legalTermsAcceptance');
-    const { applyLawyerVerificationStatusFromServer } = await import(
-        '@/app/services/auth/lawyerVerificationStore'
+    const { activateLocalDevWorkLawyerSession } = await import(
+        '@/app/services/auth/localDevWorkLawyer'
     );
 
     clearExplicitLocalGuest();
-    markExplicitDevUnlock();
-    markLegalTermsAccepted();
-    applyLawyerVerificationStatusFromServer(DEV_UNLOCK_LAWYER_ID, 'active');
+    const unlocked = activateLocalDevWorkLawyerSession();
     nextBffAuthSyncGeneration();
-
-    const unlocked = createDevUnlockLawyerSession();
     bindings.setSession(unlocked.session);
     bindings.setUser(unlocked.user);
     bindings.setIsLoading(false);

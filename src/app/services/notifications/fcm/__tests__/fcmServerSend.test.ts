@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { isFcmServerConfigured, resetFcmServerCacheForTests } from '@/app/services/notifications/fcm/fcmServerSend.server';
 import { HAMI_ARRIVAL_SOUND_RAW, HAMI_LEGAL_ALARM_SOUND_RAW } from '@/app/services/notifications/native/hamiNativeSound';
 
@@ -28,5 +30,14 @@ describe('hamiNativeSound', () => {
     it('يستخدم اسم raw بدون امتداد وملف wav للقناة', () => {
         expect(HAMI_ARRIVAL_SOUND_RAW).toBe('hami_arrival');
         expect(HAMI_LEGAL_ALARM_SOUND_RAW).toBe('hami_legal_alarm');
+    });
+
+    it('حمولة FCM أندرويد تمرّر نمط اهتزاز مع الصوت', () => {
+        const src = readFileSync(
+            resolve(process.cwd(), 'src/app/services/notifications/fcm/fcmServerSend.server.ts'),
+            'utf8',
+        );
+        expect(src).toContain('vibrate_timings');
+        expect(src).toContain('default_vibrate_timings: true');
     });
 });

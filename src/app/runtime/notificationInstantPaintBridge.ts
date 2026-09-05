@@ -1,5 +1,9 @@
 import {
     NOTIFICATION_BRIDGE_ID,
+    NOTIFICATION_INSTANT_SHEET_BG,
+    NOTIFICATION_INSTANT_SHEET_RADIUS,
+    NOTIFICATION_INSTANT_TITLE_SIZE,
+    NOTIFICATION_INSTANT_TITLE_WEIGHT,
     NOTIFICATION_LAYER_SELECTOR,
 } from './notificationInstantPaintConstants';
 import { applyNotificationLayerVisible } from './notificationInstantPaintDom';
@@ -65,8 +69,8 @@ export function ensureNotificationInstantBridge(): HTMLElement | null {
       <button type="button" aria-hidden="true" tabindex="-1" class="hami-notif-overlay-btn" style="position:absolute;inset:0;border:0;padding:0;"></button>
       <div style="display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-height:0;position:relative;">
         <div class="hami-notif-sheet-track">
-          <div class="hami-notif-sheet" style="width:100%;max-height:92dvh;border-radius:1.35rem 1.35rem 0 0;background:#080D18;padding:max(0.85rem,env(safe-area-inset-top,0px)) 1rem max(12px,env(safe-area-inset-bottom,0px));box-sizing:border-box;">
-            <h1 style="margin:0;font-size:1.15rem;font-weight:800;letter-spacing:-0.03em;color:#fff;">الإشعارات</h1>
+          <div class="hami-notif-sheet" style="width:100%;max-height:92dvh;border-radius:${NOTIFICATION_INSTANT_SHEET_RADIUS};background:${NOTIFICATION_INSTANT_SHEET_BG};padding:max(0.25rem,env(safe-area-inset-top,0px)) 0.75rem max(12px,env(safe-area-inset-bottom,0px));box-sizing:border-box;">
+            <h1 style="margin:0;font-size:${NOTIFICATION_INSTANT_TITLE_SIZE};font-weight:${NOTIFICATION_INSTANT_TITLE_WEIGHT};letter-spacing:-0.02em;color:rgba(255,255,255,0.96);">الإشعارات</h1>
             <span class="sr-only">جاري فتح الإشعارات</span>
           </div>
         </div>
@@ -114,7 +118,12 @@ export function scheduleNotificationChromeHandoff(): void {
         if (!document.getElementById(NOTIFICATION_BRIDGE_ID)) {
             ensureNotificationInstantBridge();
         }
-        if (++ticks > 120) return;
+        if (++ticks > 120) {
+            const host = document.querySelector(NOTIFICATION_LAYER_SELECTOR);
+            if (host instanceof HTMLElement) applyNotificationLayerVisible(host, true);
+            removeNotificationInstantBridge();
+            return;
+        }
         chromeHandoffRaf = window.requestAnimationFrame(tick);
     };
 

@@ -228,7 +228,10 @@ export function RequireTrustedDevice({ children, className, onSessionRequired }:
             >
                 <div className={authGatePanelClass}>
                     <div className={authGateCardClass}>
-                        <p className={authGateHintClass}>جاري التحقق من الجهاز الموثوق…</p>
+                        <div className="space-y-2" aria-hidden>
+                            <div className="h-3 w-40 rounded-md bg-white/10" />
+                            <div className="h-3 w-28 rounded-md bg-white/10" />
+                        </div>
                         {error ? (
                             <p role="alert" className={authGateErrorClass}>
                                 {error}
@@ -305,8 +308,9 @@ export function RequireTrustedDevice({ children, className, onSessionRequired }:
                                     onClick={() => void handleRequestOtp()}
                                     className={authGatePrimaryBtnClass}
                                     data-testid="admin-otp-request"
+                                    aria-busy={busy || undefined}
                                 >
-                                    {busy ? 'جاري الإرسال…' : 'أرسل رمز التحقق'}
+                                    أرسل رمز التحقق
                                 </button>
                             )}
                             {error ? (
@@ -377,8 +381,9 @@ export function RequireTrustedDevice({ children, className, onSessionRequired }:
                                     disabled={busy || otp.replace(/\D/g, '').length !== 6}
                                     className={authGatePrimaryBtnClass}
                                     data-testid="admin-otp-verify"
+                                    aria-busy={busy || undefined}
                                 >
-                                    {busy ? 'جاري التحقق…' : 'تأكيد والدخول'}
+                                    تأكيد والدخول
                                 </button>
                             )}
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import {
     pruneOrphanedBridgeEvents,
@@ -6,9 +7,13 @@ import {
 } from '../calendarDossierSync';
 import { CalendarDB, type CalendarEvent } from '@/app/services/lawyer-cloud';
 import { buildStableBridgeId } from '../calendarBridge';
+import { resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 
 describe('calendar sync behavior', () => {
     beforeEach(() => {
+        SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
+        localStorage.clear();
+        resetCalendarEventsCacheForTests();
         saveLawsuitFilesRaw([]);
         vi.spyOn(CalendarDB, 'saveEvent').mockResolvedValue(undefined as never);
         vi.spyOn(CalendarDB, 'saveEventsBatch').mockResolvedValue(undefined as never);
@@ -49,20 +54,22 @@ describe('calendar sync behavior', () => {
 
     it('syncLawsuitFileToCalendar removes bridged events for archived file', async () => {
         const orphanId = buildStableBridgeId('lawsuit', '99', 'ghost');
-        vi.mocked(CalendarDB.getEvents).mockResolvedValue([
+        const stored = [
             {
                 id: orphanId,
                 userId: 'lawyer-test',
                 title: 'قديم',
                 date: '2026-01-01',
                 type: 'hearing',
-                sourceModule: 'lawsuit',
+                sourceModule: 'lawsuit' as const,
                 sourceEntityId: '99',
                 sourceEventId: 'ghost',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             },
-        ]);
+        ];
+        vi.mocked(CalendarDB.getEvents).mockResolvedValue(stored);
+        vi.mocked(CalendarDB.getAllStoredEvents).mockResolvedValue(stored);
 
         syncLawsuitFileToCalendar({ id: 99, status: 'archived', stages: [] }, 'lawyer-test');
         await new Promise((r) => setTimeout(r, 50));

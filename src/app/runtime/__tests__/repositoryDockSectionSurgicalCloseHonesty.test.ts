@@ -24,17 +24,28 @@ describe('repository dock section surgical close honesty', () => {
         expect(hook).not.toContain('REPOSITORY_SHELL_HYDRATED_EVENT');
         expect(hook).not.toContain('prefetchRepositoryOverlayChunks');
         expect(hook).toContain('بلا تركيب Host حتى الفتح');
+        expect(hook).toContain('isRepositoryOpenInFlight');
+        expect(hook).toContain('keepAlive مخفي — الخلاصة تُركَّب عند الفتح فقط');
         expect(hook).not.toContain('ركّب Host مخفياً فور وجود هوية');
         const identityBlock = hook.match(
-            /\/\*\* تسخين المقطع فور وجود هوية[\s\S]*?\}, \[userId\]\);/,
+            /\/\*\* بعد اكتمال المقطع: keepAlive مخفي[\s\S]*?\}, \[armRepositoryHost, userId\]\);/,
         )?.[0];
         expect(identityBlock).toBeTruthy();
-        expect(identityBlock).not.toContain('armRepositoryHost');
+        expect(identityBlock).toContain('armRepositoryHost');
+        expect(identityBlock).toContain('loadRepositoryHubModule');
+        expect(identityBlock).toContain('isRepositoryHubModuleResolved');
+        expect(identityBlock).toContain('isRepositoryHubJsWarmAllowed');
+        expect(identityBlock).toContain('prefetchRepositoryHubModule');
         const primeBlock = hook.match(
             /const primeRepositoryShellMount = useCallback\(\(\) => \{[\s\S]*?\}, \[userId\]\);/,
         )?.[0];
         expect(primeBlock).toBeTruthy();
         expect(primeBlock).not.toContain('armRepositoryHost');
+        const onPrimeBlock = hook.match(/const onPrime = \(\) => \{[\s\S]*?\};/)?.[0];
+        expect(onPrimeBlock).toBeTruthy();
+        expect(onPrimeBlock).toContain('prefetchRepositoryHubModule');
+        expect(onPrimeBlock).not.toContain('hydrateRepositoryBootShellForInstantOpen');
+        expect(onPrimeBlock).not.toContain('warmRepositoryHubOnHover');
         const hydrator = fs.readFileSync(
             path.join(root, 'src/app/runtime/repositoryBootHydrator.ts'),
             'utf8',
@@ -68,8 +79,15 @@ describe('repository dock section surgical close honesty', () => {
         /* كسول + تسخين بعد content-ready — كان يجرّ ٣٦٤ ك.ب إلى مقطع اللوحة */
         expect(main).toContain('LazyRepositoryOverlayEntry');
         expect(main).toContain('warmOverlayEntryChunks');
+        expect(main).toContain('prefetchRepositoryHubModule');
+        expect(main).toContain('LazyLawyerDashboardRepositoryFeatureSurfaces.preload');
         expect(main).not.toContain('RepositoryHubLoadingFallback');
+        expect(main).toContain('RepositoryInstantPaintCover');
+        expect(main).toContain('Cover احتياطي إن علّق Entry؛ الفتح ينتظر المقطع قبل التركيب');
         expect(main).toMatch(
+            /repositoryLive\s*\?\s*\(\s*<Suspense[\s\S]*?<LazyRepositoryOverlayEntry/,
+        );
+        expect(main).not.toMatch(
             /repositoryLive\s*\?\s*\(\s*<Suspense fallback=\{null\}>\s*<LazyRepositoryOverlayEntry/,
         );
         const entry = fs.readFileSync(
@@ -102,6 +120,10 @@ describe('repository dock section surgical close honesty', () => {
         expect(repoPrime).toBeTruthy();
         expect(repoPrime).toContain("prefetchDockWidgetIntentImmediate('dockRepository', 'hover')");
         expect(repoPrime).toContain('dispatchRepositoryPrimeHost');
+        expect(repoPrime).toContain('prefetchRepositoryHubModule');
+        expect(repoPrime).toContain('queueMicrotask');
+        expect(repoPrime).not.toContain('LawyerDashboardPreDockFeatureSurfaces');
+        expect(repoPrime).not.toContain("prefetchDockWidgetIntentImmediate('dockRepository', 'open')");
         expect(repoPrime).not.toContain('paintRepositoryInstantChrome()');
         expect(repoPrime).not.toContain('hydrateRepository');
         expect(gate).not.toContain("from '@/app/runtime/repositoryBootHydrator'");
@@ -115,7 +137,7 @@ describe('repository dock section surgical close honesty', () => {
         expect(homeTab).not.toContain('home-bottom-chrome');
     });
 
-    it('المستودع في PreDockFeatureSurfaces كسول بعد first-tab-open (خارج orchestration stem)', () => {
+    it('المستودع في جزيرة Vite منفصلة عن PreDock (منتدى+تقويم)', () => {
         const orch = [
             fs.readFileSync(
                 path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardPreWorkspaceOrchestration.ts'),
@@ -128,6 +150,9 @@ describe('repository dock section surgical close honesty', () => {
         ].join('\n');
         expect(orch).toContain('createPreDockFeatureStubs');
         expect(orch).toContain('repositoryFeature');
+        expect(orch).toContain('repositoryFeatureSurfacesProps');
+        expect(orch).toContain('setRepositoryForceArm');
+        expect(orch).toMatch(/if \(op === 'repository'\) \{\s*setRepositoryForceArm\(true\);/);
         expect(orch).not.toMatch(/import \{[^}]*useLawyerDashboardRepository[^}]*\} from/);
         const preDockStubs = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/createPreDockFeatureStubs.ts'),
@@ -135,6 +160,19 @@ describe('repository dock section surgical close honesty', () => {
         );
         expect(preDockStubs).toContain("requestArm('repository')");
         expect(preDockStubs).toContain('openRepository:');
+        expect(preDockStubs).toContain('paintRepositoryInstantChrome');
+        expect(preDockStubs).toContain('repository.isRepositoryOpen = true');
+        expect(preDockStubs).toContain('repository.repositoryHostMounted = true');
+        expect(preDockStubs).toContain('loadRepositoryHubModule');
+        expect(preDockStubs).toContain('readRepositoryEarlyArm');
+        const preDockEarlyFn = preDockStubs.slice(
+            preDockStubs.indexOf('export function readPreDockEarlyArm'),
+            preDockStubs.indexOf('export function readRepositoryEarlyArm'),
+        );
+        expect(preDockEarlyFn).not.toContain('readInitialRepositorySession');
+        expect(preDockStubs).not.toMatch(
+            /import\('@\/app\/components\/lawyer\/dashboard\/LawyerDashboardPreDockFeatureSurfaces'\)/,
+        );
         const preDock = fs.readFileSync(
             path.join(
                 root,
@@ -142,7 +180,17 @@ describe('repository dock section surgical close honesty', () => {
             ),
             'utf8',
         );
-        expect(preDock).toContain('useLawyerDashboardRepository');
+        expect(preDock).not.toContain('useLawyerDashboardRepository');
+        const repoSurfaces = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/LawyerDashboardRepositoryFeatureSurfaces.tsx',
+            ),
+            'utf8',
+        );
+        expect(repoSurfaces).toContain('useLawyerDashboardRepository');
+        expect(repoSurfaces).not.toContain('useLawyerDashboardCommunity');
+        expect(repoSurfaces).not.toContain('useLawyerDashboardScheduleTab');
         const stubs = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/createDeferredFeatureStubs.ts'),
             'utf8',
@@ -163,6 +211,30 @@ describe('repository dock section surgical close honesty', () => {
             'utf8',
         );
         expect(openFlow).toContain('paintRepositoryInstantChrome');
+        expect(openFlow).toContain('applyRepositoryOpenTheme');
+        expect(openFlow).not.toContain('applyRepositoryOpaqueChrome');
+        expect(openFlow).toContain('loadRepositoryHubModule');
+        expect(openFlow).toContain('isRepositoryHubModuleResolved');
+        expect(openFlow).toContain('REPOSITORY_OVERLAY_ENTRY_FAILSAFE_MS');
+        expect(openFlow).toContain('registerNativeBackHandler');
+        expect(openFlow).toContain('repositoryOpenInFlight = true');
+        expect(openFlow).toContain('canRevealLive');
+        expect(openFlow).toMatch(
+            /hostAlreadyMounted \|\| hostInDom \|\| isRepositoryHubModuleResolved\(\)/,
+        );
+        expect(openFlow).toMatch(/if \(canRevealLive\) \{\s*reveal\(\);\s*return;/);
+        expect(openFlow.indexOf('applyRepositoryOpenTheme()')).toBeLessThan(
+            openFlow.indexOf('flushSync('),
+        );
+        expect(openFlow.indexOf('flushSync(')).toBeLessThan(
+            openFlow.lastIndexOf('paintRepositoryInstantChrome();'),
+        );
+        expect(openFlow.indexOf('loadRepositoryHubModule()')).toBeLessThan(
+            openFlow.indexOf('warmRepositoryOnOpen'),
+        );
+        expect(openFlow).toMatch(
+            /loadRepositoryHubModule\(\)[\s\S]*?\.then\(\(\) => \{[\s\S]*?warmRepositoryOnOpen/,
+        );
         expect(openFlow).toContain('commitRepositoryClose');
         expect(openFlow).toContain('executeRepositoryOverlayClose');
         expect(openFlow).toContain('beginHubLayerExit');
@@ -184,6 +256,11 @@ describe('repository dock section surgical close honesty', () => {
             'utf8',
         );
         expect(chunks).toContain('prefetchRepositoryHubModule');
+        const repoPrefetchIdx = chunks.indexOf('prefetchRepositoryHubModule');
+        const schedulePrefetchIdx = chunks.indexOf('prefetchScheduleTabHostModule');
+        expect(repoPrefetchIdx).toBeGreaterThan(0);
+        expect(schedulePrefetchIdx).toBeGreaterThan(0);
+        expect(repoPrefetchIdx).toBeLessThan(schedulePrefetchIdx);
         const hookClose = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardRepository.ts'),
             'utf8',

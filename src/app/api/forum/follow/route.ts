@@ -1,6 +1,8 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumFollowRepository } from '../../../services/forum/forumFollowRepository.ts';
 import { dispatchNewFollowerNotification } from '../../../services/forum/forumNotificationDispatch.ts';
+import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
+import { sanitizeForumActorLabel } from '../../../services/forum/forumInputSecurity.ts';
 import { requireForumAuth, assertForumWriteAllowed, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -60,14 +62,17 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'follow') {
+            if (!(await checkForumActionRateLimit(auth.userId, 'follow'))) {
+                return jsonResponse(429, { ok: false, error: 'تجاوزت حد المتابعة، انتظر قليلاً' });
+            }
             const followingId = typeof payload.followingId === 'string' ? payload.followingId.trim() : '';
             if (!followingId) return jsonResponse(400, { ok: false, error: 'followingId مطلوب' });
             const prefs = parsePrefs(payload);
             const record = await ForumFollowRepository.follow(auth.userId, followingId, prefs);
             const followerName =
-                typeof payload.followerName === 'string' && payload.followerName.trim()
-                    ? payload.followerName.trim()
-                    : 'محامٍ';
+                sanitizeForumActorLabel(
+                    typeof payload.followerName === 'string' ? payload.followerName : '',
+                ) || 'محامٍ';
             void dispatchNewFollowerNotification({
                 followerId: auth.userId,
                 followerName,
@@ -77,6 +82,9 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'unfollow') {
+            if (!(await checkForumActionRateLimit(auth.userId, 'follow'))) {
+                return jsonResponse(429, { ok: false, error: 'تجاوزت حد المتابعة، انتظر قليلاً' });
+            }
             const followingId = typeof payload.followingId === 'string' ? payload.followingId.trim() : '';
             if (!followingId) return jsonResponse(400, { ok: false, error: 'followingId مطلوب' });
             await ForumFollowRepository.unfollow(auth.userId, followingId);
@@ -84,6 +92,9 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'update_prefs') {
+            if (!(await checkForumActionRateLimit(auth.userId, 'follow'))) {
+                return jsonResponse(429, { ok: false, error: 'تجاوزت حد المتابعة، انتظر قليلاً' });
+            }
             const followingId = typeof payload.followingId === 'string' ? payload.followingId.trim() : '';
             if (!followingId) return jsonResponse(400, { ok: false, error: 'followingId مطلوب' });
             const record = await ForumFollowRepository.updatePreferences(

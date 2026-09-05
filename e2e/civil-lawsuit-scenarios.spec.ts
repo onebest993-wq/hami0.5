@@ -55,14 +55,14 @@ test.describe('Civil judiciary scenarios — form branches', () => {
         await expectStageSelectValue(page, 'بداءة بدرجة أخيرة');
     });
 
-    test('opening stage list keeps extraordinary and hides first degree when undetermined', async ({ page }) => {
+    test('opening stage list hides appeal and ghayabi objection', async ({ page }) => {
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { undetermined: true, markClient: false });
         const trigger = page.getByRole('button', { name: 'المرحلة الحالية' });
         await trigger.click({ force: true });
-        await expect(page.getByRole('option', { name: 'استئناف' })).toBeVisible();
-        await expect(page.getByRole('option', { name: 'اعتراض على الحكم الغيابي' })).toBeVisible();
-        await expect(page.getByRole('option', { name: 'اعتراض الغير' })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'استئناف' })).toHaveCount(0);
+        await expect(page.getByRole('option', { name: 'اعتراض على الحكم الغيابي' })).toHaveCount(0);
+        await expect(page.getByRole('option', { name: 'اعتراض الغير', exact: true })).toBeVisible();
         await expect(page.getByRole('option', { name: 'إعادة المحاكمة' })).toBeVisible();
         await expect(page.getByRole('option', { name: 'بداءة بدرجة أولى' })).toHaveCount(0);
         await page.keyboard.press('Escape');

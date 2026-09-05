@@ -10,10 +10,10 @@ import {
 
 export const MAX_NOTIFICATION_TITLE_LEN = 200;
 export const MAX_NOTIFICATION_MESSAGE_LEN = 2000;
-export const MAX_NOTIFICATION_DEDUPE_KEY_LEN = 128;
+const MAX_NOTIFICATION_DEDUPE_KEY_LEN = 128;
 export const MAX_OS_NOTIFY_QUERY_CHARS = 4_096;
-export const MAX_FCM_TOKEN_LEN = 4_096;
-export const MIN_FCM_TOKEN_LEN = 20;
+const MAX_FCM_TOKEN_LEN = 4_096;
+const MIN_FCM_TOKEN_LEN = 20;
 
 const ALLOWED_TYPES = new Set<NotificationType>([
     'deadline',

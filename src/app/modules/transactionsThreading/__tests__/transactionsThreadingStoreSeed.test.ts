@@ -10,8 +10,8 @@ describe('groupThreadingSeedForStore', () => {
                     id: 'tx-1',
                     title: 'معاملة',
                     clientName: 'عميل',
+                    targetDepartment: 'دائرة',
                     status: TransactionStatus.Active,
-                    agreedFees: 0,
                     createdAt: '2026-01-01T00:00:00.000Z',
                     updatedAt: '2026-01-01T00:00:00.000Z',
                 },
@@ -30,7 +30,6 @@ describe('groupThreadingSeedForStore', () => {
                     completedAt: null,
                 },
             ],
-            financeRecords: [],
             documents: [],
         });
 

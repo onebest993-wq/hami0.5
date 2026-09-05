@@ -15,6 +15,7 @@ import { parseJsonResponse } from '@/app/utils/bffJsonResponse';
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { getWifeNativeFetch } from '@/app/security/wifeNativeFetch';
 import { LEGAL_TERMS_ACCEPTANCE_VERSION } from '@/app/services/auth/legalTermsVersion';
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 
 export { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 
@@ -271,14 +272,30 @@ const BFF_REFRESH_DEBOUNCE_MS = 8_000;
 let keeperIntervalId: number | null = null;
 let keeperOnVisible: (() => void) | null = null;
 let keeperOnOnline: (() => void) | null = null;
+let keeperOnAppState: ((event: Event) => void) | null = null;
 let lastRefreshAt = 0;
 
-export function stopBffSessionKeeper(): void {
-    if (typeof window === 'undefined') return;
+function stopKeeperTimer(): void {
     if (keeperIntervalId != null) {
         window.clearInterval(keeperIntervalId);
         keeperIntervalId = null;
     }
+}
+
+function startKeeperTimer(): void {
+    if (keeperIntervalId != null || typeof window === 'undefined') return;
+    keeperIntervalId = window.setInterval(tickBffRefresh, BFF_REFRESH_INTERVAL_MS);
+}
+
+function isKeeperForeground(): boolean {
+    if (typeof document === 'undefined') return false;
+    if (document.hidden) return false;
+    return document.documentElement.dataset.hamiAppActive !== '0';
+}
+
+export function stopBffSessionKeeper(): void {
+    if (typeof window === 'undefined') return;
+    stopKeeperTimer();
     if (keeperOnVisible) {
         window.removeEventListener('visibilitychange', keeperOnVisible);
         keeperOnVisible = null;
@@ -286,6 +303,10 @@ export function stopBffSessionKeeper(): void {
     if (keeperOnOnline) {
         window.removeEventListener('online', keeperOnOnline);
         keeperOnOnline = null;
+    }
+    if (keeperOnAppState) {
+        window.removeEventListener(HAMI_APP_STATE_EVENT, keeperOnAppState);
+        keeperOnAppState = null;
     }
 }
 
@@ -296,18 +317,32 @@ function tickBffRefresh(): void {
     void bffRefreshSession();
 }
 
+function applyKeeperForeground(foreground: boolean): void {
+    if (!foreground) {
+        stopKeeperTimer();
+        return;
+    }
+    tickBffRefresh();
+    startKeeperTimer();
+}
+
 /** يجدّد access cookie + crypto wrap قبل انتهاء الجلسة (~50 دقيقة). أوحد — لا فترات متداخلة. */
 export function startBffSessionKeeper(): () => void {
     if (!isBffAuthEnabled() || typeof window === 'undefined') return () => undefined;
-    if (keeperIntervalId != null) return stopBffSessionKeeper;
+    if (keeperOnVisible) return stopBffSessionKeeper;
 
-    keeperOnVisible = () => {
-        if (document.visibilityState === 'visible') tickBffRefresh();
+    keeperOnVisible = () => applyKeeperForeground(isKeeperForeground());
+    keeperOnOnline = () => {
+        if (isKeeperForeground()) tickBffRefresh();
     };
-    keeperOnOnline = () => tickBffRefresh();
+    keeperOnAppState = (event: Event) => {
+        const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+        applyKeeperForeground(detail?.isActive !== false && !document.hidden);
+    };
     window.addEventListener('visibilitychange', keeperOnVisible);
     window.addEventListener('online', keeperOnOnline);
-    keeperIntervalId = window.setInterval(tickBffRefresh, BFF_REFRESH_INTERVAL_MS);
+    window.addEventListener(HAMI_APP_STATE_EVENT, keeperOnAppState);
+    if (isKeeperForeground()) startKeeperTimer();
     return stopBffSessionKeeper;
 }
 

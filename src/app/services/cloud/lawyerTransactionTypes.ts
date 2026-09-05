@@ -4,13 +4,11 @@ export type TransactionsThreadingState = {
     updatedAt: string;
     transactions: unknown[];
     tasks: unknown[];
-    financeRecords: unknown[];
     documents: unknown[];
 };
 
 export type TransactionsThreadingSaveInput = {
     transactions: unknown[];
     tasks: unknown[];
-    financeRecords: unknown[];
     documents: unknown[];
 };

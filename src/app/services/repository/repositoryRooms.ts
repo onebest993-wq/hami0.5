@@ -61,12 +61,12 @@ export function loadRepositoryRooms(userId: string): RepositoryRoom[] {
     }
 }
 
-export function saveRepositoryRooms(userId: string, rooms: RepositoryRoom[]): void {
+function saveRepositoryRooms(userId: string, rooms: RepositoryRoom[]): void {
     if (!userId.trim()) return;
     writeSecureJsonValue(storageKey(userId), rooms);
 }
 
-export function createRepositoryRoomId(): string {
+function createRepositoryRoomId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return `room_${crypto.randomUUID()}`;
     }

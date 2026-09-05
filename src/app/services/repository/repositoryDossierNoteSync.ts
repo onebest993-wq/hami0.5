@@ -2,8 +2,9 @@ import type { FileData, CaseStage } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile, GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { DossierKind } from './repositoryDossierRegistry';
 import type { DossierNoteRef } from './repositoryDossierNotes';
+import { stripRepositoryHtml } from './stripRepositoryHtml';
 
-export type ParsedDossierNoteId = {
+type ParsedDossierNoteId = {
     kind: DossierKind;
     dossierId: string;
     noteId: string;
@@ -77,7 +78,7 @@ export function patchLawsuitDossierNote(
     return { ...file, stages: nextStages };
 }
 
-export function patchLawsuitFileNote(
+function patchLawsuitFileNote(
     file: FileData,
     noteId: string,
     patch: { text?: string; meta?: string; isPinned?: boolean },
@@ -122,43 +123,50 @@ export function patchExecutionFileNote(
 export function appendNoteToLawsuitFile(
     file: FileData,
     payload: { title: string; body: string; isPinned?: boolean },
-): FileData {
+): { file: FileData; noteId: string } {
     const notes = Array.isArray(file.notes) ? file.notes : [];
-    const nextId = Date.now();
+    const numericId = Date.now();
+    const noteId = String(numericId);
     return {
-        ...file,
-        notes: [
-            {
-                id: nextId,
-                text: payload.body,
-                meta: payload.title,
-                stageCtx: 'المستودع الذكي',
-                date: new Date().toLocaleDateString('ar-EG'),
-                isPinned: Boolean(payload.isPinned),
-            },
-            ...notes,
-        ],
+        noteId,
+        file: {
+            ...file,
+            notes: [
+                {
+                    id: numericId,
+                    text: payload.body,
+                    meta: payload.title,
+                    stageCtx: 'المستودع الذكي',
+                    date: new Date().toLocaleDateString('ar-EG'),
+                    isPinned: Boolean(payload.isPinned),
+                },
+                ...notes,
+            ],
+        },
     };
 }
 
 export function appendNoteToExecutionFile(
     file: ExecutionFile,
     payload: { title: string; body: string; pinned?: boolean },
-): ExecutionFile {
+): { file: ExecutionFile; noteId: string } {
     const notes = Array.isArray(file.caseNotesLog) ? file.caseNotesLog : [];
-    const nextId = `repo_${Date.now()}`;
+    const noteId = `repo_${Date.now()}`;
     return {
-        ...file,
-        caseNotesLog: [
-            {
-                id: nextId,
-                title: payload.title,
-                body: payload.body,
-                createdAt: new Date().toISOString(),
-                pinned: Boolean(payload.pinned),
-            },
-            ...notes,
-        ],
+        noteId,
+        file: {
+            ...file,
+            caseNotesLog: [
+                {
+                    id: noteId,
+                    title: payload.title,
+                    body: payload.body,
+                    createdAt: new Date().toISOString(),
+                    pinned: Boolean(payload.pinned),
+                },
+                ...notes,
+            ],
+        },
     };
 }
 
@@ -167,7 +175,7 @@ export function globalNoteToDossierPayload(note: GlobalNote): {
     body: string;
     isPinned: boolean;
 } {
-    const plainBody = (note.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const plainBody = stripRepositoryHtml(note.body || '');
     return {
         title: note.title?.trim() || 'ملاحظة من المستودع',
         body: note.body?.trim() || plainBody,

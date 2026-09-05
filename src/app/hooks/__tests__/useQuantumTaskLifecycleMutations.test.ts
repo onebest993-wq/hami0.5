@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { useQuantumTaskLifecycleMutations } from '../useQuantumTaskLifecycleMutations';
 import { legalTaskStub as task } from '@/app/services/tasks/__tests__/legalTaskStub';
@@ -58,6 +58,27 @@ describe('useQuantumTaskLifecycleMutations', () => {
         expect(result.current.tasks[0]!.pinnedToFieldCurtain).toBe(false);
     });
 
+    it('toggleTaskFatalDeadline clears a field-curtain pin', () => {
+        const { result } = renderHook(() =>
+            useHarness([
+                task({
+                    id: 'p1',
+                    title: 'ميدان',
+                    pinnedToFieldCurtain: true,
+                    fieldCurtainPinnedAt: new Date(),
+                }),
+            ]),
+        );
+
+        act(() => {
+            result.current.toggleTaskFatalDeadline('p1');
+        });
+
+        expect(result.current.tasks[0]!.isFatalDeadline).toBe(true);
+        expect(result.current.tasks[0]!.pinnedToFieldCurtain).toBe(false);
+        expect(result.current.tasks[0]!.fieldCurtainPinnedAt).toBeNull();
+    });
+
     it('completeTask stamps completedAt and clears the field-curtain pin', () => {
         const { result } = renderHook(() =>
             useHarness([
@@ -79,7 +100,7 @@ describe('useQuantumTaskLifecycleMutations', () => {
         expect(result.current.tasks[0]!.fieldCurtainPinnedAt).toBeNull();
     });
 
-    it('deleteTask removes a voice attachment when present', () => {
+    it('deleteTask removes a voice attachment when present', async () => {
         const { result } = renderHook(() =>
             useHarness([
                 task({
@@ -95,6 +116,8 @@ describe('useQuantumTaskLifecycleMutations', () => {
         });
 
         expect(result.current.tasks).toHaveLength(0);
-        expect(removeTaskVoiceAttachment).toHaveBeenCalledWith('hami-voice-ref:task-voice-1');
+        await waitFor(() => {
+            expect(removeTaskVoiceAttachment).toHaveBeenCalledWith('hami-voice-ref:task-voice-1');
+        });
     });
 });

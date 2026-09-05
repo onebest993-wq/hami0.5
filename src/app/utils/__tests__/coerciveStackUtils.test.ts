@@ -161,14 +161,6 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
                 outcome: 'dismissed',
             })
         ).toBe(false);
-        expect(
-            resolveForcedBringNeedsOutcomeUi({
-                forcedApproved: true,
-                forcedPending: false,
-                outcome: null,
-                requestEffectivelyEnforced: true,
-            })
-        ).toBe(false);
     });
 
     it('brought/dismissed restart patches clear outcome for new cycle', () => {
@@ -203,13 +195,13 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
         ).toBe(false);
     });
 
-    it('still shows outcome UI when enforcement badge lags behind approval', () => {
+    it('shows outcome UI even when decision is legally enforced (نافذ)', () => {
         expect(
             resolveForcedBringNeedsOutcomeUi({
                 forcedApproved: true,
                 forcedPending: false,
                 outcome: null,
-                requestEffectivelyEnforced: false,
+                requestEffectivelyEnforced: true,
             })
         ).toBe(true);
     });
@@ -423,15 +415,16 @@ describe('buildExecutiveDetentionReleasePatch', () => {
 });
 
 describe('buildExecutiveDetentionJudgeRejectedClosurePatch', () => {
-    it('closes dossier lane and keeps judge rejection for appeals', () => {
+    it('keeps judge_decided phase and does not mark release (cards stay visible)', () => {
         const patch = buildExecutiveDetentionJudgeRejectedClosurePatch(
             '2026-08-04T12:00:00.000Z',
             'لا يوجد سبب',
             'judge-dec-1',
         );
-        expect(patch.executive_dossier_phase).toBeNull();
+        expect(patch.executive_dossier_phase).toBe('judge_decided');
         expect(patch.executive_detention_judge_outcome).toBe('rejected');
         expect(patch.executive_detention_judge_decision_id).toBe('judge-dec-1');
-        expect(patch.executive_detention_released_or_closed_at).toBe('2026-08-04T12:00:00.000Z');
+        expect(patch.executive_detention_released_or_closed_at).toBeUndefined();
+        expect(patch.executive_detention_judge_rejected_at).toBe('2026-08-04T12:00:00.000Z');
     });
 });

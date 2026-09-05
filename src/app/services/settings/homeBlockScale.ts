@@ -6,10 +6,6 @@ const SIZE_SCALE: Record<HomeBlockSize, number> = {
     large: 1.18,
 };
 
-export function resolveBlockSizeScale(size: HomeBlockSize = 'normal'): number {
-    return SIZE_SCALE[size];
-}
-
 /** مقياس موحّد للنص والأيقونة داخل البطاقة */
 export function resolveContentScale(
     override: HomeBlockStyleOverride | undefined,
@@ -35,11 +31,6 @@ export function hubRouteTitleRemHalf(size: HomeBlockSize = 'normal'): number {
 /** أحجام خط البطاقات الصغيرة (دعاوى / معاملات) */
 export function hubRouteTitleRem(size: HomeBlockSize = 'normal'): number {
     return { compact: 1.38, normal: 1.82, large: 2.08 }[size];
-}
-
-/** أحجام خط بطاقة التنفيذ */
-export function hubExecutionTitleRem(size: HomeBlockSize = 'normal'): number {
-    return { compact: 2.15, normal: 2.85, large: 3.25 }[size];
 }
 
 export function hubIconBoxPx(size: HomeBlockSize = 'normal'): number {

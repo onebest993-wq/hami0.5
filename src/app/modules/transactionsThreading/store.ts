@@ -96,7 +96,6 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     syncThreadingToCalendar,
   });
 
-
   return {
   userId: null,
   setUserId: async (userId) => {
@@ -122,7 +121,7 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     return refreshTransactionsInflight;
   },
 
-  /** مهام + مستمسكات فقط — المالية لم تعد على واجهة التفاصيل */
+  /** مهام + مستمسكات للمعاملة المحددة */
   refreshTransactionData: async (transactionId) => {
     const existing = refreshDataInflight.get(transactionId);
     if (existing) return existing;

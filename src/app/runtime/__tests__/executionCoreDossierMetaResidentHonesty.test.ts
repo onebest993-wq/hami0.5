@@ -97,6 +97,13 @@ describe('execution Core — resident followup open honesty (W0b)', () => {
         ),
         'utf8',
     );
+    const dossierPaintPrefetchSrc = readFileSync(
+        join(
+            process.cwd(),
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/prefetchExecutionHandlersForDossierPaint.ts',
+        ),
+        'utf8',
+    );
     const shellSrc = readFileSync(
         join(
             process.cwd(),
@@ -130,8 +137,9 @@ describe('execution Core — resident followup open honesty (W0b)', () => {
         expect(coreSrc).toContain('useExecutionDashboardCoreHandlerPrefetchEffects');
         expect(prefetchEffectsSrc).toContain('registerExecutionHandlerStubNotifier');
         expect(prefetchEffectsSrc).toContain('prefetchExecutionHandlersForStubPath');
-        expect(prefetchEffectsSrc).toContain('followup-admin-special');
-        expect(prefetchEffectsSrc).toContain('followup-dossier-controls');
+        expect(prefetchEffectsSrc).toContain('prefetchExecutionHandlersForOpenFollowup');
+        expect(dossierPaintPrefetchSrc).toContain('followup-admin-special');
+        expect(dossierPaintPrefetchSrc).toContain('followup-dossier-controls');
     });
 
     it('Shell الحي يحمل عقود e2e testid', () => {

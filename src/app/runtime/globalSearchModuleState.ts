@@ -7,7 +7,3 @@ export function isGlobalSearchOverlayModuleResolved(): boolean {
 export function markGlobalSearchOverlayModuleResolved(): void {
     overlayModuleResolved = true;
 }
-
-export function resetGlobalSearchOverlayModuleStateForTests(): void {
-    overlayModuleResolved = false;
-}

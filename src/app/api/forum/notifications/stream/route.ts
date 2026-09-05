@@ -1,5 +1,5 @@
-import { requireForumAuth } from '../../_auth.ts';
-
+import { requireForumAuth, jsonResponse } from '../../_auth.ts';
+import { applyWifeSecurityHeaders } from '../../../security/wifeSecurityHeaders.ts';
 import { ServerNotificationDB } from '../../../../services/notifications/notificationForumStorage.server.ts';
 
 
@@ -226,7 +226,7 @@ export async function GET(request: Request): Promise<Response> {
 
 
 
-        return new Response(stream, {
+        return applyWifeSecurityHeaders(new Response(stream, {
 
             status: 200,
 
@@ -240,17 +240,11 @@ export async function GET(request: Request): Promise<Response> {
 
             },
 
-        });
+        }));
 
     } catch {
 
-        return new Response(JSON.stringify({ ok: false, error: 'Internal server error' }), {
-
-            status: 500,
-
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-
-        });
+        return jsonResponse(500, { ok: false, error: 'Internal server error' });
 
     }
 

@@ -34,6 +34,11 @@ vi.mock('@/app/infrastructure/notificationPeekLite', () => ({
     hasStoredLocalNotifications: (userId: string) => hasStoredLocalNotificationsMock(userId),
 }));
 
+vi.mock('@/app/services/notifications/notificationReadSync', () => ({
+    syncShellReadToForum: vi.fn().mockResolvedValue(undefined),
+    syncShellMarkAllReadToForum: vi.fn().mockResolvedValue(undefined),
+}));
+
 function makeNotif(id: string, isRead = false): NotificationModel {
     return {
         id,
@@ -281,5 +286,200 @@ describe('notificationStore', () => {
         });
         await useNotificationStore.getState().fetchNotifications('user-1');
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('fetchNotifications لا يكتب وارد مستخدم بعد تبديل الحساب', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const fetchMock = vi.mocked(NotificationRepository.fetchNotifications);
+        let release: (value: NotificationModel[]) => void = () => undefined;
+        let hanging = false;
+        fetchMock.mockImplementationOnce(
+            () =>
+                new Promise<NotificationModel[]>((resolve) => {
+                    hanging = true;
+                    release = resolve;
+                }),
+        );
+        useNotificationStore.getState().setUserId('user-a');
+        const pending = useNotificationStore.getState().fetchNotifications('user-a');
+        await vi.waitFor(() => {
+            expect(hanging).toBe(true);
+        });
+        useNotificationStore.getState().setUserId('user-b');
+        release([makeNotif('from-a')]);
+        await pending;
+        const state = useNotificationStore.getState();
+        expect(state.currentUserId).toBe('user-b');
+        expect(state.notifications).toEqual([]);
+    });
+
+    it('markAllAsRead يُبقي إشعاراً وصل أثناء الحفظ', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const markMock = vi.mocked(NotificationRepository.markAllAsRead);
+        let release: () => void = () => undefined;
+        let hanging = false;
+        markMock.mockImplementationOnce(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    hanging = true;
+                    release = () => resolve(true);
+                }),
+        );
+        useNotificationStore.setState({
+            currentUserId: 'user-1',
+            notifications: [makeNotif('a')],
+            unreadCount: 1,
+        });
+        const pending = useNotificationStore.getState().markAllAsRead('user-1');
+        await vi.waitFor(() => {
+            expect(hanging).toBe(true);
+        });
+        useNotificationStore.getState().addNotification(makeNotif('fresh'));
+        expect(useNotificationStore.getState().notifications.some((n) => n.id === 'fresh')).toBe(
+            true,
+        );
+        release();
+        await pending;
+        const state = useNotificationStore.getState();
+        expect(state.notifications.some((n) => n.id === 'fresh')).toBe(true);
+        expect(state.notifications.find((n) => n.id === 'a')?.isRead).toBe(true);
+        expect(state.unreadCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('markAsRead يُبقي إشعاراً وصل أثناء الحفظ', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const markMock = vi.mocked(NotificationRepository.markAsRead);
+        let release: () => void = () => undefined;
+        let hanging = false;
+        markMock.mockImplementationOnce(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    hanging = true;
+                    release = () => resolve(true);
+                }),
+        );
+        useNotificationStore.setState({
+            currentUserId: 'user-1',
+            notifications: [makeNotif('a')],
+            unreadCount: 1,
+        });
+        const pending = useNotificationStore.getState().markAsRead('user-1', 'a');
+        await vi.waitFor(() => {
+            expect(hanging).toBe(true);
+        });
+        useNotificationStore.getState().addNotification(makeNotif('fresh'));
+        expect(useNotificationStore.getState().notifications.some((n) => n.id === 'fresh')).toBe(
+            true,
+        );
+        release();
+        await pending;
+        const state = useNotificationStore.getState();
+        expect(state.notifications.some((n) => n.id === 'fresh')).toBe(true);
+        expect(state.notifications.find((n) => n.id === 'a')?.isRead).toBe(true);
+        expect(state.unreadCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('removeNotification لا يحفظ وارد مستخدم بعد تبديل الحساب', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const saveMock = vi.mocked(NotificationRepository.saveNotifications);
+        saveMock.mockClear();
+        useNotificationStore.setState({
+            currentUserId: 'user-1',
+            notifications: [makeNotif('a'), makeNotif('b')],
+            unreadCount: 2,
+        });
+        useNotificationStore.getState().removeNotification('a');
+        useNotificationStore.getState().setUserId('user-2');
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(saveMock).not.toHaveBeenCalled();
+        expect(useNotificationStore.getState().currentUserId).toBe('user-2');
+        expect(useNotificationStore.getState().notifications).toEqual([]);
+    });
+
+    it('markAllAsRead يحفظ عند استبدال عنصر بنفس الطول أثناء الحفظ', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const markMock = vi.mocked(NotificationRepository.markAllAsRead);
+        const saveMock = vi.mocked(NotificationRepository.saveNotifications);
+        let release: () => void = () => undefined;
+        let hanging = false;
+        markMock.mockImplementationOnce(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    hanging = true;
+                    release = () => resolve(true);
+                }),
+        );
+        saveMock.mockClear();
+        useNotificationStore.setState({
+            currentUserId: 'user-1',
+            notifications: [makeNotif('a'), makeNotif('b')],
+            unreadCount: 2,
+        });
+        const pending = useNotificationStore.getState().markAllAsRead('user-1');
+        await vi.waitFor(() => {
+            expect(hanging).toBe(true);
+        });
+        useNotificationStore.getState().removeNotification('a');
+        useNotificationStore.getState().addNotification(makeNotif('c'));
+        release();
+        await pending;
+        const state = useNotificationStore.getState();
+        expect(state.notifications.some((n) => n.id === 'c')).toBe(true);
+        expect(state.notifications.some((n) => n.id === 'a')).toBe(false);
+        expect(state.notifications.find((n) => n.id === 'b')?.isRead).toBe(true);
+        expect(saveMock).toHaveBeenCalled();
+    });
+
+    it('markAsRead يزامن المنتدى حتى بعد تبديل الحساب أثناء الحفظ', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const { syncShellReadToForum } = await import(
+            '@/app/services/notifications/notificationReadSync'
+        );
+        const markMock = vi.mocked(NotificationRepository.markAsRead);
+        const forumSync = vi.mocked(syncShellReadToForum);
+        forumSync.mockClear();
+        let release: () => void = () => undefined;
+        let hanging = false;
+        markMock.mockImplementationOnce(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    hanging = true;
+                    release = () => resolve(true);
+                }),
+        );
+        useNotificationStore.setState({
+            currentUserId: 'user-1',
+            notifications: [
+                {
+                    ...makeNotif('forum-1'),
+                    type: 'forum_reply',
+                    title: 'رد جديد على سؤالك',
+                },
+            ],
+            unreadCount: 1,
+        });
+        const pending = useNotificationStore.getState().markAsRead('user-1', 'forum-1');
+        await vi.waitFor(() => {
+            expect(hanging).toBe(true);
+        });
+        useNotificationStore.getState().setUserId('user-2');
+        release();
+        await pending;
+        expect(useNotificationStore.getState().currentUserId).toBe('user-2');
+        expect(useNotificationStore.getState().notifications).toEqual([]);
+        expect(forumSync).toHaveBeenCalledWith('user-1', 'forum-1');
     });
 });

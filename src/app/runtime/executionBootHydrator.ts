@@ -1,9 +1,10 @@
 /**
  * Phase-2: تسخين مسار Instant إضبارة التنفيذ.
- * first-paint للإضبارة لا يُلغى بـ lite — أول فتح على الموبايل كان بارداً دائماً.
+ * على lite / 2G: فقط إن كان آخر قسم تنفيذاً — وإلا ينافس المنزل على قيد الجهاز/الشبكة.
  */
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
+    isRecencyBackgroundWarmAllowed,
     isSectionBackgroundPrefetchAllowed,
     sectionBackgroundHydrateDelayMs,
 } from '@/app/runtime/sectionPrefetchPolicy';
@@ -22,9 +23,9 @@ function executionHeavyPrefetchAllowed(): boolean {
     return isSectionBackgroundPrefetchAllowed();
 }
 
-/** مسار الإضبارة الحرج — يعمل حتى مع lite (ما لم يُعطَّل prefetchScreens / localOnly) */
+/** مسار الإضبارة الحرج — كامل خارج القيد؛ على lite / 2G / المحلي فقط إن كان آخر قسم تنفيذاً */
 function executionDossierPrimeAllowed(): boolean {
-    return isSectionBackgroundPrefetchAllowed({ allowOnLite: true });
+    return executionHeavyPrefetchAllowed() || isRecencyBackgroundWarmAllowed('execution');
 }
 
 function hydrateDelayMs(): number {
@@ -46,11 +47,14 @@ function runExecutionBootPrime(): void {
     primeExecutionDossierSurface({ includeFeatureStyles: false });
     if (executionHeavyPrefetchAllowed()) {
         prefetchExecutionDashboardChromeWarm();
+        void import('@/app/runtime/overlayHeavyStamp')
+            .then((m) => m.stampMainViewOverlayEntryPreloads())
+            .catch(() => undefined);
     }
     dispatchHydratedOnce();
 }
 
-/** تسخين فوري بعد رفع حاجز الإقلاع — first-paint للإضبارة دائماً (حتى lite). */
+/** تسخين فوري بعد رفع حاجز الإقلاع — first-paint للإضبارة خارج lite أو عند recency تنفيذ. */
 export function prefetchExecutionAfterBootReveal(): void {
     if (typeof window === 'undefined' || coldBootPrefetchStarted) return;
     if (!executionDossierPrimeAllowed()) return;

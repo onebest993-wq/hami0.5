@@ -5,7 +5,7 @@ import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
 import { djb2Hash as hashText } from '@/app/utils/djb2';
 
-export type RepositoryFeedBuildInput = {
+type RepositoryFeedBuildInput = {
     globalNotes: GlobalNote[];
     lawsuitFiles: FileData[];
     executionFiles: ExecutionFile[];
@@ -22,6 +22,7 @@ function globalNoteSig(n: RepositoryFeedBuildInput['globalNotes'][number]): stri
         n.type ?? '',
         n.attachmentDocId ?? '',
         n.linkedFileId ?? '',
+        n.roomId ?? '',
         hashText(n.title ?? ''),
         hashText(n.body ?? ''),
         (n.tags ?? []).join(','),
@@ -69,7 +70,10 @@ export function buildRepositoryFeedCacheKey(input: RepositoryFeedBuildInput): st
     const lawsuitSig = `${input.lawsuitFiles.length}:${input.lawsuitFiles.map(lawsuitFileSig).join('|')}`;
     const execSig = `${input.executionFiles.length}:${input.executionFiles.map(executionFileSig).join('|')}`;
     const vaultSig = `${input.vaultDocs.length}:${input.vaultDocs
-        .map((d) => `${d.id}:${d.updatedAt ?? ''}:${d.boundDossierId ?? ''}`)
+        .map(
+            (d) =>
+                `${d.id}:${d.updatedAt ?? ''}:${d.boundDossierId ?? ''}:${d.roomId ?? ''}:${hashText(d.title)}:${d.customCategory ?? ''}:${hashText(d.lawyerNote ?? '')}`,
+        )
         .join(',')}`;
     return `${notesSig}::${lawsuitSig}::${execSig}::${vaultSig}`;
 }

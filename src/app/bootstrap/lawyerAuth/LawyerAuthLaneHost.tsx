@@ -1,4 +1,4 @@
-import React, { useEffect, type ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { useAuthSafe } from '@/app/context/authHooks';
 import { useLawyerDashboardAuth } from '@/app/hooks/lawyerDashboard/useLawyerDashboardAuth';
 

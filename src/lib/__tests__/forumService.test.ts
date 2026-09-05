@@ -58,6 +58,7 @@ describe('forumService', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
         vi.useRealTimers();
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
     });
 
     it('buildForumMediaStoragePath يضع الملف تحت images مشفرة', async () => {
@@ -117,5 +118,17 @@ describe('forumService', () => {
         onUpdate.mockClear();
         await vi.advanceTimersByTimeAsync(10_000);
         expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('subscribeToPostComments لا يجلب والمنتبى مخفي', async () => {
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+        const { ForumApiService } = await import('@/app/services/forumApiService');
+        const { subscribeToPostComments } = await import('@/lib/forumService.js');
+        const unsubscribe = subscribeToPostComments('p1', vi.fn());
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(ForumApiService.getPostById).not.toHaveBeenCalled();
+        unsubscribe();
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
     });
 });

@@ -4,6 +4,10 @@ vi.mock('../lawyerNetworkRepository', () => ({
     listNetworkColleagues: vi.fn(),
 }));
 
+vi.mock('@/app/services/settings/collaborationNetworkGate', () => ({
+    canReachCollaborationNetwork: () => true,
+}));
+
 import { listNetworkColleagues } from '../lawyerNetworkRepository';
 import { assertRecipientInNetwork } from '../caseShareNetworkGuard';
 import { PERSONAS } from './caseShareTestFixtures';

@@ -1,12 +1,12 @@
 import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
 
-export const GLOBAL_SEARCH_NAV_ID_MAX = 128;
-export const GLOBAL_SEARCH_STAGE_INDEX_MAX = 512;
+const GLOBAL_SEARCH_NAV_ID_MAX = 128;
+const GLOBAL_SEARCH_STAGE_INDEX_MAX = 512;
 
 const UNSAFE_ID_CHARS = /[<>'"\u0000-\u001F\u007F]/;
 const SCHEME_ID = /^(javascript|data|vbscript):/i;
 
-export function sanitizeSearchEntityId(raw: unknown): string | null {
+function sanitizeSearchEntityId(raw: unknown): string | null {
     if (raw == null) return null;
     const id = String(raw).trim();
     if (!id || id.length > GLOBAL_SEARCH_NAV_ID_MAX) return null;
@@ -14,7 +14,7 @@ export function sanitizeSearchEntityId(raw: unknown): string | null {
     return id;
 }
 
-export function sanitizeSearchCalendarDate(raw: unknown): string | null {
+function sanitizeSearchCalendarDate(raw: unknown): string | null {
     const s = String(raw ?? '').trim();
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
     if (!m) return null;
@@ -32,7 +32,7 @@ export function sanitizeSearchCalendarDate(raw: unknown): string | null {
     return s;
 }
 
-export function sanitizeSearchStageIndex(raw: unknown): number | null {
+function sanitizeSearchStageIndex(raw: unknown): number | null {
     if (typeof raw !== 'number' || !Number.isInteger(raw)) return null;
     if (raw < 0 || raw > GLOBAL_SEARCH_STAGE_INDEX_MAX) return null;
     return raw;

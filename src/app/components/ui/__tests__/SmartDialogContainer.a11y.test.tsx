@@ -76,6 +76,28 @@ describe('SmartDialogContainer accessibility', () => {
         await expect(second).resolves.toBe(false);
     });
 
+    it('dismissAll يلغي الظاهر والمكدّس دون تسريب الوعود', async () => {
+        const { dismissAllSmartDialogs } = await import('@/app/components/ui/smartDialogBus');
+        render(<SmartDialogContainer />);
+        let first!: Promise<boolean>;
+        let second!: Promise<boolean>;
+        act(() => {
+            first = SmartDialog.confirm('الأول', { title: 'الحوار الأول' });
+            second = SmartDialog.confirm('الثاني', { title: 'الحوار الثاني' });
+        });
+        expect(await screen.findByRole('dialog', { name: 'الحوار الأول' })).toBeInTheDocument();
+
+        act(() => {
+            dismissAllSmartDialogs();
+        });
+
+        await expect(first).resolves.toBe(false);
+        await expect(second).resolves.toBe(false);
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        });
+    });
+
     it('يرفع الحوار فوق لوحة المفاتيح ويحافظ على أهداف لمس 44px', async () => {
         render(<SmartDialogContainer />);
         act(() => {

@@ -6,7 +6,7 @@ import {
 
 const MARK_PREFIX = 'hami:global-search:';
 
-export type GlobalSearchPerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
+type GlobalSearchPerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
 
 export type { GlobalSearchPerfReportContext };
 

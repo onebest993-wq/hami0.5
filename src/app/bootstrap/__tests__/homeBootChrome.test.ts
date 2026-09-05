@@ -207,12 +207,12 @@ describe('homeBootChrome', () => {
         expect(isHomeGridRevealReady(grid)).toBe(true);
     });
 
-    it('لا يُعلن الجاهزية أثناء فك الملف المحلي', async () => {
+    it('يُعلن الجاهزية أثناء فك الملف المحلي — الاسم يُغنى بعد الكشف', async () => {
         const { setLawyerProfileBootWarmPending, resetLawyerProfileBootWarmPendingForTests } =
             await import('@/app/services/profile/profileBootWarmPending');
         setLawyerProfileBootWarmPending(true);
         markHomeBootChromeReadyForTests();
-        expect(isHomeBootChromeReady()).toBe(false);
+        expect(isHomeBootChromeReady()).toBe(true);
         resetLawyerProfileBootWarmPendingForTests();
         expect(isHomeBootChromeReady()).toBe(true);
     });

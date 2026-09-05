@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import {
+    dismissSettingsSmartDialogs,
+    enterSmartDialogScope,
+    exitSmartDialogScope,
+    SMART_DIALOG_SCOPE_SETTINGS,
+} from '@/app/components/ui/smartDialogBus';
 import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     openSettingsFromShell,
@@ -9,11 +15,10 @@ import {
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import { executeSettingsOverlayClose } from '@/app/runtime/overlaySnapClose';
 import {
-    clearSettingsForceVisible,
     concealSettingsWarmShell,
     hasSettingsOverlayHost,
+    isSettingsOverlayCssExiting,
     isSettingsReopenSuppressed,
-    removeSettingsInstantBridge,
     suppressSettingsReopen,
 } from '@/app/runtime/settingsInstantPaint';
 import {
@@ -32,10 +37,7 @@ import {
     primeSettingsHostMount,
     useSettingsHostLifecycle,
 } from '@/app/hooks/lawyerDashboard/settings/useSettingsHostLifecycle';
-import {
-    snapSettingsShellClose,
-} from '@/app/services/settings/settingsShellSnap';
-import { SETTINGS_PRIME_HOST_EVENT } from '@/app/runtime/settingsShellEvents';
+import { SETTINGS_INSTANT_DISMISS_EVENT, SETTINGS_PRIME_HOST_EVENT } from '@/app/runtime/settingsShellEvents';
 
 function loadSettingsBootHydrator() {
     return import('@/app/runtime/settingsBootHydrator');
@@ -77,9 +79,9 @@ function persistSettingsSessionDeferred(open: boolean): void {
 }
 
 /**
- * مسار فتح/إغلاق — نمط الإشعارات:
- * - فتح: snap + paint فوري → setState بلا flushSync
- * - إغلاق: conceal فوري → setState بلا flushSync
+ * مسار فتح/إغلاق:
+ * - فتح: markSettingsOverlayRevealed عبر الطلاء الفوري → setState بلا flushSync
+ * - إغلاق: beginSettingsShellExit ثم concealSettingsWarmShell → setState بلا flushSync
  */
 export function useLawyerDashboardSettings(userId: string | null) {
     const [initialSession] = useState(() => readInitialSettingsSession());
@@ -125,16 +127,14 @@ export function useLawyerDashboardSettings(userId: string | null) {
     }, [ensureSettingsHostMounted]);
 
     const closeSettings = useCallback(() => {
+        dismissSettingsSmartDialogs();
         openInFlightRef.current = false;
         suppressSettingsReopen();
         beginSettingsShellExit(() => {
             showSettingsRef.current = false;
             executeSettingsOverlayClose({
                 conceal: () => {
-                    snapSettingsShellClose();
                     concealSettingsWarmShell({ suppressReopen: true });
-                    clearSettingsForceVisible();
-                    removeSettingsInstantBridge();
                 },
                 commit: () => {
                     setShowSettings(false);
@@ -145,16 +145,23 @@ export function useLawyerDashboardSettings(userId: string | null) {
     }, []);
 
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onInstantDismiss = () => {
+            closeSettings();
+        };
+        window.addEventListener(SETTINGS_INSTANT_DISMISS_EVENT, onInstantDismiss);
+        return () => window.removeEventListener(SETTINGS_INSTANT_DISMISS_EVENT, onInstantDismiss);
+    }, [closeSettings]);
+
+    useEffect(() => {
         if (signedIn) return;
+        dismissSettingsSmartDialogs();
         openInFlightRef.current = false;
         showSettingsRef.current = false;
         settingsHostMountedRef.current = false;
         setShowSettings(false);
         setSettingsHostMounted(false);
-        snapSettingsShellClose();
         concealSettingsWarmShell();
-        clearSettingsForceVisible();
-        removeSettingsInstantBridge();
         persistSettingsSessionOpen(false);
     }, [signedIn]);
 
@@ -188,13 +195,22 @@ export function useLawyerDashboardSettings(userId: string | null) {
         }
     }, [showSettings]);
 
+    useEffect(() => {
+        if (!showSettings) {
+            exitSmartDialogScope(SMART_DIALOG_SCOPE_SETTINGS);
+            return;
+        }
+        enterSmartDialogScope(SMART_DIALOG_SCOPE_SETTINGS);
+        return () => exitSmartDialogScope(SMART_DIALOG_SCOPE_SETTINGS);
+    }, [showSettings]);
+
     const openSettings = useCallback(() => {
         openSettingsFromShell({
             signedIn,
             onSignedOut: () =>
                 SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${SETTINGS_SHELL_FEATURE}`),
             onOpen: () => {
-                if (isSettingsReopenSuppressed()) return;
+                if (isSettingsReopenSuppressed() || isSettingsOverlayCssExiting()) return;
                 if (showSettingsRef.current || openInFlightRef.current) return;
                 openInFlightRef.current = true;
                 try {

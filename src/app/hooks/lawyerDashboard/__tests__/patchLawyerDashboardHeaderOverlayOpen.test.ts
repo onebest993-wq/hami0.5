@@ -34,7 +34,9 @@ function baseReadyView(
         } as never,
         postInteractiveRuntimeProps: {} as never,
         deferredFeatureSurfacesProps: {} as never,
+        fieldTasksFeatureSurfacesProps: {} as never,
         preDockFeatureSurfacesProps: {} as never,
+        repositoryFeatureSurfacesProps: {} as never,
         navigationSurfacesProps: {} as never,
         ...overrides,
     };

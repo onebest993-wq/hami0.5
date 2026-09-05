@@ -5,6 +5,10 @@ import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
 import { resolveForumAuthorDisplayName } from '../../../services/forum/forumAuthorResolver.ts';
 import { sanitizeCommunityCommentForCreate } from '../../../services/forum/forumPostCreateGuard.ts';
 import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
+import {
+    assertForumPostAcceptsComments,
+    resolveForumReplyParentId,
+} from '../../../services/forum/forumCommentAddGuard.ts';
 import { UserRole } from '../../../types/admin-types.ts';
 import { requireForumAuthAndUnbanned, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
@@ -42,6 +46,12 @@ export async function POST(request: Request): Promise<Response> {
         await assertForumPostGroupAccess(existingPost, auth.userId, auth.isAdmin);
 
         if (payload.action === 'add') {
+            try {
+                assertForumPostAcceptsComments(existingPost);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'النقاش مقفل';
+                return jsonResponse(423, { ok: false, error: message });
+            }
             if (!(await checkForumActionRateLimit(auth.userId, 'comment'))) {
                 return jsonResponse(429, { ok: false, error: 'تجاوزت حد التعليقات، انتظر قليلاً' });
             }
@@ -63,6 +73,12 @@ export async function POST(request: Request): Promise<Response> {
                 typeof payload.comment.parentId === 'string' && payload.comment.parentId.trim()
                     ? payload.comment.parentId.trim()
                     : undefined;
+            try {
+                resolveForumReplyParentId(existingPost.comments, parentId);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'التعليق الأصل غير صالح';
+                return jsonResponse(400, { ok: false, error: message });
+            }
             const comment = sanitizeCommunityCommentForCreate({
                 postId,
                 authorId: auth.userId,

@@ -25,4 +25,10 @@ describe('notification inbox mute helpers', () => {
         expect(parsed).not.toBeNull();
         expect(Math.abs((parsed as number) - ms)).toBeLessThan(60_000);
     });
+
+    it('يفسّر datetime-local كوقت محلي لا UTC', () => {
+        const parsed = parseDatetimeLocalToMuteUntil('2099-06-13T14:00');
+        expect(parsed).toBe(new Date(2099, 5, 13, 14, 0).getTime());
+        expect(parseDatetimeLocalToMuteUntil('not-a-date')).toBeNull();
+    });
 });

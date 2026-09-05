@@ -207,4 +207,9 @@ describe('forumCatchJsonResponse', () => {
         const res = forumCatchJsonResponse(new Error('المنشور غير موجود'));
         expect(res.status).toBe(404);
     });
+
+    it('يمرّر مستنداً لا يخصّ الطالب كـ 403', async () => {
+        const res = forumCatchJsonResponse(new Error('المستند غير موجود أو لا يخصّك'));
+        expect(res.status).toBe(403);
+    });
 });

@@ -37,7 +37,7 @@ const ENGLISH_TOKEN_MAP: Record<string, string> = {
     outgoing: 'صادر',
 };
 
-export function isUuidLike(value: unknown): boolean {
+function isUuidLike(value: unknown): boolean {
     return UUID_RE.test(String(value ?? '').trim());
 }
 
@@ -50,7 +50,7 @@ function normalizeArabicToken(value: string): string {
         .replace(/ى/g, 'ي');
 }
 
-export function isTechnicalNotificationToken(value: unknown): boolean {
+function isTechnicalNotificationToken(value: unknown): boolean {
     const v = String(value ?? '').trim();
     if (!v) return true;
     if (isUuidLike(v)) return true;
@@ -61,7 +61,7 @@ export function isTechnicalNotificationToken(value: unknown): boolean {
     return false;
 }
 
-export function isNoiseDossierLabel(value: unknown, module?: string): boolean {
+function isNoiseDossierLabel(value: unknown, module?: string): boolean {
     const v = String(value ?? '').trim();
     if (!v) return true;
     if (isTechnicalNotificationToken(v)) return true;
@@ -119,25 +119,6 @@ export function formatAuditCaseReference(p: {
     }
     if (parts.length > 0) return parts.join(' — ');
     return p.fallback ?? 'إضبارة مسجّلة';
-}
-
-export function buildAuditActivityMessage(p: {
-    caseNo?: string | null;
-    clientName?: string | null;
-    fileNumber?: string | null;
-    detail: string;
-    module?: string;
-}): string {
-    const detail = String(p.detail ?? '').trim();
-    const ref = formatAuditCaseReference({
-        caseNo: p.caseNo,
-        fileNumber: p.fileNumber,
-        clientName: p.clientName,
-        module: p.module,
-        fallback: '',
-    });
-    if (ref && detail && !detail.includes(ref)) return `${ref} • ${detail}`;
-    return detail || ref || 'إجراء في الإضبارة';
 }
 
 /** تنقّلات واجهة لا تُعرض في سجل النشاطات (فتح/إغلاق إضبارة، ...). */

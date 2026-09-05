@@ -110,8 +110,6 @@ describe('homeMainGridPaintGate', () => {
         expect(markLawyerDashboardFirstTabOpenOnce).toHaveBeenCalledTimes(1);
         expect(markDashboardInteractiveOnce).toHaveBeenCalledTimes(1);
         expect(notifyBootContentReady).toHaveBeenCalled();
-        expect(removeStaticBootShell).not.toHaveBeenCalled();
-        await vi.runAllTimersAsync();
         expect(removeStaticBootShell).toHaveBeenCalledWith();
         expect(markBootRevealDone).toHaveBeenCalled();
     });

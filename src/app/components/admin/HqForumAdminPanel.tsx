@@ -212,7 +212,7 @@ export function HqForumAdminPanel({
             {forumTab === 'posts' ? (
                 <HqConsultationsPanel key={postsEpoch} embedded initialPostKind={initialPostKind} />
             ) : loading ? (
-                <HqStateBlock kind="loading" title="جاري التحميل..." />
+                <HqStateBlock kind="loading" title="المنتدى" />
             ) : (loadError || failed) && !(forumTab === 'stats' && stats) && !(forumTab === 'bans' && bannedUsers.length > 0) ? (
                 <HqStateBlock
                     kind="error"

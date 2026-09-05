@@ -1,7 +1,14 @@
 /** نية فتح المنتدى من الإشعارات قبل تركيب جزيرة التنقّل / PreDock */
 
 import { applyForumOpaqueChrome, paintForumInstantChrome } from '@/app/runtime/forumInstantPaint';
+import { resetForumSurfaceLiveForTests } from '@/app/runtime/forumSurfaceLive';
 import { sanitizeNotificationEntityId } from '@/app/services/notifications/notificationNavigateSecurity';
+
+export {
+    isForumSurfaceLive,
+    setForumSurfaceLive,
+    subscribeForumSurfaceLive,
+} from '@/app/runtime/forumSurfaceLive';
 
 export const HAMI_OPEN_FORUM_EVENT = 'hami:open-forum';
 export const FORUM_OPEN_POST_SESSION_KEY = 'hami:forum-open-post-id';
@@ -22,6 +29,7 @@ export function clearForumOpenIntent(): void {
 
 export function resetForumOpenIntentForTests(): void {
     pendingOpen = false;
+    resetForumSurfaceLiveForTests();
     if (typeof sessionStorage === 'undefined') return;
     try {
         sessionStorage.removeItem(FORUM_OPEN_POST_SESSION_KEY);

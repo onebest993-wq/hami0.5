@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
@@ -31,7 +30,7 @@ import { useGlobalSearchKeyboardShortcut } from '@/app/hooks/lawyerDashboard/glo
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 
-export type UseLawyerDashboardGlobalSearchParams = {
+interface UseLawyerDashboardGlobalSearchParams {
     userId: string | null;
 };
 
@@ -47,6 +46,7 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     const [globalSearchSessionKey, setGlobalSearchSessionKey] = useState(0);
     const [searchIndexVersion, setSearchIndexVersion] = useState(0);
 
+    const previousUserIdRef = useRef(userId);
     const closeGlobalSearch = useCallback(() => {
         if (closingRef.current) return;
         closingRef.current = true;
@@ -72,6 +72,17 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     }, []);
 
     useEffect(() => {
+        const previousUserId = previousUserIdRef.current;
+        previousUserIdRef.current = userId;
+        const switchedAccount =
+            previousUserId !== userId &&
+            Boolean(previousUserId?.trim()) &&
+            Boolean(userId?.trim());
+        if (switchedAccount && (showGlobalSearchRef.current || searchHostMounted)) {
+            closeGlobalSearch();
+            setSearchHostMounted(false);
+            return;
+        }
         if (hasLocalAppSession(userId)) return;
         if (!showGlobalSearchRef.current && !initialSession.open && !searchHostMounted) return;
         closeGlobalSearch();
@@ -79,7 +90,6 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     }, [userId, initialSession.open, searchHostMounted, closeGlobalSearch]);
 
     useGlobalSearchHostLifecycle({
-        userId,
         initialSessionOpen: initialSession.open,
     });
 
@@ -125,14 +135,6 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
 
     const bumpSearchIndex = useCallback(() => {
         setSearchIndexVersion((v) => v + 1);
-    }, []);
-
-    const resetGlobalSearchShell = useCallback(() => {
-        setGlobalSearchSessionKey((k) => k + 1);
-        setShowGlobalSearch(false);
-        setSearchHostMounted(false);
-        setGlobalSearchInitialQuery('');
-        persistGlobalSearchSessionOpen(false);
     }, []);
 
     useEffect(() => {
@@ -206,20 +208,15 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
 
     return {
         showGlobalSearch,
-        setShowGlobalSearch,
         searchHostMounted,
         globalSearchInitialQuery,
-        setGlobalSearchInitialQuery,
         globalSearchSessionKey,
         primeGlobalSearchShellMount,
         searchIndexVersion,
-        setSearchIndexVersion,
         bumpSearchIndex,
-        resetGlobalSearchShell,
         openGlobalSearch,
         closeGlobalSearch,
     };
 }
 
 export type LawyerDashboardGlobalSearchState = ReturnType<typeof useLawyerDashboardGlobalSearch>;
-export type SetShowGlobalSearch = Dispatch<SetStateAction<boolean>>;

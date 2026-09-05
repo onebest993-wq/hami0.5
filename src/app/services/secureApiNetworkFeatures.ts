@@ -22,7 +22,8 @@ function isKvProxyPath(pathname: string): boolean {
 
 function isNetworkFeatureProtectedPath(pathname: string): boolean {
     if (pathname.startsWith('/api/forum/')) return true;
-    if (pathname.startsWith('/api/calendar/')) return true;
+    if (pathname.startsWith('/api/case-share')) return true;
+    if (pathname.startsWith('/api/task-help')) return true;
     if (isKvProxyPath(pathname)) return true;
     return false;
 }
