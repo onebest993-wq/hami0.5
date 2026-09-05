@@ -14,8 +14,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const checkDist = process.argv.includes('--dist');
 let failed = false;
 
+function stripCspMeta(html) {
+  return html.replace(/<meta[^>]+Content-Security-Policy[^>]*>/gi, '');
+}
+
+function hasGoogleFontsActualLoad(html) {
+  return /fonts\.googleapis\.com|fonts\.gstatic\.com/i.test(stripCspMeta(html));
+}
+
 const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-if (/fonts\.googleapis\.com|fonts\.gstatic\.com/i.test(indexHtml)) {
+if (hasGoogleFontsActualLoad(indexHtml)) {
   console.error('[cold-entry] BLOCKED: index.html still loads Google Fonts on the critical path');
   failed = true;
 } else {
@@ -39,7 +47,7 @@ if (checkDist) {
   } else {
     console.log(`[cold-entry] OK dist preloads (${preloads.length}): ${preloads.join(', ') || '(none)'}`);
   }
-  if (/fonts\.googleapis\.com/i.test(html)) {
+  if (hasGoogleFontsActualLoad(html)) {
     console.error('[cold-entry] BLOCKED: dist/index.html still references Google Fonts');
     failed = true;
   }
