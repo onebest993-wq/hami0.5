@@ -1,4 +1,11 @@
 /** @generated — do not edit. Source: src/app/security/kvProxyKeyOwnership.ts */
+/** أحداث التقويم وشواهده لا تُقرأ ولا تُكتب عبر KV — الجهاز فقط. */
+export function isCalendarNeverCloudKvMaterial(keyOrPrefix: string): boolean {
+    const k = keyOrPrefix.trim();
+    if (!k) return false;
+    return k.startsWith('calendar:') || k.startsWith('hami:calendar:');
+}
+
 function parseTwoPartySuffix(
     rawKey: string,
     prefix: string,
