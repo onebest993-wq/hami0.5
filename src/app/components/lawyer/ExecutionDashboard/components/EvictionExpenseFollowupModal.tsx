@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import { X } from '@/app/components/ui/icons/X';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
@@ -12,6 +13,7 @@ import type { EvictionExpenseFollowupModalProps } from './EvictionFollowupModals
 
 /** مودال مصاريف إضبارة التخلية */
 export function EvictionExpenseFollowupModal(p: EvictionExpenseFollowupModalProps) {
+    useBodyScrollLock(true);
     const {
         setShowEvictionExpenseModal,
         onCloseEvictionExpenseModal,

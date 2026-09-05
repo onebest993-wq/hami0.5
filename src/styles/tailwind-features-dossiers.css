@@ -2,6 +2,9 @@
  * كان مسحاً واحداً لكل أضابير المحامي — استُبدل بأوراق مجال منفصلة.
  * يبقى الملف كي لا تنكسر إشارات التجميع القديمة.
  */
+@source '../app/components/lawyer/ExecutionDashboard/**';
+@source '../app/components/lawyer/criminal-system/**';
+@source '../app/components/lawyer/smart-modal/**';
 @import './tailwind-features-dossiers-execution.css';
 @import './tailwind-features-dossiers-criminal.css';
 @import './tailwind-features-dossiers-smart.css';

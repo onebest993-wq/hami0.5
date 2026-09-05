@@ -1,23 +1,15 @@
 {
-  "savedAt": "2026-08-09T05:10:59.068Z",
-  "count": 16,
-  "wastedBytes": 12798,
+  "savedAt": "2026-09-05T22:08:36.493Z",
+  "count": 8,
+  "wastedBytes": 5670,
   "keys": [
-    "canShowCassationCorrectionButton@cc4d223c865e",
-    "computeAppealPeriodSnapshot@7c9a8b5ab85f",
     "formatInvestigationDepositLocation@8af910dc208a",
     "formatNumberInput@28005713cfa8",
-    "getStageTransitionOptions@456011c49075",
-    "hexToRgba@b666bdb85abb",
     "isPartyHeirsEditOnlyMode@d42b220d5fd8",
-    "journeyNodeLabel@eb0b30add3ec",
+    "normalizeBaseDossierIdFromDecisionsKey@d817d6d3eddf",
     "normalizeDefendantStatusForJuvenileToggle@b2ef1b378b10",
     "normalizeTimelineCategoryForDisplay@78596102a078",
     "parseUnifiedLedgerFromStorage@89e306639a98",
-    "personalStageForDecision@ba41194b4320",
-    "proceduralActionFromConclusion@25d52cb198bf",
-    "proceduralArrowToJourneyKind@9ae7414194df",
-    "readInitialFocLedgerStore@9d0696c8168c",
-    "resolveJudicialCassationIssuedBy@32e58afe6215"
+    "personalStageForDecision@ba41194b4320"
   ]
 }

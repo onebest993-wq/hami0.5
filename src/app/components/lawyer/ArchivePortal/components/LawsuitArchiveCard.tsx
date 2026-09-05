@@ -16,7 +16,7 @@ import {
     ArchiveDossierIdentityBlock,
     type ArchivePartySnippet,
 } from './ArchiveDossierIdentityBlock';
-import { UnifiedDossierCard } from './UnifiedDossierCard';
+import { UnifiedDossierCard, type DossierKind, type UnifiedDossierFooterIcon } from './UnifiedDossierCard';
 import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/lawsuitVaultTestIds';
 import { linkedDossierClusterRoleLabel } from '../groupLinkedLawsuitArchiveFiles';
 

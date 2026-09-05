@@ -1,10 +1,28 @@
 {
-  "savedAt": "2026-08-10T17:42:41.230Z",
-  "scannedFiles": 5258,
-  "cycleGroups": 0,
-  "filesInCycles": 0,
-  "largestGroup": 0,
-  "withDynamicGroups": 10,
-  "withDynamicFiles": 547,
-  "groups": []
+  "savedAt": "2026-09-05T21:52:55.544Z",
+  "scannedFiles": 8106,
+  "cycleGroups": 2,
+  "filesInCycles": 13,
+  "largestGroup": 9,
+  "withDynamicGroups": 3,
+  "withDynamicFiles": 1911,
+  "groups": [
+    [
+      "src/app/domain/lawsuit/lawsuitDurabilityGate.ts",
+      "src/app/domain/lawsuit/lawsuitDurabilityOverlay.ts",
+      "src/app/domain/lawsuit/lawsuitDurabilityVerify.ts",
+      "src/app/domain/lawsuit/lawsuitFilesStatePolicy.ts",
+      "src/app/domain/lawsuit/lawsuitPendingCreateStore.ts",
+      "src/app/domain/lawsuit/lawsuitPersistFlush.ts",
+      "src/app/domain/lawsuit/lawsuitSegmentPersist.ts",
+      "src/app/domain/lawsuit/lawsuitSegmentStorage.ts",
+      "src/app/domain/lawsuit/lawsuitWriteJournal.ts"
+    ],
+    [
+      "src/app/components/lawyer/smart-modal/smartFile/appealDeadlineEngine.ts",
+      "src/app/components/lawyer/smart-modal/smartFile/appealWindowLapseEngine.ts",
+      "src/app/components/lawyer/smart-modal/smartFile/judgmentTypes.ts",
+      "src/app/components/lawyer/smart-modal/smartFile/opponentAppealMethods.ts"
+    ]
+  ]
 }

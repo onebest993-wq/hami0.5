@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from '@/app/components/ui/icons/X';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
@@ -11,6 +12,7 @@ import type { EvictionLawyerFeeFollowupModalProps } from './EvictionFollowupModa
 
 /** مودال طلب صرف أتعاب محكومة للتخلية */
 export function EvictionLawyerFeeFollowupModal(p: EvictionLawyerFeeFollowupModalProps) {
+    useBodyScrollLock(true);
     const {
         setShowEvictionLawyerFeeModal,
         onCloseEvictionLawyerFeeModal,

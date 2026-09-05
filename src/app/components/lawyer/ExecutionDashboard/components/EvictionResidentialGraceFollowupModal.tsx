@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from '@/app/components/ui/icons/X';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { evictionInclusiveCalendarDays } from '../helpers';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
@@ -13,6 +14,7 @@ import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executi
 
 /** مودال مهلة السكن للتخلية */
 export function EvictionResidentialGraceFollowupModal(p: EvictionResidentialGraceFollowupModalProps) {
+    useBodyScrollLock(true);
     const {
         setShowEvictionResidentialGraceModal,
         onCloseEvictionResidentialGraceModal,

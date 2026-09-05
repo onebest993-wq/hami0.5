@@ -1,6 +1,24 @@
 {
-  "savedAt": "2026-08-26T20:22:35.309Z",
-  "count": 0,
-  "broken": [],
-  "referrers": {}
+  "savedAt": "2026-09-05T22:09:22.832Z",
+  "count": 3,
+  "broken": [
+    "src/app/api/calendar/tombstones/route.ts",
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardSeizedPropertyPortals.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/pickSeizedPropertyPortalProps.ts"
+  ],
+  "referrers": {
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardSeizedPropertyPortals.tsx": [
+      "scripts/extract-seized-portals.mjs"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/pickSeizedPropertyPortalProps.ts": [
+      "scripts/generate-shell-overlay-props.mjs",
+      "scripts/replace-seized-portals.mjs",
+      "scripts/wire-shell-overlays-final.mjs",
+      "scripts/wire-shell-overlays-v2.mjs",
+      "scripts/wire-shell-overlays.mjs"
+    ],
+    "src/app/api/calendar/tombstones/route.ts": [
+      "api/handler.js"
+    ]
+  }
 }
