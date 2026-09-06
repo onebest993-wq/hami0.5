@@ -1,6 +1,6 @@
-﻿/**
+/**
  * Single source of truth for Content-Security-Policy (WIFE / Hami).
- * Dev: relaxed for Vite HMR. Production: strict â€” no unsafe-eval, no inline scripts.
+ * Dev: relaxed for Vite HMR. Production: strict أ¢â‚¬â€‌ no unsafe-eval, no inline scripts.
  */
 
 
@@ -41,7 +41,7 @@ export function buildContentSecurityPolicy(mode: CspMode): string {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    /* ط¹ط§ظ…ظ„ pdf.js ظٹظڈط´ط­ظ† ظ…ط¹ظ†ط§ â€” ظ„ط§ ط£طµظ„ ط®ط§ط±ط¬ظٹ ظٹظڈظ†ظپظگظ‘ط° ط´ظٹظپط±ط© ظپظˆظ‚ ظ…ط³طھظ†ط¯ط§طھ ط§ظ„ظ…ظˆظƒظ‘ظ„ظٹظ† */
+    /* ط·آ¹ط·آ§ط¸â€¦ط¸â€‍ pdf.js ط¸ظ¹ط¸عˆط·آ´ط·آ­ط¸â€  ط¸â€¦ط·آ¹ط¸â€ ط·آ§ أ¢â‚¬â€‌ ط¸â€‍ط·آ§ ط·آ£ط·آµط¸â€‍ ط·آ®ط·آ§ط·آ±ط·آ¬ط¸ظ¹ ط¸ظ¹ط¸عˆط¸â€ ط¸ظ¾ط¸ع¯ط¸â€کط·آ° ط·آ´ط¸ظ¹ط¸ظ¾ط·آ±ط·آ© ط¸ظ¾ط¸ث†ط¸â€ڑ ط¸â€¦ط·آ³ط·ع¾ط¸â€ ط·آ¯ط·آ§ط·ع¾ ط·آ§ط¸â€‍ط¸â€¦ط¸ث†ط¸ئ’ط¸â€کط¸â€‍ط¸ظ¹ط¸â€  */
     "worker-src 'self' blob:",
     ...(isDev || isE2ePreview ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
@@ -53,3 +53,5 @@ export function resolveCspMode(nodeEnv?: string, viteMode?: string): CspMode {
   if (env === 'development' || mode === 'development') return 'development';
   return 'production';
 }
+
+
