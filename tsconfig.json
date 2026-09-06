@@ -1,40 +1,16 @@
 {
   "compilerOptions": {
-    /*
-     * ES2022 يطابق build.target في vite.config.mts — الاثنان مصدر واحد للغة.
-     * كان ES2020 يجبر esbuild على خفض بناء حديث تشحنه أصلاً، ويحجب واجهات
-     * قياسية مثل Error.cause وObject.hasOwn وArray.at عن الفحص.
-     * الحدّ الأدنى: Chrome/WebView 94، Safari/iOS 15.4.
-     */
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "module": "ESNext",
-
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-
-    /*
-     * الصرامة تُرفع بالقياس لا بالتمنّي. كلفة كل علم قيست بتشغيل tsc عليه وحده
-     * (وعلى strictNullChecks معه حيث لا معنى له بدونه)، والأرقام مقابل أساس 287:
-     *
-     *   strictNullChecks             +169   ← مُفعَّل: أعلى قيمة بأقل كلفة
-     *   strictPropertyInitialization   +0   ← مُفعَّل: مجّاني مع ما سبق
-     *   noImplicitReturns              -4   ← مُفعَّل: مجّاني مع ما سبق
-     *   noImplicitAny               مُفعَّل — طبقة الأساس/النواة صُفِّرت تحته
-     *   noUncheckedIndexedAccess     +614   ← مؤجَّل
-     *   exactOptionalPropertyTypes  +1405   ← مؤجَّل
-     *   noUnusedLocals              +1760   ← مؤجَّل (1653 تصريحاً غير مستعمل)
-     *
-     * الأخطاء الموروثة تحتجزها مِسنَنة guard:tsc لكل ملف، فالكود الجديد يُكتب
-     * آمناً تجاه null وبدون any ضمني من اليوم. لا خطر على النشر: البناء
-     * vite build ولا يستدعي tsc إطلاقاً.
-     */
     "strict": false,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -48,16 +24,12 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": false,
-
-    /* Best Practices */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmitOnError": false, /* Keep false for now to avoid breaking builds */
+    "noEmitOnError": false,
     "ignoreDeprecations": "5.0",
-
     "types": ["vite/client", "vitest/globals"],
-
     "paths": {
       "@/app/bootstrap/LawyerDashboardGate": ["./src/app/bootstrap/LawyerDashboardGate.tsx"],
       "@/app/bootstrap/SecurityInitializerGate": ["./src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
@@ -65,13 +37,17 @@
       "@/app/*": ["./src/app/*"]
     }
   },
-  "include": ["src"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/__tests__/**/*.ts",
+    "src/**/__tests__/**/*.tsx"
+  ],
   "exclude": [
     "node_modules",
     "dist",
-    "src/vite-plugins",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/__tests__/**"
+    "src/vite-plugins"
   ]
 }

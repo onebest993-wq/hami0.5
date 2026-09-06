@@ -31,7 +31,7 @@ function runTsc() {
         process.exit(2);
     }
     try {
-        execFileSync(process.execPath, [cli, '--noEmit', '--pretty', 'false'], {
+        execFileSync(process.execPath, [cli, '--noEmit', '--pretty', 'false', '--project', 'tsconfig.app.json'], {
             cwd: ROOT,
             encoding: 'utf8',
             maxBuffer: 128 * 1024 * 1024,

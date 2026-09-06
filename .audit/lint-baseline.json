@@ -1,8 +1,7 @@
 {
-  "savedAt": "2026-08-13T23:30:08.295Z",
-  "totalErrors": 177,
+  "savedAt": "2026-09-06T22:07:12.682Z",
+  "totalErrors": 11,
   "byRule": {
-    "@typescript-eslint/ban-ts-comment": 166,
     "react-hooks/rules-of-hooks": 10,
     "@typescript-eslint/no-unused-expressions": 1
   },

@@ -1,7 +1,7 @@
 {
-  "deadTotal": 1888,
-  "moduleCount": 1231,
-  "savedAt": "2026-09-05",
+  "deadTotal": 1885,
+  "moduleCount": 1230,
+  "savedAt": "2026-09-06",
   "perModule": {
     "src/app/application/execution/dossier/buildExecutionViewData.ts": [
       "BuildExecutionViewDataInput"
@@ -3065,8 +3065,7 @@
       "escapeFieldTasksInstantChromeText"
     ],
     "src/app/runtime/forumOpenIntent.ts": [
-      "FORUM_OPEN_POST_SESSION_KEY",
-      "HAMI_OPEN_FORUM_EVENT"
+      "FORUM_OPEN_POST_SESSION_KEY"
     ],
     "src/app/runtime/framePacingGuard.ts": [
       "getFramePacingLastInteractionAt",
@@ -3124,9 +3123,6 @@
     ],
     "src/app/runtime/nativeBiometricLifecycle.ts": [
       "NativeBiometryAvailabilityListener"
-    ],
-    "src/app/runtime/nativeBootSplash.ts": [
-      "NATIVE_BOOT_READY_FAILED_EVENT"
     ],
     "src/app/runtime/nativeBootTelemetry.ts": [
       "NativeBootTelemetryReport",
@@ -3285,8 +3281,7 @@
       "AuthOtpRequestResult"
     ],
     "src/app/services/auth/authSessionBroadcast.ts": [
-      "AuthSessionBroadcastMessage",
-      "HAMI_AUTH_LOGOUT_EVENT"
+      "AuthSessionBroadcastMessage"
     ],
     "src/app/services/auth/devUnlockSession.ts": [
       "DEV_UNLOCK_LAWYER_EMAIL"
