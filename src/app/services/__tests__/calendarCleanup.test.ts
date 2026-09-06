@@ -14,6 +14,11 @@ import { buildStableBridgeId } from '../calendarBridge';
 import { resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 import { flushPendingCalendarSyncs } from '../calendarBridge';
 import * as storageHydrationGuard from '@/app/services/dossierPersistence/storageHydrationGuard';
+import { resetTombstoneStateForTests } from '@/app/services/calendarTombstones';
+import {
+    CALENDAR_EVENTS_STORAGE_KEY,
+    CALENDAR_TOMBSTONES_STORAGE_KEY,
+} from '@/app/services/calendar/calendarStorageKeys';
 
 const USER = 'cleanup-test-user';
 const CAL_KEY = 'hami:calendar:events:v1';
@@ -22,10 +27,33 @@ describe('calendar cleanup — محذوف ومختلق', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
         resetReconcileInFlightForTests();
+        // 1) Generic list-based wipe (best-effort)
         SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
         localStorage.clear();
+        // 2) Explicit key purge for calendar — guards against listKeysSync() blind spots (isUnread / legacy mirror)
+        SecureStoreService.deleteItemSync(CALENDAR_EVENTS_STORAGE_KEY);
+        SecureStoreService.deleteItemSync(CALENDAR_TOMBSTONES_STORAGE_KEY);
+        localStorage.removeItem(CALENDAR_EVENTS_STORAGE_KEY);
+        localStorage.removeItem(CALENDAR_TOMBSTONES_STORAGE_KEY);
+        // 3) Wipe ALL known hami:* storage keys to eliminate cross-module leaks (dossierPersistence / criminal / threading / etc)
+        [
+            'hami:dossier:lawsuits:v3', 'hami:dossier:executions:v1',
+            'hami:criminal:cases:v1', 'hami:threading:transactions:v1',
+            'hami:notes:global:v1', 'hami:field-tasks:v1',
+            'hami:calendar:sync-cursor:v1', 'hami:calendar:sync-lock:v1',
+            'hami:calendar:user-id:v1', 'hami:calendar:discovered-dates:v1',
+            'hami:dossier-backup:lawsuits:v1', 'hami:dossier-backup:executions:v1',
+            'hami:dossier-meta:v1', 'hami:unread:v1',
+        ].forEach((k) => {
+            try { SecureStoreService.deleteItemSync(k); } catch { /* ignore */ }
+            try { localStorage.removeItem(k); } catch { /* ignore */ }
+        });
+        // 4) In-memory singleton caches
         resetCalendarEventsCacheForTests();
         saveLawsuitFilesRaw([]);
+        const g = globalThis as typeof globalThis & { __hamiCalendarSyncQueue?: unknown };
+        delete g.__hamiCalendarSyncQueue;
+        resetTombstoneStateForTests();
     });
 
     it('يزيل مواعيد إضبارة محذوفة من التقويم', async () => {
@@ -164,6 +192,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
 
         await cleanupCalendarForUser(USER);
         await flushPendingCalendarSyncs();
+
         resetCalendarEventsCacheForTests();
         const events = await CalendarDB.getEvents(USER);
 

@@ -29,6 +29,11 @@ import {
 } from './exclusions';
 import { dispatchCalendarUpdated, isRecord, readEntityId } from './shared';
 import { collectValidBridgeIdsAsync } from './pruneValidIds';
+import { CALENDAR_EVENTS_STORAGE_KEY } from '@/app/services/calendar/calendarStorageKeys';
+import { invalidateCalendarEventsCache } from '@/app/services/calendar/calendarEventsCache';
+import {
+    persistSecurePayloadWhenReady,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 /** أصل مشفَّر بارد وفارغ في الذاكرة ≠ «لا إضابير» — التقليم عندها يمسح مواعيد حيّة. */
 function isSourceModuleStorageUnread(sourceModule: string): boolean {
@@ -196,23 +201,61 @@ export async function pruneOrphanedBridgeEvents(
     const valid = await collectValidBridgeIdsAsync(uid, options);
     try {
         const events = await CalendarDB.getAllStoredEvents();
-        let removed = 0;
+        const toRemove: any[] = [];
+        const keep: any[] = [];
         for (const e of events) {
-            if (!isBridgedCalendarEvent(e)) continue;
-            if (isSourceModuleStorageUnread(String(e.sourceModule ?? ''))) continue;
-            if (valid.has(e.id)) continue;
-            const eventUserId = e.userId || uid;
-            await CalendarBridge.remove(
-                e.sourceModule!,
-                String(e.sourceEntityId),
-                String(e.sourceEventId),
-                eventUserId,
-            );
-            removed++;
+            if (!isBridgedCalendarEvent(e)) { keep.push(e); continue; }
+            if (isSourceModuleStorageUnread(String(e.sourceModule ?? ''))) { keep.push(e); continue; }
+            if (valid.has(e.id)) { keep.push(e); continue; }
+            toRemove.push(e);
         }
-        if (removed > 0) {
-            dispatchCalendarUpdated();
+        const removed = toRemove.length;
+        if (removed === 0) return 0;
+
+        try {
+            const payload = JSON.stringify(keep);
+            try {
+                SecureStoreService.setItemSync(CALENDAR_EVENTS_STORAGE_KEY, payload);
+            } catch {
+                /* guard may reject — persist layer decides */
+            }
+            const snapshot = await import('@/app/services/calendar/calendarLocalSnapshot');
+            snapshot.clearCalendarEventsLocalStorageMirror();
+            try {
+                await persistSecurePayloadWhenReady(
+                    CALENDAR_EVENTS_STORAGE_KEY,
+                    payload,
+                    { skipIfUnchanged: false },
+                );
+            } catch {
+                /* IndexedDB layer may reject — sync cache already has correct value */
+            }
+
+            const tomb = await import('@/app/services/calendarTombstones');
+            for (const ev of toRemove) {
+                try { await tomb.recordTombstone(String(ev.userId || uid), String(ev.id)); } catch { /* ignore */ }
+            }
+        } catch (batchErr) {
+            debug.warn('[calendarDossierSync] prune batch-save failed, falling back to per-event:', batchErr);
+            for (const e of toRemove) {
+                try {
+                    const eventUserId = e.userId || uid;
+                    await CalendarBridge.remove(
+                        e.sourceModule!,
+                        String(e.sourceEntityId),
+                        String(e.sourceEventId),
+                        eventUserId,
+                    );
+                } catch { /* swallow per-event */ }
+            }
         }
+
+        const impactedUserIds = new Set<string>();
+        for (const ev of toRemove) if (ev.userId) impactedUserIds.add(ev.userId);
+        impactedUserIds.add(uid);
+        for (const u of impactedUserIds) invalidateCalendarEventsCache(u);
+
+        dispatchCalendarUpdated();
         return removed;
     } catch (err) {
         debug.warn('[calendarDossierSync] prune failed:', err);
@@ -222,15 +265,16 @@ export async function pruneOrphanedBridgeEvents(
 
 export async function purgeNonWhitelistedBridgedEvents(userId?: string | null): Promise<number> {
     const uid = resolveCalendarUserId(userId);
-    let removed = 0;
     try {
         const events = await CalendarDB.getAllStoredEvents();
+        const toRemove: any[] = [];
+        const keep: any[] = [];
         for (const e of events) {
-            if (!isBridgedCalendarEvent(e)) continue;
+            if (!isBridgedCalendarEvent(e)) { keep.push(e); continue; }
             const mod = e.sourceModule;
             const entityId = String(e.sourceEntityId ?? '');
             const eventId = String(e.sourceEventId ?? '');
-            if (!mod || !entityId || !eventId) continue;
+            if (!mod || !entityId || !eventId) { keep.push(e); continue; }
 
             const isFieldSniffer = eventId.startsWith('field_');
             const isLegacySynthetic =
@@ -260,42 +304,138 @@ export async function purgeNonWhitelistedBridgedEvents(userId?: string | null): 
                 isCriminalNonTrial;
 
             if (shouldRemove) {
-                await CalendarBridge.remove(mod, entityId, eventId, e.userId || uid);
-                removed++;
+                toRemove.push(e);
+            } else {
+                keep.push(e);
             }
         }
-        if (removed > 0) dispatchCalendarUpdated();
+        const removed = toRemove.length;
+        if (removed === 0) return 0;
+
+        try {
+            const payload = JSON.stringify(keep);
+            try {
+                SecureStoreService.setItemSync(CALENDAR_EVENTS_STORAGE_KEY, payload);
+            } catch {
+                /* guard may reject — persist layer decides */
+            }
+            const snapshot = await import('@/app/services/calendar/calendarLocalSnapshot');
+            snapshot.clearCalendarEventsLocalStorageMirror();
+            try {
+                await persistSecurePayloadWhenReady(
+                    CALENDAR_EVENTS_STORAGE_KEY,
+                    payload,
+                    { skipIfUnchanged: false },
+                );
+            } catch {
+                /* IndexedDB layer may reject — sync cache already has correct value */
+            }
+
+            const tomb = await import('@/app/services/calendarTombstones');
+            for (const ev of toRemove) {
+                try { await tomb.recordTombstone(String(ev.userId || uid), String(ev.id)); } catch { /* ignore */ }
+            }
+        } catch (batchErr) {
+            debug.warn('[calendarDossierSync] purgeNonWhitelisted batch-save failed, falling back to per-event:', batchErr);
+            for (const e of toRemove) {
+                try {
+                    const mod = e.sourceModule;
+                    const entityId = String(e.sourceEntityId ?? '');
+                    const eventId = String(e.sourceEventId ?? '');
+                    if (!mod || !entityId || !eventId) continue;
+                    await CalendarBridge.remove(mod, entityId, eventId, e.userId || uid);
+                } catch { /* swallow per-event */ }
+            }
+        }
+
+        const impactedUserIds = new Set<string>();
+        for (const ev of toRemove) if (ev.userId) impactedUserIds.add(ev.userId);
+        impactedUserIds.add(uid);
+        for (const u of impactedUserIds) invalidateCalendarEventsCache(u);
+
+        dispatchCalendarUpdated();
+        return removed;
     } catch (err) {
         debug.warn('[calendarDossierSync] purgeNonWhitelistedBridgedEvents failed:', err);
+        return 0;
     }
-    return removed;
 }
 
 /** يزيل من التقويم كل موعد مربوط بمصدر نظامي/محسوب/سجل قديم */
 export async function purgeInauthenticBridgedEvents(userId?: string | null): Promise<number> {
     const uid = resolveCalendarUserId(userId);
-    let removed = 0;
     try {
         const events = await CalendarDB.getAllStoredEvents();
+        const toRemove: any[] = [];
+        const keep: any[] = [];
         for (const e of events) {
-            if (!isBridgedCalendarEvent(e)) continue;
-            if (isUserAuthoredBridgedCalendarEvent(e)) continue;
+            if (!isBridgedCalendarEvent(e)) { keep.push(e); continue; }
+            if (isUserAuthoredBridgedCalendarEvent(e)) { keep.push(e); continue; }
             const mod = e.sourceModule;
             const entityId = String(e.sourceEntityId ?? '');
             const eventId = String(e.sourceEventId ?? '');
             if (!mod || !entityId || !eventId) {
-                await CalendarDB.deleteEvent(e.id, e.userId || uid);
-                removed++;
+                toRemove.push({ ...e, __malformed: true });
                 continue;
             }
             if (isSyntheticBridgeSourceEventId(eventId)) {
-                await CalendarBridge.remove(mod, entityId, eventId, e.userId || uid);
-                removed++;
+                toRemove.push(e);
+            } else {
+                keep.push(e);
             }
         }
-        if (removed > 0) dispatchCalendarUpdated();
+        const removed = toRemove.length;
+        if (removed === 0) return 0;
+
+        try {
+            const payload = JSON.stringify(keep);
+            try {
+                SecureStoreService.setItemSync(CALENDAR_EVENTS_STORAGE_KEY, payload);
+            } catch {
+                /* guard may reject — persist layer decides */
+            }
+            const snapshot = await import('@/app/services/calendar/calendarLocalSnapshot');
+            snapshot.clearCalendarEventsLocalStorageMirror();
+            try {
+                await persistSecurePayloadWhenReady(
+                    CALENDAR_EVENTS_STORAGE_KEY,
+                    payload,
+                    { skipIfUnchanged: false },
+                );
+            } catch {
+                /* IndexedDB layer may reject — sync cache already has correct value */
+            }
+
+            const tomb = await import('@/app/services/calendarTombstones');
+            for (const ev of toRemove) {
+                try { await tomb.recordTombstone(String(ev.userId || uid), String(ev.id)); } catch { /* ignore */ }
+            }
+        } catch (batchErr) {
+            debug.warn('[calendarDossierSync] purgeInauthentic batch-save failed, falling back to per-event:', batchErr);
+            for (const e of toRemove) {
+                try {
+                    const eventUserId = e.userId || uid;
+                    const mod = e.sourceModule;
+                    const entityId = String(e.sourceEntityId ?? '');
+                    const eventId = String(e.sourceEventId ?? '');
+                    if (!mod || !entityId || !eventId || e.__malformed) {
+                        await CalendarDB.deleteEvent(e.id, eventUserId);
+                        continue;
+                    }
+                    await CalendarBridge.remove(mod, entityId, eventId, eventUserId);
+                } catch { /* swallow per-event */ }
+            }
+        }
+
+        const impactedUserIds = new Set<string>();
+        for (const ev of toRemove) if (ev.userId) impactedUserIds.add(ev.userId);
+        impactedUserIds.add(uid);
+        for (const u of impactedUserIds) invalidateCalendarEventsCache(u);
+
+        dispatchCalendarUpdated();
+        return removed;
     } catch (err) {
         debug.warn('[calendarDossierSync] purgeInauthenticBridgedEvents failed:', err);
+        return 0;
     }
-    return removed;
 }
