@@ -1,0 +1,171 @@
+{
+  "auditVersion": "T20-v2-tier1-hardening-2026-09-06",
+  "auditedAt": "2026-09-06T13:30:00.000Z",
+  "appVersion": "hami-app@10.5.0",
+  "auditedCommitChain": {
+    "headAtAuditTime": "38d143d9",
+    "comment": "F1 shouldPreload 53e4aff9 → F2 calendar d89ae580 → F3 env/baseline 92b26425 → G1 flake-allowlist 38d143d9",
+    "verifiedPostGateW0": "GATE-W0 exit=0 ALL 27 guards PASS pending final rerun after this commit"
+  },
+  "methodology": "1:1 line-level source verification (ZERO reliance on session summaries or prior-context hallucinations). Every line-range claim below was read via file-system Read tool in SAME session before writing this document. Zero assumptions, Zero copy-paste from prior drafts.",
+  "scaleRubric": {
+    "1": "Fire-and-forget silent — direct network call without mediation, failure swallowed silently or debug-only log",
+    "2": "Toast-only fail visibility — user sees UI message on failure, BUT no durable retry outbox storage exists",
+    "3": "Ephemeral-only outbox — RAM-only retry queue that is LOST on app restart (no persistence)",
+    "4": "✅ Durable outbox + periodic reconciler — SecureStore-stored delete queue with 10-30min async retry (exponential backoff)",
+    "5": "✅✅ Durable outbox + 24h VISIBLE aging + tombstone sync reconciliation — local tombstone first with user-visible 'pending removal' badge for 24h THEN cloud delete; reconciler anti-entropy cross-checks tombstone markers against cloud presence"
+  },
+  "acceptanceThresholdPerAC19": 4,
+  "deletePaths": [
+    {
+      "id": 1,
+      "name": "Permanent Lawsuit Hard Delete (after 30-day trash)",
+      "location": {
+        "file": "src/app/hooks/useLawsuitFileMutations.ts",
+        "lineStart": 104,
+        "lineEnd": 132,
+        "criticalCloudCallLine": 124
+      },
+      "codeEvidenceAtCriticalLine": "SupabaseService.deleteLawsuitFile(id).catch(() => undefined)",
+      "capabilityMatrix": {
+        "durableOutboxExists": false,
+        "visible24hAgingBadge": false,
+        "reconcilerTombstoneSync": false,
+        "userVisibleFailureMessage": false,
+        "tryCatch": true,
+        "catchAction": "SWALLOW COMPLETELY — returns undefined, no log, no toast"
+      },
+      "observation": "commitLawsuitLifecycleMutation runs first (local persistence). If success BUT cloud call fails at L124 → LOCAL PERMANENTLY DELETED but CLOUD STILL EXISTS = drift forever, no future reconciliation path. Catch handler at L124 is literally `.catch(() => undefined)` with zero side-effect.",
+      "scaleFinal": 1,
+      "passesThresholdOf_4": false
+    },
+    {
+      "id": 2,
+      "name": "Permanent Execution Hard Delete (after trash retention)",
+      "location": {
+        "file": "src/app/hooks/useLawyerExecutionFiles.ts",
+        "lineStart": 535,
+        "lineEnd": 626,
+        "criticalCloudCallLine": 596
+      },
+      "codeEvidenceAtCriticalLine": "deleteFromCloud: async (id) => { ... SupabaseService.deleteExecutionFile(id) }",
+      "capabilityMatrix": {
+        "durableOutboxExists": false,
+        "visible24hAgingBadge": false,
+        "reconcilerTombstoneSync": false,
+        "userVisibleFailureMessage": true,
+        "tryCatch": true,
+        "catchAction": "purgeDeletedExecutionDossiers collects cloudFailures then SmartToast.warning 'حُذف محلياً — تعذّر مزامنة الحذف مع السحابة'"
+      },
+      "observation": "Tombstones committed FIRST L562-567 commitExecutionDossierTombstones → local filter applied L569-573 → purgeDeletedExecutionDossiers called L586. cloudFailures surfaced to user via toast BUT toast is ephemeral → vanishes. No SecureStore record kept of which ids failed. NEXT APP START → no retry of failed deletions, no record they ever failed.",
+      "scaleFinal": 2,
+      "passesThresholdOf_4": false
+    },
+    {
+      "id": 3,
+      "name": "Global Lawyer Note Delete",
+      "location": {
+        "file": "src/app/hooks/useLawyerGlobalNotes.ts",
+        "lineStart": 255,
+        "lineEnd": 302,
+        "criticalCloudCallLine": 291
+      },
+      "codeEvidenceAtCriticalLine": "try { SupabaseService.deleteGlobalNote(idStr) } catch (error) { debug.error('[LawyerDashboard] ⚠️ Cloud note delete failed:', error) }",
+      "capabilityMatrix": {
+        "durableOutboxExists": false,
+        "visible24hAgingBadge": false,
+        "reconcilerTombstoneSync": false,
+        "userVisibleFailureMessage": false,
+        "tryCatch": true,
+        "catchAction": "debug.error ONLY — developer console.log equivalent; user sees NOTHING. No toast, no retry queue, no persistent record."
+      },
+      "observation": "markGlobalNoteDeleted L267 runs + SecureStore vault deleteNote L271/L273 + unlinkGlobal L274 + local state filter L276 + persistenceRepository.save L279. ALL LOCAL OPS guaranteed. Cloud call L293-L297 FAILS → user never informed. Debug log exists but production filter removes debug.error from user-visible streams. Drift: note deleted locally but lives on Supabase forever.",
+      "scaleFinal": 1,
+      "passesThresholdOf_4": false
+    },
+    {
+      "id": 4,
+      "name": "Per-Execution Case Note Permanent Delete (UNLISTED in prior draft — discovered v2 audit)",
+      "location": {
+        "file": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionTrashAndPins.ts",
+        "lineStart": 292,
+        "lineEnd": 307,
+        "criticalCloudCallLine": null
+      },
+      "codeEvidenceAtCriticalLine": "CLOUD CALL DOES NOT EXIST. Function body: local filter (L296-303 prev.filter) → toastAfterPersistMicrotask → persistExecutionMerge({ caseNotesLog: next }) → toast 'حُذفت الملاحظة نهائياً'. NO Supabase delete call, NO vault delete, NO outbox.",
+      "capabilityMatrix": {
+        "durableOutboxExists": false,
+        "visible24hAgingBadge": false,
+        "reconcilerTombstoneSync": false,
+        "userVisibleFailureMessage": false,
+        "tryCatch": false,
+        "catchAction": "N/A — cloud operation never attempted"
+      },
+      "observation": "Most severe path. User sees SUCCESS toast 'حُذفت الملاحظة نهائياً' but NO cloud delete attempt ever fired. If case notes are part of the cloud-synced execution bundle via execution merge, drift is permanent and this note reappears on NEXT sync pull (upsert-only engine re-uploads whatever came from server last save). NOT DISCOVERED in T20-v1 due to hallucination-based draft. Discovered v2 via grep permanentlyDelete + caseNotesLog analysis.",
+      "scaleFinal": 0,
+      "passesThresholdOf_4": false
+    }
+  ],
+  "supportingSystems": [
+    {
+      "id": 5,
+      "name": "cloudSyncEngine periodic reconcile (background upload poller)",
+      "location": {
+        "file": "src/app/services/cloudSyncEngine.ts",
+        "lineStart": 115,
+        "lineEnd": 149
+      },
+      "codeEvidenceFullFunction": "uploadRowsWithBoundedConcurrency — branches: bucket==='execution' → saveExecutionFile only; bucket==='lawsuit' → saveLawsuitFile only; else → saveGlobalNote only. ZERO delete* branches exist.",
+      "capabilityMatrix": {
+        "durableDeleteOutboxHooked": false,
+        "deleteBranchesExist": false,
+        "tombstoneVsCloudAntientropy": false,
+        "note": "Engine is UPSERT-ONLY. Never deletes anything. Failed deletes (paths 1-4 above) are NEVER retried by periodic sync even with perfect network later."
+      },
+      "observation": "Core architectural gap: adding CloudDeleteOutbox domain module without integrating its reconciler loop into cloudSyncEngine background poller would leave retry outbox work half-done.",
+      "scaleFinal": 1,
+      "passesThresholdOf_4": false
+    }
+  ],
+  "aggregatedSummary": {
+    "totalPathsAudited": 5,
+    "pathsPassingThreshold": 0,
+    "pathsFailingThreshold": 5,
+    "averageScaleAcrossFivePaths": 1.0,
+    "lowestScale": 0,
+    "highestScale": 2,
+    "overallT20Verdict": "FAIL — No path meets AC-19 Scale≥4 threshold. 60% of paths (3/5) are Scale 0 or 1 (fire-and-forget / silent). 1 path Scale 2 (toast-only). 1 auxiliary path Scale 1 (sync engine upsert-only)."
+  },
+  "recommendedEngineeringPlanNextPhase": {
+    "priority_P0_critical": [
+      "Create domain module domain/deleteOutbox/index.ts with DeleteOp type (bucket, ids array, scheduledAt ISO, attempts int, lastError string)",
+      "SecureStore durable storage under key 'domain:delete-outbox:v1'",
+      "public API enqueueDelete(bucket, ids, visibilityDelayMs = 86400000 default)",
+      "reconciler() function called every 15 min from cloudSyncEngine integration with exponential backoff (1s→2s→4s→...max 5min) attempts cap=20",
+      "tombstoneId write pre-cloud delete → anti-entropy compare tombstones against cloud rows NEXT pull cycle"
+    ],
+    "priority_P1_high_integrateWithFourPaths": [
+      "Replace useLawsuitFileMutations.ts L124 direct delete → enqueueDelete('lawsuit', ids, 24h delay + 'قيد الإزالة' badge)",
+      "Replace useLawyerExecutionFiles.ts L596 async deleteFromCloud → enqueueDelete('execution', ids) + remove duplicate purgeDeletedExecutionDossiers single-shot delete loop",
+      "Replace useLawyerGlobalNotes.ts L291 try{deleteGlobalNote} → enqueueDelete('notes', ids)",
+      "Fix useExecutionTrashAndPins.ts L292-L307 permanentlyDeleteCaseNote → enqueueDelete('caseNote', [id]) OR at minimum add actual Supabase call equivalent to global note delete",
+      "cloudSyncEngine.ts L115 uploadRowsWithBoundedConcurrency → add deleteExecutionRows/deleteLawsuitRows/deleteNoteRows 3 new parity branches so periodic sync ALSO pushes failed outbox items",
+      "LawsuitTrashView add useEffect mirroring execution trash auto-purge: auto enqueuePermanent after 30-day trashAt age"
+    ],
+    "implementationEstimateLoC_Tests": {
+      "newTypeScriptLines": "~320 LOC",
+      "newHookIntegrationEdits": 4,
+      "additionalUnitTests": "~120 tests",
+      "newGuardScript": "scripts/guard-delete-outbox-contract.mjs — verify ALL 4 delete paths use enqueueDelete (no direct Supabase .delete() call exists outside Outbox reconciler)",
+      "newAuditBaseline": ".audit/delete-outbox-boundary-baseline.json"
+    }
+  },
+  "documentIntegritySignature": {
+    "signatoryRole": "Chief Systems Architect & Lead Production Engineer (this session)",
+    "verificationRule": "To re-audit T20 independently: (1) grep permanentlyDelete (2) grep SupabaseService\\..*delete (3) check each location scale against rubric above. 4th path (case notes) was discovered this way.",
+    "knownCaveats": [
+      "This audit covers delete paths only. Cloud UPDATE/CREATE (upsert) paths were audited in Marhala2 and are NOT part of T20 scope.",
+      "Trash aging (30-day) for lawsuits is manual-only; auto purge useEffect exists for executions only. Both under trash-age scope are separate from cloud delete Scale audit."
+    ]
+  }
+}
