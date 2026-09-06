@@ -2,7 +2,7 @@
  * مزامنة منهجية: أي موعد/تاريخ في إضبارة (دعوى، تنفيذ، مستعجل، معاملة، جزائي، Threading)
  * يُرفع إلى التقويم المركزي عبر معرّف ثابت — لا ربط عشوائي لكل زر على حدة.
  */
-import { CalendarBridge, resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { CalendarBridge, buildStableBridgeId, resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
@@ -206,7 +206,12 @@ export async function pruneOrphanedBridgeEvents(
         for (const e of events) {
             if (!isBridgedCalendarEvent(e)) { keep.push(e); continue; }
             if (isSourceModuleStorageUnread(String(e.sourceModule ?? ''))) { keep.push(e); continue; }
-            if (valid.has(e.id)) { keep.push(e); continue; }
+            const stableId = buildStableBridgeId(
+                String(e.sourceModule ?? ''),
+                String(e.sourceEntityId ?? ''),
+                String(e.sourceEventId ?? ''),
+            );
+            if (valid.has(stableId)) { keep.push(e); continue; }
             toRemove.push(e);
         }
         const removed = toRemove.length;
@@ -229,6 +234,18 @@ export async function pruneOrphanedBridgeEvents(
                 );
             } catch {
                 /* IndexedDB layer may reject — sync cache already has correct value */
+            }
+
+            for (const e of toRemove) {
+                try {
+                    const eventUserId = e.userId || uid;
+                    await CalendarBridge.remove(
+                        e.sourceModule!,
+                        String(e.sourceEntityId),
+                        String(e.sourceEventId),
+                        eventUserId,
+                    );
+                } catch { /* swallow per-event */ }
             }
 
             const tomb = await import('@/app/services/calendarTombstones');
@@ -331,6 +348,16 @@ export async function purgeNonWhitelistedBridgedEvents(userId?: string | null): 
                 /* IndexedDB layer may reject — sync cache already has correct value */
             }
 
+            for (const e of toRemove) {
+                try {
+                    const mod = e.sourceModule;
+                    const entityId = String(e.sourceEntityId ?? '');
+                    const eventId = String(e.sourceEventId ?? '');
+                    if (!mod || !entityId || !eventId) continue;
+                    await CalendarBridge.remove(mod, entityId, eventId, e.userId || uid);
+                } catch { /* swallow per-event */ }
+            }
+
             const tomb = await import('@/app/services/calendarTombstones');
             for (const ev of toRemove) {
                 try { await tomb.recordTombstone(String(ev.userId || uid), String(ev.id)); } catch { /* ignore */ }
@@ -404,6 +431,20 @@ export async function purgeInauthenticBridgedEvents(userId?: string | null): Pro
                 );
             } catch {
                 /* IndexedDB layer may reject — sync cache already has correct value */
+            }
+
+            for (const e of toRemove) {
+                try {
+                    const eventUserId = e.userId || uid;
+                    const mod = e.sourceModule;
+                    const entityId = String(e.sourceEntityId ?? '');
+                    const eventId = String(e.sourceEventId ?? '');
+                    if (!mod || !entityId || !eventId || e.__malformed) {
+                        await CalendarDB.deleteEvent(e.id, eventUserId);
+                        continue;
+                    }
+                    await CalendarBridge.remove(mod, entityId, eventId, eventUserId);
+                } catch { /* swallow per-event */ }
             }
 
             const tomb = await import('@/app/services/calendarTombstones');
