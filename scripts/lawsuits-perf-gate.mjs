@@ -2,8 +2,8 @@
 /**
  * بوابة أداء قسم الدعاوى — TTFI فتح الإضبارة (desktop + mobile واقعي).
  *
- *   npm run gate:lawsuits:perf              # Vite :8080 — desktop + Pixel 7 (بدون CDP slow-mobile)
- *   LAWSUITS_E2E_USE_PREVIEW=1 npm run gate:lawsuits:perf   # preview 4173
+ *   npm run gate:lawsuits:perf              # Default: Vite preview 4173 + build:e2e (cross-platform)
+ *   LAWSUITS_E2E_USE_PREVIEW=0 npm run gate:lawsuits:perf  # Opt-out: Vite :8080 pre-running server
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -32,7 +32,7 @@ const SCENARIOS = [
 ];
 
 function runProbe(device, throttle, samples) {
-    const usePreview = process.env.LAWSUITS_E2E_USE_PREVIEW === '1';
+    const usePreview = process.env.LAWSUITS_E2E_USE_PREVIEW !== '0';
     const args = [
         'scripts/lawsuits-dossier-ttfi-probe.mjs',
         ...(usePreview ? ['--preview'] : ['--url=http://localhost:8080']),
@@ -52,7 +52,7 @@ function runProbe(device, throttle, samples) {
 }
 
 const needPreviewBuild =
-    process.env.LAWSUITS_E2E_USE_PREVIEW === '1' &&
+    process.env.LAWSUITS_E2E_USE_PREVIEW !== '0' &&
     (!existsSync(resolve(ROOT, 'dist/index.html')) || process.env.LAWSUITS_E2E_SKIP_BUILD !== '1');
 
 if (needPreviewBuild) {
