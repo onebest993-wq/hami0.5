@@ -8,7 +8,46 @@
  *   (أ) api        ↚  components/hooks/runtime/bootstrap
  *   (ب) services   ↚  components/hooks/runtime/bootstrap
  *   (ج) domain+app ↚  components/services/runtime
+ *
+ * Note: TypeScript parser مطلوب للملفات .ts/.tsx؛ بدونها تمر parse error
+ * ولا تطبّق قواعد no-restricted-imports نهائيًا (سبب فشل TR-21.2 الأولي).
  */
+const tsParser = require('@typescript-eslint/parser');
+
+const sharedGlobals = {
+    window: 'readonly',
+    document: 'readonly',
+    navigator: 'readonly',
+    localStorage: 'readonly',
+    sessionStorage: 'readonly',
+    fetch: 'readonly',
+    File: 'readonly',
+    Blob: 'readonly',
+    FormData: 'readonly',
+    URL: 'readonly',
+    URLSearchParams: 'readonly',
+    CustomEvent: 'readonly',
+    HTMLElement: 'readonly',
+    HTMLInputElement: 'readonly',
+    HTMLTextAreaElement: 'readonly',
+    HTMLButtonElement: 'readonly',
+    KeyboardEvent: 'readonly',
+    MouseEvent: 'readonly',
+    DragEvent: 'readonly',
+    requestAnimationFrame: 'readonly',
+    cancelAnimationFrame: 'readonly',
+    setTimeout: 'readonly',
+    clearTimeout: 'readonly',
+    setInterval: 'readonly',
+    clearInterval: 'readonly',
+    performance: 'readonly',
+    console: 'readonly',
+    process: 'readonly',
+    module: 'readonly',
+    require: 'readonly',
+    __dirname: 'readonly',
+};
+
 module.exports = [
     {
         ignores: [
@@ -18,6 +57,26 @@ module.exports = [
             'coverage/**',
             'api/handler.js',
         ],
+    },
+    {
+        files: ['**/*.{ts,tsx}'],
+        languageOptions: {
+            parser: tsParser,
+            parserOptions: {
+                ecmaFeatures: { jsx: true },
+                ecmaVersion: 'latest',
+                sourceType: 'module',
+            },
+            globals: sharedGlobals,
+        },
+    },
+    {
+        files: ['**/*.{js,jsx,mjs,cjs}'],
+        languageOptions: {
+            ecmaVersion: 'latest',
+            sourceType: 'module',
+            globals: sharedGlobals,
+        },
     },
     {
         files: ['src/app/api/**/*.{ts,tsx,js,jsx,mjs,cjs}'],

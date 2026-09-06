@@ -1,9 +1,8 @@
-/**
+﻿/**
  * Single source of truth for Content-Security-Policy (WIFE / Hami).
- * Dev: relaxed for Vite HMR. Production: strict — no unsafe-eval, no inline scripts.
+ * Dev: relaxed for Vite HMR. Production: strict â€” no unsafe-eval, no inline scripts.
  */
 
-import { Button } from '../../components/ui/button'; // T21 TEMP REGRESSION TEST — DELETE AFTER VERIFY
 
 export type CspMode = 'development' | 'production' | 'e2e-preview';
 
@@ -42,7 +41,7 @@ export function buildContentSecurityPolicy(mode: CspMode): string {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    /* عامل pdf.js يُشحن معنا — لا أصل خارجي يُنفِّذ شيفرة فوق مستندات الموكّلين */
+    /* ط¹ط§ظ…ظ„ pdf.js ظٹظڈط´ط­ظ† ظ…ط¹ظ†ط§ â€” ظ„ط§ ط£طµظ„ ط®ط§ط±ط¬ظٹ ظٹظڈظ†ظپظگظ‘ط° ط´ظٹظپط±ط© ظپظˆظ‚ ظ…ط³طھظ†ط¯ط§طھ ط§ظ„ظ…ظˆظƒظ‘ظ„ظٹظ† */
     "worker-src 'self' blob:",
     ...(isDev || isE2ePreview ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
