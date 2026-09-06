@@ -1,6 +1,6 @@
 {
   "schemaVersion": "architecture-boundaries-ratchet-v1",
-  "generatedAt": "2026-09-06T15:01:25.515Z",
+  "generatedAt": "2026-09-06T15:07:34.425Z",
   "appVersion": "hami-app@10.5.0",
   "headCommitAtGeneration": "50f8dc89",
   "eslintRuleUnderTest": "no-restricted-imports",
@@ -41,9 +41,9 @@
   ],
   "counts": {
     "apiViolations": 1,
-    "servicesViolations": 6,
-    "domainApplicationViolations": 9,
-    "totalViolations": 16
+    "servicesViolations": 129,
+    "domainApplicationViolations": 114,
+    "totalViolations": 244
   },
   "ratchetBehavior": {
     "exitCode1If": "ANY(api_current > api_baseline, services_current > services_baseline, domainApp_current > domainApp_baseline, total_current > total_baseline)",
