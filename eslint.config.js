@@ -117,4 +117,46 @@ module.exports = [
             'no-console': ['warn', { allow: ['warn', 'error'] }],
         },
     },
+    {
+        files: ['src/app/api/**/*.{ts,tsx,js,jsx,mjs,cjs}'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [
+                    {
+                        group: ['**/components/**', '**/hooks/**', '**/runtime/**', '**/bootstrap/**'],
+                        message: 'src/app/api/** layer must NOT import components/hooks/runtime/bootstrap. Allow only security/types/shared/infrastructure paths (T21 arch boundary infra←api)',
+                    },
+                ],
+            }],
+        },
+    },
+    {
+        files: ['src/app/services/**/*.{ts,tsx,js,jsx,mjs,cjs}'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [
+                    {
+                        group: ['**/components/**', '**/hooks/**', '**/runtime/**', '**/bootstrap/**'],
+                        message: 'src/app/services/** layer must NOT import components/hooks/runtime/bootstrap. Services are stateless infra; move glue to hooks/bootstrap/runtime. (T21 arch boundary services←ui)',
+                    },
+                ],
+            }],
+        },
+    },
+    {
+        files: [
+            'src/app/domain/**/*.{ts,tsx,js,jsx,mjs,cjs}',
+            'src/app/application/**/*.{ts,tsx,js,jsx,mjs,cjs}',
+        ],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [
+                    {
+                        group: ['**/components/**', '**/services/**', '**/runtime/**'],
+                        message: 'src/app/domain + src/app/application pure logic layers must NOT import components/services/runtime. Keep pure; inject infra at boundary hooks. (T21 arch boundary pure←concrete)',
+                    },
+                ],
+            }],
+        },
+    },
 ];
