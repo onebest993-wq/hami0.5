@@ -40,7 +40,8 @@ describe('phase-7 overlays score push — security + mobile ownership', () => {
         );
         expect(execHook).toContain('openExecutionDossierWithContract');
         expect(execHook).toContain('executionFiles.find');
-        expect(execHook).toContain('if (!fromPool) return false');
+        expect(execHook).toContain('const fromPool = executionFiles.find');
+        expect(execHook).toContain('if (!fromPool) {');
         expect(entry).toContain("type: 'execution'");
         expect(entry).not.toMatch(/onOpenFile\(\{\s*\.\.\./);
     });

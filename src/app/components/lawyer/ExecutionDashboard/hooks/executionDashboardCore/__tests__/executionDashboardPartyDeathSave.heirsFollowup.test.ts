@@ -19,7 +19,7 @@ describe('runPartyDeathSave — debtor heir follow-up', () => {
         vi.clearAllMocks();
     });
 
-    it('seeds heirs notification workflow and opens the follow-up center after substitution save', () => {
+    it('seeds heirs notification workflow and opens the follow-up center after substitution save', async () => {
         const persistExecutionMerge = vi.fn();
         const setTimelineEvents = vi.fn((updater: unknown) => {
             if (typeof updater === 'function') {
@@ -57,6 +57,7 @@ describe('runPartyDeathSave — debtor heir follow-up', () => {
         );
 
         expect(ok).toBe(true);
+        await new Promise<void>((r) => queueMicrotask(r));
         expect(persistExecutionMerge).toHaveBeenCalledWith(
             expect.objectContaining({
                 heirs_notification_workflow: expect.objectContaining({

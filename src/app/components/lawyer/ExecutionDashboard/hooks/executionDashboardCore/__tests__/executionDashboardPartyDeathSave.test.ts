@@ -28,7 +28,7 @@ describe('runPartyDeathSave', () => {
         );
     });
 
-    it('does not throw when executionDataRef is missing — falls back to executionData', () => {
+    it('does not throw when executionDataRef is missing — falls back to executionData', async () => {
         const persistExecutionMerge = vi.fn();
         const setTimelineEvents = vi.fn((updater: unknown) => {
             if (typeof updater === 'function') {
@@ -59,6 +59,7 @@ describe('runPartyDeathSave', () => {
                 },
             ),
         ).not.toThrow();
+        await new Promise<void>((r) => queueMicrotask(r));
         expect(persistExecutionMerge).toHaveBeenCalled();
         expect(showToast).toHaveBeenCalledWith('تم تسجيل الإبلاغ عن الوفاة.', 'success');
     });

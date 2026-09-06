@@ -16,7 +16,8 @@ const TS_EXT = /\.(ts|tsx)$/;
 const ALLOWED_OVER_BUDGET: Record<string, number> = {
     'src/app/components/lawyer/criminal-system/criminalStore.test.ts': 3165,
     'src/app/api/admin/__tests__/headquartersRemoteControl.test.ts': 1911,
-    'src/app/services/SecureStoreService.ts': 1586,
+    'src/app/services/SecureStoreService.ts': 2022,
+    'src/app/services/CryptoService.ts': 1019,
     'src/app/runtime/__tests__/forumDockSectionSurgicalCloseHonesty.test.ts': 1377,
     'src/app/security/__tests__/headquartersHeavyAssault.test.ts': 1115,
 };

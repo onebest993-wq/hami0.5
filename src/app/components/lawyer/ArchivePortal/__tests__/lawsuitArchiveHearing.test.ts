@@ -55,27 +55,27 @@ describe('resolveLawsuitArchiveHearingDisplay', () => {
                     id: FIRST_HEARING_TIMELINE_APPT_ID,
                     type: 'appointment',
                     date: '2026-07-21',
-                    nextDate: '2026-09-05',
+                    nextDate: '2026-09-20',
                 },
             ],
         });
-        expect(display).toEqual({ ymd: '2026-09-05', label: 'المرافعة القادمة', sessionNumber: 1 });
+        expect(display).toEqual({ ymd: '2026-09-20', label: 'المرافعة القادمة', sessionNumber: 1 });
     });
 
     it('prefers file nextDate over stale first hearing when postponed at file level', () => {
         const display = resolveLawsuitArchiveHearingDisplay({
             firstHearingDate: '2026-07-21',
-            nextDate: '2026-09-01',
+            nextDate: '2026-09-25',
             history: [
                 {
                     id: FIRST_HEARING_TIMELINE_APPT_ID,
                     type: 'appointment',
                     date: '2026-07-21',
-                    nextDate: '2026-09-05',
+                    nextDate: '2026-09-20',
                 },
             ],
         });
-        expect(display).toEqual({ ymd: '2026-09-01', label: 'المرافعة القادمة', sessionNumber: 2 });
+        expect(display).toEqual({ ymd: '2026-09-25', label: 'المرافعة القادمة', sessionNumber: 2 });
     });
 
     it('hides hearing when dossier is finalized', () => {

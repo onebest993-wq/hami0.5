@@ -16,7 +16,6 @@ import {
     resetHomeBootChromeForTests as resetHomeBootChromeStateForTests,
 } from '@/app/bootstrap/homeBootChromeState';
 import { BOOT_REVEAL_DONE_EVENT } from '@/app/bootstrap/bootReveal';
-import { peekBootSessionPeekSync } from '@/boot/peekBootSessionUserId';
 
 export {
     isHomeBootChromeReady,
@@ -92,6 +91,7 @@ async function waitWhileProfileWarmPending(maxMs: number): Promise<void> {
  * لا يختبر الشرط إلا عند حدوث تغير فعلي — 0 ضجيج على Main Thread.
  */
 async function waitWhileLocalProfileUnread(maxMs: number): Promise<void> {
+    const { peekBootSessionPeekSync } = await import('@/boot/peekBootSessionUserId');
     const session = peekBootSessionPeekSync();
     const uid = session?.userId?.trim();
     if (!uid) return;
@@ -140,6 +140,7 @@ function notifyProfileChromeUpdated(userId: string): void {
 }
 
 async function prepareIdentityChrome(): Promise<void> {
+    const { peekBootSessionPeekSync } = await import('@/boot/peekBootSessionUserId');
     const session = peekBootSessionPeekSync();
     const uid = session?.userId?.trim();
     if (!uid) return;
@@ -215,12 +216,15 @@ async function prepareLiveHomeModules(): Promise<void> {
 
 /** تسخين رادار المنزل تحت الغطاء — لا يُنتظر ولا يحجب markPrepared. */
 function kickHomeHubRadarWarm(): void {
-    const session = peekBootSessionPeekSync();
-    const uid = session?.userId?.trim();
-    if (!uid) return;
-    void import('@/app/services/alerts/homeHubRadarWarmCache')
-        .then(({ warmHomeHubRadarCache }) => {
-            warmHomeHubRadarCache(uid);
+    void import('@/boot/peekBootSessionUserId')
+        .then(({ peekBootSessionPeekSync }) => {
+            const session = peekBootSessionPeekSync();
+            const uid = session?.userId?.trim();
+            if (!uid) return;
+            return import('@/app/services/alerts/homeHubRadarWarmCache')
+                .then(({ warmHomeHubRadarCache }) => {
+                    warmHomeHubRadarCache(uid);
+                });
         })
         .catch(() => undefined);
 }

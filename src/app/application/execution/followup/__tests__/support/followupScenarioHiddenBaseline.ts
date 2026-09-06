@@ -12,14 +12,16 @@ export type FollowupScenarioHiddenBaselineEntry = {
 };
 
 /**
- * لقطة مرجعية لـ 22 سيناريو — تُحدَّث عند تغيير منطق الطلبات المخفية عمداً.
+ * لقطة مرجعية لـ 22 سيناريو — تُحدَّث عند تغيير منطق الطلبات المخفية عمداً.
  * دعم اختبارات فقط تحت `__tests__/support` (ليست مسار إنتاج).
+ * Rebaselined 2026-09-06 بعد FIX-C: إخفاء الكفيل فقط عند breach فعلي (settlementBreachTriggeredAt)،
+ * ولم يعد pendingSettlement وحده يكفي.
  */
 export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioHiddenBaselineEntry> = {
     financial_employee: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: ['forced_bring_in', 'travel_ban'],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
         hasAnyHiddenContent: true,
     },
@@ -58,14 +60,14 @@ export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioH
     specific_delivery_movable_pre_employee: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: ['forced_bring_in', 'travel_ban'],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
         hasAnyHiddenContent: true,
     },
     specific_delivery_movable_pre_legal_entity: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: ['forced_bring_in'],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
         hasAnyHiddenContent: true,
     },
@@ -105,7 +107,7 @@ export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioH
     eviction_employee: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: ['forced_bring_in', 'travel_ban'],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
         hasAnyHiddenContent: true,
     },
@@ -123,9 +125,9 @@ export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioH
     visitation_earner: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: [],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
-        hasAnyHiddenContent: true,
+        hasAnyHiddenContent: false,
     },
     matwaa_earner: {
         hiddenToggleVisible: true,
@@ -137,16 +139,16 @@ export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioH
     custody_removal_earner: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: [],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
-        hasAnyHiddenContent: true,
+        hasAnyHiddenContent: false,
     },
     custody_removal_employee: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: [],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
-        hasAnyHiddenContent: true,
+        hasAnyHiddenContent: false,
     },
     marital_furniture_earner: {
         hiddenToggleVisible: true,
@@ -158,7 +160,7 @@ export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioH
     legal_entity_financial: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: ['forced_bring_in'],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
         hasAnyHiddenContent: true,
     },
@@ -179,15 +181,15 @@ export const FOLLOWUP_SCENARIO_HIDDEN_BASELINE: Record<string, FollowupScenarioH
     court_sharia_employee: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: ['forced_bring_in'],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
         hasAnyHiddenContent: true,
     },
     financial_employee_assignment_block: {
         hiddenToggleVisible: true,
         hiddenPersonalCoerciveKeys: [],
-        hiddenGuarantorKeys: ['guarantor_request'],
+        hiddenGuarantorKeys: [],
         breakInventoryVisible: false,
-        hasAnyHiddenContent: true,
+        hasAnyHiddenContent: false,
     },
 };
