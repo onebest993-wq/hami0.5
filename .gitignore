@@ -136,3 +136,6 @@ desktop.ini
 
 .vercel
 .env*
+
+# Hami handoff outputs (local-only — copied to ../hami-handoff external when complete)
+.hami-handoff-output/
