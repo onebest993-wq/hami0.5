@@ -1,5 +1,6 @@
 -- HQ login lock is separate from network freeze (freeze_until / is_banned).
 -- Clients cannot clear login_blocked / login_until.
+SET search_path = pg_catalog, public;
 
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS login_blocked boolean NOT NULL DEFAULT false;

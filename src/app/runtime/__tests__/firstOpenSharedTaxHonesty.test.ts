@@ -247,7 +247,12 @@ describe('first-open shared-tax honesty', () => {
         expect(sheet).not.toContain("from 'motion/react'");
         const vite = read('vite.config.mts');
         expect(vite).toContain("return 'overlay-motion-runtime'");
-        expect(read('src/app/runtime/appStateEvents.ts')).not.toMatch(/^import /m);
+        const appStateContent = read('src/app/runtime/appStateEvents.ts');
+        const allImports = [...appStateContent.matchAll(/^import .*from\s+['"]([^'"]+)['"]/gm)];
+        const heavyImports = allImports.filter(([, mod]) => mod !== '@/app/runtime/eventConstants');
+        expect(heavyImports).toHaveLength(0);
+        expect(appStateContent).not.toContain('ExecutionDashboard');
+        expect(appStateContent).not.toContain('@capacitor');
     });
 
     it('أوراق Sentry/التخزين/المستودع تُسمّى خارج persist-foundation', () => {

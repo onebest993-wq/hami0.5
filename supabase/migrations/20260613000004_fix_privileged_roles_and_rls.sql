@@ -1,6 +1,7 @@
 -- =====================================================
 -- WIFE hardening: DB-backed roles, strip self-escalation metadata, fix RLS
 -- =====================================================
+SET search_path = pg_catalog, public;
 
 -- profiles (canonical privilege source — never JWT user_metadata)
 CREATE TABLE IF NOT EXISTS public.profiles (

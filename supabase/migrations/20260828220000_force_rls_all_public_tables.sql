@@ -1,5 +1,6 @@
 -- Table owners without BYPASSRLS used to skip RLS. FORCE applies policies
 -- even to the owner. service_role keeps BYPASSRLS for BFF writes.
+SET search_path = pg_catalog, public;
 
 DO $$
 DECLARE

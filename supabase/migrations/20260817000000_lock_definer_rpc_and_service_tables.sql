@@ -1,5 +1,6 @@
 -- Close PostgREST RPC on auth-trigger functions. Triggers still run as table owner.
 -- BFF-only tables keep RLS fail-closed with an explicit deny policy for clients.
+SET search_path = pg_catalog, public;
 
 REVOKE ALL ON FUNCTION public.handle_new_auth_user_profile() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.handle_new_auth_user_profile() FROM anon, authenticated;

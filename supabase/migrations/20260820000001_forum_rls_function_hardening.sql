@@ -1,4 +1,6 @@
 -- Deny direct client access on remaining forum tables; lock function execute.
+SET search_path = pg_catalog, public;
+
 CREATE POLICY forum_bookmarks_deny ON public.forum_bookmarks FOR ALL TO authenticated USING (false) WITH CHECK (false);
 CREATE POLICY forum_comment_reports_deny ON public.forum_comment_reports FOR ALL TO authenticated USING (false) WITH CHECK (false);
 CREATE POLICY forum_comment_upvotes_deny ON public.forum_comment_upvotes FOR ALL TO authenticated USING (false) WITH CHECK (false);
@@ -8,7 +10,7 @@ CREATE POLICY forum_group_members_deny ON public.forum_group_members FOR ALL TO 
 CREATE OR REPLACE FUNCTION public.forum_posts_set_updated_at()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
 BEGIN
   NEW.updated_at = NOW();

@@ -1,11 +1,12 @@
 -- JWT verificationStatus is not a privilege source. Never copy it from NEW.
 -- On UPDATE, keep the previous value. HQ KYC authority remains KV.
+SET search_path = pg_catalog, public;
 
 CREATE OR REPLACE FUNCTION public.strip_privileged_user_metadata()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $function$
 DECLARE
   cleaned jsonb;

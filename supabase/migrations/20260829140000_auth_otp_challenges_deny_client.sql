@@ -1,5 +1,6 @@
 -- رفض صريح لـ anon/authenticated فوق REVOKE (الخدمة تتجاوز RLS).
 -- يُغلق تحذير rls_enabled_no_policy دون فتح أي مسار عميل.
+SET search_path = pg_catalog, public;
 
 DROP POLICY IF EXISTS auth_otp_challenges_no_client ON public.auth_otp_challenges;
 

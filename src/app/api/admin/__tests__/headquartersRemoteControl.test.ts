@@ -1729,7 +1729,7 @@ describe('أمان المصدر — مقر القيادة', () => {
             path.join(process.cwd(), 'supabase/migrations/20260828201000_lock_update_updated_at_search_path.sql'),
             'utf8',
         );
-        expect(searchPathLock).toContain('SET search_path = public');
+        expect(searchPathLock).toContain('SET search_path = pg_catalog, public');
         const forceRls = fs.readFileSync(
             path.join(process.cwd(), 'supabase/migrations/20260828220000_force_rls_all_public_tables.sql'),
             'utf8',

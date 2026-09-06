@@ -1,12 +1,13 @@
 -- JWT user_metadata.verificationStatus is client-writable and must not stick after HQ KYC.
 -- Never copy it from NEW or preserve OLD. HQ authority remains KV.
 -- Cache for UX only: raw_app_meta_data.verification_status (not an RLS privilege source).
+SET search_path = pg_catalog, public;
 
 CREATE OR REPLACE FUNCTION public.strip_privileged_user_metadata()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $function$
 DECLARE
   cleaned jsonb;

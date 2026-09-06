@@ -1,5 +1,6 @@
 -- سجل عمليات المقر يُقرأ ويُكتب من BFF بـ service_role فقط.
 -- الجدول أُنشئ بلا GRANT فظهر «تعذّر تحميل سجل العمليات» رغم أن الجدول حيّ.
+SET search_path = pg_catalog, public;
 
 REVOKE ALL ON TABLE public.audit_logs FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.audit_logs TO service_role;

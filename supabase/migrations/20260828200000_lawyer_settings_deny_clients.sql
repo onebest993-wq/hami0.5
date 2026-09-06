@@ -1,5 +1,6 @@
 -- Close leftover "Allow full access for dev" (USING true) + GRANT ALL to anon.
 -- Cloud sync goes through /api/settings/cloud-sync with service_role only.
+SET search_path = pg_catalog, public;
 
 ALTER TABLE public.lawyer_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lawyer_settings FORCE ROW LEVEL SECURITY;

@@ -1,5 +1,6 @@
 -- رموز التحقق للمحامي: استعادة كلمة المرور وتأكيد البريد (بريد / واتساب)
 -- service_role / BFF فقط — بلا سياسات عميل.
+SET search_path = pg_catalog, public;
 
 CREATE TABLE IF NOT EXISTS public.auth_otp_challenges (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

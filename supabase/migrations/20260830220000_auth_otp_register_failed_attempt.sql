@@ -1,10 +1,11 @@
 -- زيادة محاولات OTP ذرّياً على الخادم حتى لا يتجاوز طلبان متزامنان سقف المحاولات.
+SET search_path = pg_catalog, public;
 
 CREATE OR REPLACE FUNCTION public.auth_otp_register_failed_attempt(p_id uuid, p_max integer)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   new_attempts integer;
