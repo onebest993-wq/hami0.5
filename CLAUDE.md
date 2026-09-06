@@ -1,0 +1,175 @@
+# Hami-app — Tier-1 Production Hardening: CLAUDE.md
+
+> **ملف التعليمات الرسمي لمراجعة المستقلين والاعتمادات المستقبلية.**
+> **Version:** v10.5.0-tier1-hardened · **Branch:** improve/current · **Node:** 24.x (`cat .nvmrc`)
+
+---
+
+## §1 — Tech Stack & Versions (Pin-Exact unless stated)
+
+| Layer | Package | Pinned version | Source |
+|---|---|---|---|
+| Runtime | Node.js | `24.x` | `.nvmrc` |
+| Core | React | `18` | `package.json` `dependencies` |
+| Bundler | Vite | `7` | `package.json` `devDependencies` |
+| Language | TypeScript | `5.9` | `package.json` `devDependencies` |
+| Styling | Tailwind CSS | `4` | `package.json` `devDependencies` |
+| State | Zustand | `4.x` | `package.json` `dependencies` |
+| Native | Capacitor | `8` (+ plugins same major) | `package.json` |
+| BaaS/Auth/RPC | Supabase (supabase-js) | `2.108` | `package.json` |
+| E2E | Playwright | latest stable lockfile | `package.json` |
+| Unit/integration | Vitest | pinned | `package.json` |
+| Telemetry | Sentry (client + cap plugin) | pinned 8.x matching major | `package.json` |
+| Package manager | npm (strict lockfile-3) | Node 24 default | `.npmrc` |
+
+---
+
+## §2 — Atomic Commit Rules
+
+1. **Prefix (Conventional Commits STRICT):**
+   ```
+   fix(scope):     — bug-correction only (no feature)
+   feat(scope):    — new behavior (gate:wave0 MUST PASS)
+   docs(scope):    — .md only, no TSX/TS/CSS
+   refactor(scope):— behavior equivalent, T1/T2/T3 style examples
+   chore(scope):   — dep bumps, ci-tweaks only (no logic)
+   baseline(scope):— RARE — ONLY for --save ratchet baseline corrections
+   ```
+2. **Bisectable**: كل commit مهمة واحدة فقط. لا خلط T1+T2.
+3. **One-rule fail = amend**: إذا اخفق guard، لا تدمج تصحيحه مع مهمة أخرى؛ اعمل amend أو commit منفصل.
+4. **Zero Visual Edits flag**: رسالة الـ commit **مستحقة** إفادة `Zero Visual Edits = confirmed` إلا في حال تعديل واجهة صريح بموافقة المستخدم.
+5. **Baseline: prefix REQUIRED for `--save`**: أي `--save` لـ ratchet **يجب** أن يبدأ بـ `baseline(scope):` مع سبب موثق + موافقة المستخدم verbatim في رسالة الـ commit.
+6. **No force push** مطلقًا على الأفرع الرسمية (improve/current · main · release/*).
+
+---
+
+## §3 — Quality Gates (28 Registered Guards)
+
+> Runner الرسمي: `node scripts/run-gate-wave0.mjs` (يكتشف npm.cmd + shell:true على Windows تلقائيًا — لا `npm run gate:wave0` مباشر).
+
+| # | Gate script (`package.json` name) | الموصوفة |
+|---|---|---|
+| 1 | `guard:ts-nocheck` | عدد ملفات `// @ts-nocheck` ≤ baseline |
+| 2 | `guard:import-closure` | import graph broken=0 |
+| 3 | `guard:dead-exports` | dead exports ≤ baseline (الأسوأ أحادي الاتجاه) |
+| 4 | `guard:baseline` | snapshot baselines مُحقّقة + non-regression |
+| 5 | `guard:architecture-boundaries` | 4 طوابق T21 (api/services/domain/application) ≤ baseline |
+| 6 | `guard:install` | strict npm install + lock parity clean exit=0 |
+| 7 | `guard:lockfile-parity` | package.json ↔ package-lock.json versions 100% متطابقة |
+| 8 | `guard:dist-secrets` | 7 secrets حاسمة لا تظهر في `dist/` |
+| 9 | `guard:peer-conflicts` | peer-deps zero-conflict بعد strict install |
+| 10 | `guard:native-foundation` | Capacitor pinned + native-ready templates موجود |
+| 11 | `guard:cold-entry` | index.html لا يحتوي Google Fonts على critical path |
+| 12 | `guard:screen-closure` | LawsuitArchiveChrome +3 شاشات داخل KB ميزانيتها |
+| 13 | `guard:source-paths` | ملفات الـ source روابطها غير معطلة |
+| 14 | `guard:tailwind-source` | Tailwind source content ملموس، لا يكرر السورس |
+| 15 | `guard:injected-globals` | define ↔ declare ↔ استعمال متطابقة ×5 |
+| 16 | `guard:ci-covers-guards` | 32 حارساً مربوطاً بالبوّابة، 2 مستثنى موثقين |
+| 17 | `guard:supabase-info-boundary` | `info.ts` محصور في devFallbackConfig وحده |
+| 18 | `guard:tracked-secrets` | 11+ tracked secrets (URL · anon/service_keys · phone_ids · bucket refs) لا تُكرم في committed files |
+| 19 | `guard:shell-auth-prod` | production shell auth fail-closed |
+| 20 | `guard:prod-env-contract` | 13+ VITE_ keys documented + parity + BFF/Auth closed |
+| 21 | `guard:security-headers` | vercel.json · vercel-hq.json · public/_headers في تزامن تام |
+| 22 | `guard:tsc` | TS diagnostics ≤ 956 baseline أحادي الاتجاه |
+| 23 | `guard:cloud-types` | 6 ملفات سحابية حاسمة clean types |
+| 24 | `guard:lint` | ESLint ≤ baseline (177 baseline; actual POST-T2=11) |
+| 25 | `guard:execution-window-confirm` | execution paths لا تستخدم `window.confirm` |
+| 26 | `guard:execution-modal-mobile` | execution modals dvh + pointer-events safe |
+| 27 | `guard:tests` | Vitest failing ≤ 23 baseline; KNOWN_TIMING_FLAKES MAX=3 |
+| 28 | `guard:cloud-delete-audit` | T20 v2 audit 5 فئات cloud-delete paths موثق |
+
+---
+
+## §4 — 6 Ratchet Baselines + Save Policy
+
+| Ratchet | Baseline (locked JSON) | POST-T2 actual | Trend allowed | `--save` only if |
+|---|---|---|---|---|
+| tsc errors | `956` `.audit/tsc-baseline.json` | `956` | ≤956 فقط | baseline: prefix + سبب موثق |
+| lint errors | `177` `.audit/lint-baseline.json` | `11` | ≤177 فقط | baseline: prefix |
+| dead exports | `1888` `.audit/dead-exports-baseline.json` | `1885` | ≤1888 فقط | baseline: prefix |
+| test failures | `23` `.audit/test-ratchet-baseline.json` | `21` | ≤23 فقط | baseline: prefix + flakes documented |
+| arch boundaries 4-floor | `244` (1/129/114) `.audit/architecture-boundaries-baseline.json` | `244` | ≤244 فقط | baseline: prefix + T21 violation reason |
+| import closure broken | `0` | `0` | **فقط 0** | غير مسموح به أبدًا — لا --save |
+
+### Save Policy:
+```
+❌ NO --save عادي حتى لو كان actual < baseline (التحسين تلقائي بدون --save)
+✅ ONLY --save مسموح به في حال:
+   (1) رسالة commit بادئة "baseline(scope): ..."
+   (2) سبب مكتوب تفصيلي لماذا الـ baseline الجديد أكثر عدلاً
+   (3) رد verbatim من المستخدم يُوافق على تصحيح الـ baseline
+```
+
+---
+
+## §5 — Zero Visual Freeze (ZVF) Policy
+
+**Non-negotiable من القسم ٢ verbatim:**
+
+> لا تعديل على أي ملف يُغيّر المخرجات المرئية تحت أي ظرف — طويلاً كان أم قصيرًا.
+> السماح فقط بمنطق runtime / ثوابت / استعلامات SQL / ملفات .md / imports.
+
+### التعديلات المُمنوعة صراحة (ممنوع 100% ما لم يأذن المستخدم صراحةً):
+- CSS files (src/**/*.css · *.module.css)
+- className="..." assignments في .tsx
+- style={{ ... }} أو sx={{ ... }} أو prop ألوان/أحجام
+- تغييرات لائقة تلمّس الألوان/التباعد/الخطوط/الأنماط
+- تغيير إجابات layout في Grid/Flex components
+
+### علامة اجتياز:
+كل commit في messages.txt **يجب أن يذكر** `Zero Visual Edits = confirmed` إلا إذا كان هناك تعديل واجهة صريح بموافقة المستخدم verbatim.
+
+---
+
+## §6 — 20 Critical Paths (Clickable file:// links)
+
+1. [package.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/package.json) — Stack pins + 28 guards scripts
+2. [.nvmrc](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.nvmrc) — Node 24.x pin
+3. [capacitor.config.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/capacitor.config.ts) — native shell config
+4. [vite.config.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/vite.config.ts) — Bundler + build sourcemaps
+5. [tsconfig.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/tsconfig.json) + [tsconfig.app.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/tsconfig.app.json) — strict options
+6. [eslint.config.js](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/eslint.config.js) — global ESLint (لا يحتوي T21 blocks)
+7. [.audit/eslint-arch-boundaries.config.js](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.audit/eslint-arch-boundaries.config.js) — T21 dedicated config
+8. [src/app/runtime/eventConstants.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/runtime/eventConstants.ts) — T1 SSOT 45 events
+9. [src/app/bootstrap/LOADER_HYDRATOR_ORDER.md](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/LOADER_HYDRATOR_ORDER.md) — T3 33-entry registry
+10. [src/app/bootstrap/bootReveal.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/bootReveal.ts#L119-L147) — markBootRevealDone + SecureStore kickoff
+11. [src/app/services/SecureStoreService.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/services/SecureStoreService.ts#L1993-L2017) — idle deferral dual mechanism
+12. [scripts/run-gate-wave0.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/run-gate-wave0.mjs) — Official 27/28 runner cross-platform
+13. [scripts/guard-tsc-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-tsc-ratchet.mjs) — tsc ratchet 956
+14. [scripts/guard-lint-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-lint-ratchet.mjs) — lint ratchet 177
+15. [scripts/guard-test-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-test-ratchet.mjs) — test ratchet 23 + flakes max=3
+16. [scripts/guard-dead-exports-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-dead-exports-ratchet.mjs) — dead exports 1888
+17. [scripts/guard-architecture-boundaries.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-architecture-boundaries.mjs) — T21 4-floor JSON 244
+18. [scripts/sync-security-headers.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/sync-security-headers.mjs) — vercel + _headers triple sync
+19. [.github/workflows/quality-gate.yml](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.github/workflows/quality-gate.yml) — CI gate entry (32 related guards)
+20. [supabase/migrations/](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/supabase/migrations/) — 15 search_path hardened files (T2)
+
+---
+
+## §7 — Review Protocol (Spec-Mode 5 Phases)
+
+> المراجعة الرسمية لا تُنفّذ من نفس الجهة التي نفّذت التنفيذ. يجب مراجعة مستقل تتبع 5 مراحل:
+
+1. **Phase 1 — Specify:** استدعاء `TRAE-spec-mode` Skill → إنتاج `spec.md` مع:
+   - **Rule-type ACs** (ثنائية: PASS/FAIL فقط — no partial)
+   - **Rubric-type ACs** (مقياس 1-5: أقل حد يُقال — e.g., Rubric≥4)
+   - ZeroHallucinations: كل ادعاء له evidence path حقيقي
+2. **Phase 2 — Plan:** إنتاج `tasks.md` مع:
+   - مهام ذرية (كل مهمة واحدة فقط، bisectable)
+   - لكل مهمة list TRs (Task Requirements) صريحة
+   - ترتيب الأولويات: high first, medium بعد
+3. **Phase 3 — Approve:** المستخدم يوافق صراحةً verbatim على spec.md + tasks.md بالكامل قبل أي تعديل كود. المستخدم قد يجيب على أسئلة Open Qs هنا.
+4. **Phase 4 — Implement (Current Phase):** تنفيذ كل مهمة بالترتيب:
+   - ✅  **Commit ذري لكل مهمة** (prefix Conventional Commits الصحيح)
+   - ✅  `run-gate-wave0.mjs` exit=0 قبل كل commit
+   - ✅  6 ratchets ≤baselines
+   - ✅  Zero Visual Edits مؤكد في رسالة commit
+5. **Phase 5 — Review:** مستقل يتحقق من:
+   - 13/13 مهام مُنفّذة (أو مع تعليق موثق لمن لم يتم بموافقة المستخدم)
+   - 28/28 gates PASS ×3 runs متتالية (Determinism)
+   - كل TR في كل مهمة مُحقّق ب دليل حقيقي (grep / run / hash / screenshot)
+   - **لا يُعتمد self-review:** نفس اللاعب لا يُحكم على عمله
+
+---
+
+> End of CLAUDE.md. تحديث الرسمي يجب أن يمر ب gate:wave0 exit=0 ثم annotated commit.
