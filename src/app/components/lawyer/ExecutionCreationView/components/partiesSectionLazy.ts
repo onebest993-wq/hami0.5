@@ -6,6 +6,6 @@ export const LazyPartiesSection = createPreloadableLazyComponent(() =>
     })),
 );
 
-export function prefetchPartiesSection(): void {
-    void LazyPartiesSection.preload();
+export function prefetchPartiesSection(): Promise<void> {
+    return LazyPartiesSection.preload().catch(() => undefined);
 }

@@ -28,7 +28,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         vi.restoreAllMocks();
         resetReconcileInFlightForTests();
         // 1) Generic list-based wipe (best-effort)
-        SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
+        SecureStoreService.listKeysSync().forEach((k: string) => SecureStoreService.deleteItemSync(k));
         localStorage.clear();
         // 2) Explicit key purge for calendar — guards against listKeysSync() blind spots (isUnread / legacy mirror)
         SecureStoreService.deleteItemSync(CALENDAR_EVENTS_STORAGE_KEY);
@@ -77,7 +77,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         expect(removed).toBe(1);
 
         const events = await CalendarDB.getEvents(USER);
-        expect(events.some((e) => e.id === bridgeId)).toBe(false);
+        expect(events.some((e: { id?: string }) => e.id === bridgeId)).toBe(false);
     });
 
     it('يزيل مهام الاستحقاق التلقائية عند التنظيف الشامل (لا جلسات)', async () => {
@@ -101,7 +101,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
 
         const taskBridgeId = buildStableBridgeId('lawsuit', 'f1', 'task_auto-task');
         const events = await CalendarDB.getEvents(USER);
-        expect(events.some((e) => e.id === taskBridgeId)).toBe(false);
+        expect(events.some((e: { id?: string }) => e.id === taskBridgeId)).toBe(false);
     });
 
     it('يزيل مواعيد إضبارة مؤرشفة (archived) من التقويم', async () => {
@@ -144,7 +144,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         expect(removed).toBeGreaterThanOrEqual(1);
 
         const events = await CalendarDB.getEvents(USER);
-        expect(events.some((e) => e.id === bridgeId)).toBe(false);
+        expect(events.some((e: { id?: string }) => e.id === bridgeId)).toBe(false);
     });
 
     it('cleanupCalendarForUser يبقي الجلسة الحقيقية فقط', async () => {
@@ -171,7 +171,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
                 ],
             },
         ]);
-        expect(loadLawsuitFilesRaw().some((f) => String((f as { id?: string }).id) === 'keep')).toBe(
+        expect((loadLawsuitFilesRaw() as Array<{ id?: string }>).some((f) => String(f.id) === 'keep')).toBe(
             true,
         );
 
@@ -196,8 +196,8 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         resetCalendarEventsCacheForTests();
         const events = await CalendarDB.getEvents(USER);
 
-        expect(events.some((e) => e.id === ghostId)).toBe(false);
-        expect(events.some((e) => e.id === buildStableBridgeId('lawsuit', 'keep', 'real-hearing'))).toBe(
+        expect(events.some((e: { id?: string }) => e.id === ghostId)).toBe(false);
+        expect(events.some((e: { id?: string }) => e.id === buildStableBridgeId('lawsuit', 'keep', 'real-hearing'))).toBe(
             true,
         );
 
@@ -215,7 +215,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
             userId: USER_B,
             title: 'موعد مستخدم ب',
             date: '2026-06-01',
-            type: 'personal',
+            type: 'custom' as const,
             createdAt: now,
             updatedAt: now,
         });
@@ -224,6 +224,6 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         expect(eventsA).toHaveLength(0);
 
         const all = await CalendarDB.getAllStoredEvents();
-        expect(all.some((e) => e.id === 'evt-user-b' && e.userId === USER_B)).toBe(true);
+        expect(all.some((e: { id?: string; userId?: string }) => e.id === 'evt-user-b' && e.userId === USER_B)).toBe(true);
     });
 });

@@ -6,6 +6,6 @@ export const LazyInstrumentDetailsSection = createPreloadableLazyComponent(() =>
     })),
 );
 
-export function prefetchInstrumentDetailsSection(): void {
-    void LazyInstrumentDetailsSection.preload();
+export function prefetchInstrumentDetailsSection(): Promise<void> {
+    return LazyInstrumentDetailsSection.preload().catch(() => undefined);
 }

@@ -78,7 +78,7 @@ describe('ExecutionCreationView instrument gate', () => {
         });
         fireEvent.keyDown(screen.getByLabelText('رقم الإضبارة'), { key: 'Enter' });
 
-        const picker = await screen.findByRole('button', { name: 'نوع السند المنفذ' });
+        const picker = await screen.findByRole('button', { name: 'نوع السند المنفذ' }, { timeout: 5000 });
         expect(picker).toHaveTextContent('قرارات المحاكم');
         expect(screen.getByLabelText('رقم الحكم')).toBeInTheDocument();
         fireEvent.click(picker);

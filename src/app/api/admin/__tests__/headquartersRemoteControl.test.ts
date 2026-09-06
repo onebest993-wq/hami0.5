@@ -93,8 +93,8 @@ vi.mock('../../security/adminCheck.ts', () => ({
 }));
 
 vi.mock('../../security/wifeValidator.ts', () => ({
-    extractUserTokenFromRequest: (...a: unknown[]) => extractUserTokenMock(...a),
-    getVerifiedTokenSubject: (...a: unknown[]) => getVerifiedTokenSubjectMock(...a),
+    extractUserTokenFromRequest: (...a: any[]) => (extractUserTokenMock as any)(...a),
+    getVerifiedTokenSubject: (...a: any[]) => (getVerifiedTokenSubjectMock as any)(...a),
     wifeUnauthorizedResponse: () =>
         new Response(JSON.stringify({ ok: false, error: 'Unauthorized user' }), { status: 401 }),
 }));
@@ -155,7 +155,7 @@ vi.mock('../../security/stolenTokenServer.ts', () => ({
 }));
 
 vi.mock('../../security/headquartersAudit.ts', () => ({
-    recordHeadquartersAudit: (...a: unknown[]) => auditMock(...a),
+    recordHeadquartersAudit: (...a: any[]) => (auditMock as any)(...a),
 }));
 
 vi.mock('../../security/headquartersAccountNotify.ts', () => ({
@@ -544,7 +544,7 @@ describe('مقر القيادة عن بعد — BFF', () => {
     });
 
     it('GET /api/admin/verify يرفض بلا جلسة', async () => {
-        extractUserTokenMock.mockReturnValue(null);
+        extractUserTokenMock.mockReturnValue(null as unknown as string);
         const res = await verifyGet(jsonReq('https://app.test/api/admin/verify', undefined, 'GET'));
         expect(res.status).toBe(401);
         expect(isAdminUserIdMock).not.toHaveBeenCalled();
@@ -954,7 +954,7 @@ describe('مقر القيادة عن بعد — BFF', () => {
             }),
         );
         expect(res.status).toBe(200);
-        expect(payload?.public_verified_badge).toBe(true);
+        expect((payload as Record<string, unknown> | null)?.public_verified_badge).toBe(true);
         expect(auditMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 action: 'user.public_badge',
