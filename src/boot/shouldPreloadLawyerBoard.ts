@@ -20,15 +20,6 @@ let enterCache: Map<string, EnterCacheState> = new Map();
 
 let preloadCacheState: EnterCacheState = NO_RESULT_SENTINEL;
 
-/**
- * يُعيد تهيئة الكاش للاختبارات (beforeEach) لأن الاختبارات قد تغيّر
- * shell/auth/legalTerms flags خلال نفس الجلسة.
- */
-export function resetLawyerBoardMemoForTests(): void {
-    enterCache = new Map();
-    preloadCacheState = NO_RESULT_SENTINEL;
-}
-
 function cacheKeyForLiveUserId(liveUserId?: string | null): string {
     if (typeof liveUserId === 'undefined') return ENTER_CACHE_KEY_NONE;
     if (liveUserId === null) return ENTER_CACHE_KEY_NULL;

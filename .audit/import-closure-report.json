@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-09-05T22:27:26.024Z",
+  "generatedAt": "2026-09-06T11:14:19.068Z",
   "seeds": 35,
   "missingSeeds": [],
   "totals": {
-    "closureFiles": 5315,
+    "closureFiles": 5316,
     "inventoryFiles": 1890,
-    "gapsNotAudited": 4085,
-    "gapLines": 419587,
+    "gapsNotAudited": 4086,
+    "gapLines": 420022,
     "hotGaps": 991,
-    "hotGapLines": 105164,
+    "hotGapLines": 105226,
     "unreachableInInventory": 701,
-    "unreachableLines": 52155,
+    "unreachableLines": 52156,
     "unresolvedSpecifiers": 0
   },
   "hotGaps": [
@@ -57,7 +57,7 @@
     {
       "path": "src/app/services/SecureStoreService.ts",
       "depth": 2,
-      "lines": 1993
+      "lines": 2022
     },
     {
       "path": "src/app/services/SupabaseService.ts",
@@ -202,7 +202,7 @@
     {
       "path": "src/app/services/CryptoService.ts",
       "depth": 3,
-      "lines": 1015
+      "lines": 1019
     },
     {
       "path": "src/app/domain/lawsuit/partyChallengeLanes.ts",
@@ -257,7 +257,7 @@
     {
       "path": "src/app/stores/caseStore.ts",
       "depth": 3,
-      "lines": 277
+      "lines": 281
     },
     {
       "path": "src/app/hooks/lawyerDashboard/useLawyerDashboardCommunity.ts",
@@ -735,6 +735,11 @@
       "lines": 147
     },
     {
+      "path": "src/app/services/securePersistStorage.ts",
+      "depth": 4,
+      "lines": 146
+    },
+    {
       "path": "src/app/services/calendar/bridge/core.ts",
       "depth": 4,
       "lines": 142
@@ -778,11 +783,6 @@
       "path": "src/app/services/dossierPersistence/dossierBackupStore.ts",
       "depth": 4,
       "lines": 131
-    },
-    {
-      "path": "src/app/services/securePersistStorage.ts",
-      "depth": 4,
-      "lines": 129
     },
     {
       "path": "src/app/services/storageSchema/storageSchemaMigrations.ts",
@@ -3905,6 +3905,11 @@
       "lines": 126
     },
     {
+      "path": "src/app/services/cloudSync/cloudSyncStatusStore.ts",
+      "depth": 9,
+      "lines": 126
+    },
+    {
       "path": "src/app/utils/storageUtils.ts",
       "depth": 9,
       "lines": 121
@@ -3923,11 +3928,6 @@
       "path": "src/app/services/notifications/bridge/hamiBridgePresent.ts",
       "depth": 9,
       "lines": 119
-    },
-    {
-      "path": "src/app/services/cloudSync/cloudSyncStatusStore.ts",
-      "depth": 9,
-      "lines": 118
     },
     {
       "path": "src/app/services/alertMappers.ts",
@@ -5982,14 +5982,14 @@
       "lines": 350
     },
     {
+      "path": "src/app/components/lawyer/ArchivePortal/LawsuitArchiveChrome.tsx",
+      "depth": 4,
+      "lines": 305
+    },
+    {
       "path": "src/app/runtime/globalSearchInstantPaint.ts",
       "depth": 4,
       "lines": 302
-    },
-    {
-      "path": "src/app/components/lawyer/ArchivePortal/LawsuitArchiveChrome.tsx",
-      "depth": 4,
-      "lines": 298
     },
     {
       "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/normalizeLoadedDecisionRow.ts",
@@ -6004,7 +6004,7 @@
     {
       "path": "src/app/bootstrap/bootReveal.ts",
       "depth": 4,
-      "lines": 280
+      "lines": 282
     },
     {
       "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealDates.ts",
@@ -8602,6 +8602,11 @@
       "lines": 65
     },
     {
+      "path": "src/boot/peekBootSessionUserId.ts",
+      "depth": 6,
+      "lines": 65
+    },
+    {
       "path": "src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetDragHandle.tsx",
       "depth": 6,
       "lines": 64
@@ -8783,11 +8788,6 @@
     },
     {
       "path": "src/app/components/lawyer/ExecutionDashboard/components/ExecutionShellOverlaysEntry.tsx",
-      "depth": 6,
-      "lines": 41
-    },
-    {
-      "path": "src/boot/peekBootSessionUserId.ts",
       "depth": 6,
       "lines": 41
     },
@@ -18897,6 +18897,11 @@
       "lines": 76
     },
     {
+      "path": "src/app/components/lawyer/dashboard/HomeHubCardSkeleton.tsx",
+      "depth": 11,
+      "lines": 76
+    },
+    {
       "path": "src/app/components/lawyer/SmartLegalRadar/CalendarGridDayCell.tsx",
       "depth": 11,
       "lines": 76
@@ -18955,11 +18960,6 @@
       "path": "src/app/components/lawyer/CommunityScreen/components/ForumAppBarSearchField.tsx",
       "depth": 11,
       "lines": 70
-    },
-    {
-      "path": "src/app/components/lawyer/dashboard/HomeHubCardSkeleton.tsx",
-      "depth": 11,
-      "lines": 69
     },
     {
       "path": "src/app/components/lawyer/CommunityScreen/communityAddQuestionPublishCommit.ts",
@@ -19555,6 +19555,11 @@
       "path": "src/app/components/lawyer/ExecutionDashboard/components/evictionProcedures/useEvictionProceduresSectionStateImpl.tsx",
       "depth": 12,
       "lines": 334
+    },
+    {
+      "path": "src/app/components/ui/LoadingStates.tsx",
+      "depth": 12,
+      "lines": 333
     },
     {
       "path": "src/app/components/lawyer/smart-modal/hooks/procedural/createProceduralTimelineNoteDocPaymentHandlers.ts",
@@ -21552,6 +21557,10 @@
       "lines": 68
     },
     {
+      "path": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardPartyDeathSave.test.ts",
+      "lines": 67
+    },
+    {
       "path": "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionOverlayDataFingerprint.test.ts",
       "lines": 67
     },
@@ -21566,10 +21575,6 @@
     {
       "path": "src/app/components/lawyer/ArchivePortal/components/__tests__/ExecutionSmartCard.toolbar.test.tsx",
       "lines": 67
-    },
-    {
-      "path": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardPartyDeathSave.test.ts",
-      "lines": 66
     },
     {
       "path": "src/app/utils/__tests__/executionDomainBridgeShims.test.ts",
