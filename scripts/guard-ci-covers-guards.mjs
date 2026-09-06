@@ -20,6 +20,7 @@ const WORKFLOWS = join(ROOT, '.github/workflows');
 /** أوامر لا يصحّ تشغيلها في CI — لكل واحد سبب مكتوب */
 const NOT_FOR_CI = new Map([
     ['guard:baseline', 'يكتب خطوط الأساس بدل فحصها — تشغيله في CI يمحو المِسنَنة'],
+    ['guard:architecture-boundaries', 'T21 طبقات معمارية — تشغيل ESLint JSON scan 30-90s على api/services/domain/application غلاف لgate:wave0 المحلي فقط؛ CI يمرّر guard:lint بالفعل فتكرارها هنا مُكلف حوسبة ومُكرر. المستخدم المحلي يمرّرها عبر gate:wave0 قبل PR.'],
 ]);
 
 function collectScripts() {
