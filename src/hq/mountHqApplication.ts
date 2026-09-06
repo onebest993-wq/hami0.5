@@ -1,8 +1,7 @@
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
 import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
 import { loadHqAppModule } from '@/hq/hqAppModule';
-
-const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
+import { APP_RUNTIME_READY_EVENT } from '@/app/runtime/eventConstants';
 
 function withBootTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     return new Promise((resolve, reject) => {

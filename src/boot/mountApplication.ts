@@ -7,8 +7,7 @@ import {
     applyInstantDemoBootFoundation,
 } from '@/app/bootstrap/bootReveal';
 import { loadAppModule } from '@/boot/appModule';
-
-const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
+import { APP_RUNTIME_READY_EVENT } from '@/app/runtime/eventConstants';
 
 /**
  * العطل الفادح يصل هنا وقد بقي مرئياً للمستخدم وحده.

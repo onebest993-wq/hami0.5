@@ -1,7 +1,7 @@
+import { HAMI_DISMISS_TRANSIENT_OVERLAYS_EVENT } from '@/app/runtime/eventConstants';
 import { useEffect } from 'react';
 
-/** يُطلَق لإغلاق الستائر/المديرات/المخزن قبل فتح طبقة ملء الشاشة أخرى */
-export const HAMI_DISMISS_OVERLAYS_EVENT = 'hami:dismiss-transient-overlays';
+export const HAMI_DISMISS_OVERLAYS_EVENT = HAMI_DISMISS_TRANSIENT_OVERLAYS_EVENT;
 
 export type TransientOverlayId =
     | 'repository'

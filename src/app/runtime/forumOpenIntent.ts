@@ -1,6 +1,7 @@
 /** نية فتح المنتدى من الإشعارات قبل تركيب جزيرة التنقّل / PreDock */
 
 import { applyForumOpaqueChrome, paintForumInstantChrome } from '@/app/runtime/forumInstantPaint';
+import { HAMI_OPEN_FORUM_EVENT } from '@/app/runtime/eventConstants';
 import { resetForumSurfaceLiveForTests } from '@/app/runtime/forumSurfaceLive';
 import { sanitizeNotificationEntityId } from '@/app/services/notifications/notificationNavigateSecurity';
 
@@ -9,8 +10,6 @@ export {
     setForumSurfaceLive,
     subscribeForumSurfaceLive,
 } from '@/app/runtime/forumSurfaceLive';
-
-export const HAMI_OPEN_FORUM_EVENT = 'hami:open-forum';
 export const FORUM_OPEN_POST_SESSION_KEY = 'hami:forum-open-post-id';
 
 let pendingOpen = false;

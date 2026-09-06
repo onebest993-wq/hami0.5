@@ -12,8 +12,7 @@ import {
     isPlainDocumentSurface,
     whenPlainDocumentCoverClears,
 } from '@/boot/plainDocumentPath';
-
-const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
+import { APP_RUNTIME_READY_EVENT } from '@/app/runtime/eventConstants';
 
 const LazyGlobalErrorBoundary = React.lazy(() =>
     import('./components/shared/GlobalErrorBoundary').then((m) => ({

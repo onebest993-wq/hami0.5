@@ -10,10 +10,9 @@
  * تحذير Capacitor: لا تُعِد كائن registerPlugin من دالة async —
  * Promise.resolve يعتبره thenable فيستدعي HamiBoot.then() → «not implemented on android».
  */
+import { NATIVE_BOOT_READY_FAILED_EVENT } from '@/app/runtime/eventConstants';
 import { whenNativeBridgeReady } from '@/app/runtime/nativeBridgeReady';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
-
-export const NATIVE_BOOT_READY_FAILED_EVENT = 'hami:native-boot-ready-failed';
 
 type HamiBootPlugin = {
     notifyReady: () => Promise<void>;

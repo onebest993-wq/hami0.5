@@ -1,5 +1,7 @@
 /** حدث حالة التطبيق — يُنشر من lifecycle ويُستمع في قفل الجلسة بلا استيراد Capacitor. */
-export const HAMI_APP_STATE_EVENT = 'hami-native-app-state';
+import { HAMI_NATIVE_APP_STATE_EVENT } from '@/app/runtime/eventConstants';
+
+export const HAMI_APP_STATE_EVENT = HAMI_NATIVE_APP_STATE_EVENT;
 
 export type HamiAppStateDetail = { isActive: boolean };
 

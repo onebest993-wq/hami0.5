@@ -5,7 +5,7 @@ import {
     getHqRuntimeShellModuleSync,
     loadHqRuntimeShellModule,
 } from '@/app/runtime/hqRuntimeShellLoader';
-const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
+import { APP_RUNTIME_READY_EVENT } from '@/app/runtime/eventConstants';
 
 const hqRuntimeShellPromise = loadHqRuntimeShellModule().then((m) => ({
     default: m.HqRuntimeShell,
