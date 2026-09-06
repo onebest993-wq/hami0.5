@@ -8,12 +8,15 @@ import {
     clearPasswordRecoveryPending,
     markPasswordRecoveryPending,
 } from '@/app/services/auth/passwordRecoveryGate';
+import { resetLawyerBoardMemoForTests } from '@/boot/shouldPreloadLawyerBoard';
 
 describe('shouldPreloadLawyerDashboardBoard', () => {
     beforeEach(() => {
+        vi.resetModules();
         vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'false');
         localStorage.clear();
         sessionStorage.clear();
+        resetLawyerBoardMemoForTests();
         clearLegalTermsAcceptance();
         clearExplicitLocalGuest();
         clearPasswordRecoveryPending();
@@ -21,6 +24,8 @@ describe('shouldPreloadLawyerDashboardBoard', () => {
 
     afterEach(() => {
         vi.unstubAllEnvs();
+        vi.resetModules();
+        resetLawyerBoardMemoForTests();
         clearLegalTermsAcceptance();
         clearExplicitLocalGuest();
         clearPasswordRecoveryPending();
