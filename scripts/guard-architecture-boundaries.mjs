@@ -37,7 +37,7 @@ if ([bApi, bSvc, bDom, bTot].some((n) => !Number.isFinite(n) || n < 0)) {
 
 const isWin = process.platform === 'win32';
 const exe = isWin ? 'npx.cmd' : 'npx';
-const args = ['eslint', ...globs];
+const args = ['eslint', '--config', '.audit/eslint-arch-boundaries.config.js', ...globs];
 
 const result = spawnSync(exe, args, {
   cwd: ROOT,

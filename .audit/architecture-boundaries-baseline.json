@@ -1,6 +1,6 @@
 {
   "schemaVersion": "architecture-boundaries-ratchet-v1",
-  "generatedAt": "2026-09-06T15:00:00.000Z",
+  "generatedAt": "2026-09-06T15:01:25.515Z",
   "appVersion": "hami-app@10.5.0",
   "headCommitAtGeneration": "50f8dc89",
   "eslintRuleUnderTest": "no-restricted-imports",
@@ -9,27 +9,41 @@
     {
       "id": "api-layer",
       "filesGlob": "src/app/api/**/*.{ts,tsx,js,jsx,mjs,cjs}",
-      "forbiddenPatterns": ["**/components/**", "**/hooks/**", "**/runtime/**", "**/bootstrap/**"],
+      "forbiddenPatterns": [
+        "**/components/**",
+        "**/hooks/**",
+        "**/runtime/**",
+        "**/bootstrap/**"
+      ],
       "allowedExceptionsDescription": "implicit security-types-shared-infrastructure only"
     },
     {
       "id": "services-layer",
       "filesGlob": "src/app/services/**/*.{ts,tsx,js,jsx,mjs,cjs}",
-      "forbiddenPatterns": ["**/components/**", "**/hooks/**", "**/runtime/**", "**/bootstrap/**"],
+      "forbiddenPatterns": [
+        "**/components/**",
+        "**/hooks/**",
+        "**/runtime/**",
+        "**/bootstrap/**"
+      ],
       "allowedExceptionsDescription": "services are stateless infra; glue stays in hooks/bootstrap/runtime"
     },
     {
       "id": "pure-logic-layer",
       "filesGlob": "src/app/domain/** + src/app/application/**",
-      "forbiddenPatterns": ["**/components/**", "**/services/**", "**/runtime/**"],
+      "forbiddenPatterns": [
+        "**/components/**",
+        "**/services/**",
+        "**/runtime/**"
+      ],
       "allowedExceptionsDescription": "pure logic; inject concrete infra at boundary hooks"
     }
   ],
   "counts": {
     "apiViolations": 1,
-    "servicesViolations": 129,
-    "domainApplicationViolations": 114,
-    "totalViolations": 244
+    "servicesViolations": 6,
+    "domainApplicationViolations": 9,
+    "totalViolations": 16
   },
   "ratchetBehavior": {
     "exitCode1If": "ANY(api_current > api_baseline, services_current > services_baseline, domainApp_current > domainApp_baseline, total_current > total_baseline)",

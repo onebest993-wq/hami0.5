@@ -3,6 +3,8 @@
  * Dev: relaxed for Vite HMR. Production: strict — no unsafe-eval, no inline scripts.
  */
 
+import { Button } from '../../components/ui/button'; // T21 TEMP REGRESSION TEST — DELETE AFTER VERIFY
+
 export type CspMode = 'development' | 'production' | 'e2e-preview';
 
 export function buildContentSecurityPolicy(mode: CspMode): string {
