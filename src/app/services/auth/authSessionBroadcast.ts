@@ -2,7 +2,7 @@
  * مزامنة الخروج بين تبويبات نفس المتصفح — لا يعتمد على انتظار فشل التجديد.
  */
 
-import { HAMI_AUTH_LOGOUT_EVENT } from '@/app/runtime/eventConstants';
+import { HAMI_AUTH_LOGOUT_EVENT } from '@/app/constants/appEventNames';
 
 export const AUTH_SESSION_CHANNEL = 'hami-auth-session';
 export const AUTH_LOGOUT_BROADCAST = 'logout';
