@@ -71,7 +71,7 @@ function resolveOnce(): ClientSupabaseConfig {
         return { url: envUrl.replace(/\/$/, ''), anonKey: envKey, projectId };
     }
 
-    if (import.meta.env.MODE === 'development') {
+    if (import.meta.env.MODE === 'development' || import.meta.env.MODE === 'test') {
         return getDevFallbackSupabaseConfig();
     }
 
