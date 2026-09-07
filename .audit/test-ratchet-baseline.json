@@ -1,8 +1,8 @@
 {
-  "savedAt": "2026-09-06T21:47:49.962Z",
+  "savedAt": "2026-09-07T00:32:49.769Z",
   "numTotalTests": 11916,
-  "numFailedTests": 22,
-  "numFailedTestSuites": 31,
+  "numFailedTests": 21,
+  "numFailedTestSuites": 29,
   "failures": [
     "src/app/api/auth/adversarialAssault.test.ts :: WAVE K — Resubmit / demotion / stale rejection السجل المحلي pending يتقدّم على app_metadata rejected البالي",
     "src/app/application/execution/followup/__tests__/followupActionRegistry.test.ts :: resolveFollowupHiddenActions employee financial lists buried personal without detention paths",
@@ -21,7 +21,6 @@
     "src/app/runtime/__tests__/bootClosureHonesty.test.ts :: boot closure honesty النواة تختم المنتج كهاتف/لوحي من أول بايت — بلا native=1 على Vite",
     "src/app/runtime/__tests__/executionSectionScenarioCoverageHonesty.test.ts :: execution section scenario coverage honesty بوابة E2E الرسمية تغطي الفتح والإضبارة والحفظ والتبويب والملاحظات",
     "src/app/runtime/__tests__/perceivedBootWaitCutHonesty.test.ts :: perceived boot wait cut honesty جذع الدعاوى خارج إغلاق المنزل الأول — Provider بلا useLawsuitFilesState",
-    "src/app/runtime/__tests__/phaseFinalLineBudget.test.ts :: phase-final line budget — full src ≤1000 لا ملفات جديدة فوق الميزانية ولا نمو فوق سقف الإرث",
     "src/app/services/__tests__/secureApiClient.bffSigning.test.ts :: SecureAPIClient BFF signing يلغي التوقيع إذا تجاوزت المهلة",
     "src/app/utils/__tests__/dossierTombstonesUnreadFailClosed.test.ts :: شواهد الحذف unread ليست قائمة فارغة أصل مشفّر بارد للتنفيذ لا يُعدّ مقروءاً",
     "src/app/utils/__tests__/dossierTombstonesUnreadFailClosed.test.ts :: شواهد الحذف unread ليست قائمة فارغة أصل مشفّر بارد للدعاوى لا يُعدّ مقروءاً",
