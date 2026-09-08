@@ -128,12 +128,42 @@ async function runLocalPurgeStage(
 type LocalApplicationPurgeOptions = {
     /** موافقة الشروط على الجهاز — تُحفظ عند الخروج، وتُمسح عند مسح الحساب/البيانات */
     preserveLegalTerms?: boolean;
+    /**
+     * `'all'` (الافتراضي): مسح مُتلِف — لحذف الحساب و«امسح كل بياناتي».
+     * `'session'`: تسجيل خروج — يعزل الجلسة ولا يمسّ أي بيانات محفوظة.
+     *
+     * الفرق ليس تفصيلاً. الغرض المعلَن لاستدعاء الخروج — كما يقوله تعليق هذه
+     * الدالة نفسه — هو ألّا يرث حساب ثانٍ الكاش المفكوك للأول. وهذا شأن ذاكرة.
+     * لكن التنفيذ كان يمضي إلى `wipeApplicationIndexedDatabases` فيحذف
+     * `hami-crypto-keystore` و`hami-secure-store` و`hami-vault-blobs` و
+     * `hami-dossier-backups`. أي أن ضغطة «تسجيل الخروج» — وحوارها لا يَعِد إلا
+     * بإنهاء الجلسات — كانت تمحو كل إضبارة وملاحظة وموعد ومستند على الجهاز،
+     * **ومعها المفتاح الوحيد الذي يفكّ الأرشيف السحابي المشفَّر**. الدخول ثانيةً
+     * يولّد مفتاحاً جديداً، فيصير ما في السحابة غير قابل للقراءة إلى الأبد.
+     *
+     * العزل بين الحسابين محفوظ في وضع `'session'`: مفتاح التشفير منطَّق بالمعرّف
+     * (`master-key-v3:u:<uid>`)، فالحساب الثاني لا يستطيع فكّ بيانات الأول أصلاً؛
+     * والكاش المفكوك وlocalStorage والبصمة والإشعارات تُمسح كما كانت.
+     */
+    scope?: 'all' | 'session';
 };
 
+/** الأطوار المُتلِفة — تعمل في `'all'` وحدها */
+const DESTRUCTIVE_PURGE_STAGES = new Set([
+    'persistence_repository',
+    'secure_store',
+    'vault_blobs',
+    'indexed_databases',
+]);
+
 /**
- * Clears every user-scoped client store. Used both by the destructive Settings
- * wipe and ordinary logout so a second account never inherits the first one's
- * decrypted cache.
+ * Clears user-scoped client state.
+ *
+ * scope 'all'     — destructive: also drops every persisted store and IndexedDB
+ *                   database. Used by delete-account and wipe-all-data.
+ * scope 'session' — logout: clears the decrypted cache, in-memory keys, browser
+ *                   storage, biometric enrolment and notification cache, and
+ *                   leaves persisted user data untouched.
  */
 export async function purgeLocalApplicationData(
     userId: string | null,
@@ -141,6 +171,11 @@ export async function purgeLocalApplicationData(
     options?: LocalApplicationPurgeOptions,
 ): Promise<LocalApplicationPurgeResult> {
     const failedStages: string[] = [];
+    const sessionScoped = options?.scope === 'session';
+    const runStage = (stage: string, operation: () => void | Promise<void>): Promise<void> => {
+        if (sessionScoped && DESTRUCTIVE_PURGE_STAGES.has(stage)) return Promise.resolve();
+        return runLocalPurgeStage(failedStages, stage, operation);
+    };
     const termsSnapshot: LegalTermsAcceptanceRecord | null = options?.preserveLegalTerms
         ? captureLegalTermsAcceptance()
         : null;
@@ -152,11 +187,7 @@ export async function purgeLocalApplicationData(
     if (resetToDefaults) {
         await runLocalPurgeStage(failedStages, 'settings_ui_reset', resetToDefaults);
     }
-    await runLocalPurgeStage(
-        failedStages,
-        'persistence_repository',
-        () => persistenceRepository.clear(),
-    );
+    await runStage('persistence_repository', () => persistenceRepository.clear());
     await runLocalPurgeStage(failedStages, 'biometric_credentials', () => {
         clearStoredBiometricCredential();
         clearNativeBiometricEnrollment();
@@ -173,12 +204,13 @@ export async function purgeLocalApplicationData(
         clearLocalNotificationCache(userId);
         await resetNotificationStoreAfterWipe();
     });
-    await runLocalPurgeStage(failedStages, 'secure_store', wipeLocalSecureStore);
-    await runLocalPurgeStage(failedStages, 'vault_blobs', clearAllVaultBlobs);
+    await runStage('secure_store', wipeLocalSecureStore);
+    await runStage('vault_blobs', clearAllVaultBlobs);
+    /* ذاكرة فقط — destroy() لا يلمس IndexedDB، فهو مطلوب في الوضعين */
     await runLocalPurgeStage(failedStages, 'crypto_memory', () => {
         CryptoService.destroy();
     });
-    await runLocalPurgeStage(failedStages, 'indexed_databases', wipeApplicationIndexedDatabases);
+    await runStage('indexed_databases', wipeApplicationIndexedDatabases);
 
     restorePreservedTerms();
     if (!options?.preserveLegalTerms) {

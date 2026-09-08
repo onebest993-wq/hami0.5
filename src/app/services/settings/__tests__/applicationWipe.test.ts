@@ -255,6 +255,41 @@ describe('wipeAllApplicationData', () => {
     expect(localStorage.getItem('lawyer_settings')).toBeNull();
   });
 
+  /*
+   * انحدار: تسجيل الخروج كان يستدعي purge بالنطاق الكامل، فيحذف
+   * `hami-crypto-keystore` مع `hami-secure-store` و`hami-vault-blobs` و
+   * `hami-dossier-backups` — أي المفتاح الوحيد الذي يفكّ الأرشيف السحابي —
+   * بينما حوار التأكيد لا يَعِد إلا بإنهاء الجلسات. الدخول ثانيةً يولّد مفتاحاً
+   * جديداً فيصير ما في السحابة غير قابل للقراءة إلى الأبد.
+   */
+  it('نطاق الجلسة لا يحذف قواعد IndexedDB ولا المخزن الآمن ولا الخزنة', async () => {
+    const { purgeLocalApplicationData } = await import('@/app/services/settings/applicationWipe');
+
+    const result = await purgeLocalApplicationData('user-1', undefined, {
+      preserveLegalTerms: true,
+      scope: 'session',
+    });
+
+    expect(result.complete).toBe(true);
+    /* البيانات المحفوظة تبقى */
+    expect(wipeIdb).not.toHaveBeenCalled();
+    expect(clearVault).not.toHaveBeenCalled();
+    expect(clearRepo).not.toHaveBeenCalled();
+    /* وعزل الجلسة يقع كما كان */
+    expect(cryptoDestroy).toHaveBeenCalled();
+  });
+
+  it('النطاق الكامل يبقى مُتلِفاً — حذف الحساب و«امسح بياناتي» لم يتغيّرا', async () => {
+    const { purgeLocalApplicationData } = await import('@/app/services/settings/applicationWipe');
+
+    await purgeLocalApplicationData('user-1', undefined, { preserveLegalTerms: true });
+
+    expect(wipeIdb).toHaveBeenCalled();
+    expect(clearVault).toHaveBeenCalled();
+    expect(clearRepo).toHaveBeenCalled();
+    expect(cryptoDestroy).toHaveBeenCalled();
+  });
+
   it('يمسح موافقة الشروط مع المسح الشامل للحساب/البيانات', async () => {
     const { markLegalTermsAccepted, hasAcceptedCurrentLegalTerms } = await import(
       '@/app/services/auth/legalTermsAcceptance'

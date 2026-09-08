@@ -739,20 +739,34 @@ export async function authLogout(
         /* best effort */
     }
 
+    /*
+     * عزل الجلسة عند الخروج — لا مسح لبيانات المستخدم.
+     *
+     * `scope: 'session'` يمنع أطوار الحذف الأربعة (persistence_repository،
+     * secure_store، vault_blobs، indexed_databases). كان الخروج قبلها يحذف
+     * `hami-crypto-keystore` — المفتاح الوحيد الذي يفكّ الأرشيف السحابي — بينما
+     * حوار التأكيد لا يَعِد إلا بإنهاء الجلسات. حذف الحساب و«امسح كل بياناتي»
+     * لا يتأثران: كلاهما يستدعي purgeLocalApplicationData بنفسه بالنطاق الكامل
+     * ثم يمرّر skipLocalPurge هنا.
+     *
+     * والنتيجة تُنتظر وتُقرأ: كان `purgeComplete` مكتوباً `true` سلفاً بينما
+     * العملية غير منتظَرة أصلاً — أي أن الدالة تُبلّغ نجاحاً لم تفحصه.
+     */
     let purgeComplete = true;
     if (__HAMI_CLIENT_PRODUCT__ !== 'hq' && !options?.skipLocalPurge) {
-        void import('@/app/services/settings/applicationWipe')
-            .then(({ purgeLocalApplicationData }) =>
-                purgeLocalApplicationData(userId, undefined, { preserveLegalTerms: true }),
-            )
-            .then((result) => {
-                if (!result.complete) {
-                    console.warn('[auth] local logout purge incomplete:', result.failedStages.join(', '));
-                }
-            })
-            .catch(() => {
-                /* واجهة الخروج ظهرت — المسح المحلي أفضل جهد */
+        try {
+            const { purgeLocalApplicationData } = await import('@/app/services/settings/applicationWipe');
+            const result = await purgeLocalApplicationData(userId, undefined, {
+                preserveLegalTerms: true,
+                scope: 'session',
             });
+            purgeComplete = result.complete;
+            if (!result.complete) {
+                console.warn('[auth] local logout purge incomplete:', result.failedStages.join(', '));
+            }
+        } catch {
+            purgeComplete = false;
+        }
     }
 
     let serverOk = true;
