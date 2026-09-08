@@ -2,13 +2,26 @@
  * Allowlist لـ redirect_to في استعادة كلمة المرور — يمنع سرقة الرابط عبر origin خبيث.
  */
 
-const DEFAULT_HOST_SUFFIXES = ['hami.legal', 'localhost', '127.0.0.1'] as const;
+import { isWifeProduction } from '../security/wifeStoreEnv.ts';
 
+const DEFAULT_HOST_SUFFIXES = ['hami.legal'] as const;
+/** مضيفات التطوير — لا تُقبل في الإنتاج */
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1'] as const;
+
+/**
+ * `http:` للتطوير وحده.
+ *
+ * رابط الاستعادة يحمل رمزاً يكفي وحده للاستيلاء على الحساب (التدفّق ضمني —
+ * `flowType` الافتراضي في auth-js 2.108.2 هو `implicit`، فالرمز يصل في العنوان
+ * نفسه لا كرمز قابل للتبادل). تسليمه على `http` نصّاً صريحاً يعرّضه لأي وسيط على
+ * الشبكة. وفي الإنتاج لا مبرّر لذلك إطلاقاً.
+ */
 function parseOrigin(raw: string): URL | null {
     try {
         const u = new URL(raw);
-        if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
-        return u;
+        if (u.protocol === 'https:') return u;
+        if (u.protocol === 'http:' && !isWifeProduction()) return u;
+        return null;
     } catch {
         return null;
     }
@@ -28,7 +41,13 @@ function envAllowlist(): string[] {
 
 function hostAllowed(hostname: string): boolean {
     const host = hostname.toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1') return true;
+    /*
+     * `localhost` و`127.0.0.1` كانا مسموحين بلا قيد — في الإنتاج أيضاً. وذلك يعني
+     * أن `redirect_to=http://localhost:PORT/x` يمرّ، فيُسلَّم رمز الاستعادة إلى
+     * أي مُنصِت محلي على جهاز الضحية — وتطبيقٌ خبيث على الجهاز نفسه يستطيع أن
+     * يكون ذلك المُنصِت. مفيدة للتطوير، بلا مبرّر في الإنتاج.
+     */
+    if (!isWifeProduction() && (LOOPBACK_HOSTS as readonly string[]).includes(host)) return true;
     for (const suffix of DEFAULT_HOST_SUFFIXES) {
         if (host === suffix || host.endsWith(`.${suffix}`)) return true;
     }
@@ -46,14 +65,23 @@ function hostAllowed(hostname: string): boolean {
     return false;
 }
 
-/** Capacitor / deep-link schemes المسموحة فقط */
+/**
+ * نطاق الرابط العميق المسموح — **واحد فقط**.
+ *
+ * كانت القائمة تضمّ `com.hami.app://` و`hami://` أيضاً. ولا وجود لهما في
+ * المشروع كلّه: `AndroidManifest.xml` يُعلن `iq.hami.legal` وحده، و
+ * `applyAuthDeepLink` (passwordRecoveryGate.ts:94) لا يُطبّع إلا
+ * `iq.hami.legal://`. أي أن قبولهما كان يسمح بتسليم رمز الاستعادة إلى نطاق
+ * **لا يستقبله تطبيق Hami أصلاً** — سطح هجوم صافٍ بلا فائدة مقابلة.
+ *
+ * ⚠️ والنطاق المخصّص ليس حصرياً على أندرويد: أي تطبيق يستطيع تسجيل النطاق نفسه
+ * واعتراض الرابط (وهو ما تحذّر منه RFC 8252 §8.1 صراحةً للتطبيقات الأصلية).
+ * والتدفّق ضمني، فالرمز المعترَض يكفي وحده للاستيلاء على الحساب. الحلّ الجذري
+ * روابط تطبيق مُتحقَّقة (App Links على `https://` مع assetlinks.json) — يحتاج
+ * نطاق الإنتاج. التفصيل في FINDING-011.
+ */
 function isAllowedAppScheme(raw: string): boolean {
-    const lower = raw.toLowerCase();
-    return (
-        lower.startsWith('iq.hami.legal://') ||
-        lower.startsWith('com.hami.app://') ||
-        lower.startsWith('hami://')
-    );
+    return raw.toLowerCase().startsWith('iq.hami.legal://');
 }
 
 /**
