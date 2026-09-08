@@ -82,7 +82,13 @@ function isRepoSessionStale(targetSurfaceId?: number): boolean {
 function p1BlurAllFocusSurfaces(): void {
     if (typeof document === 'undefined') return;
     try {
-        document.activeElement?.blur?.();
+        /*
+         * activeElement نوعه Element، وblur معرَّفة على HTMLOrSVGElement.
+         * الفحص على الدالة لا على الصنف: `instanceof HTMLElement` كان
+         * سيتخطّى عنصر SVG مركَّزاً، وهو يملك blur في المتصفّحات الحديثة.
+         * السلوك وقت التشغيل مطابق للأصل حرفياً.
+         */
+        (document.activeElement as { blur?: () => void } | null)?.blur?.();
     } catch {
         /* ignore */
     }

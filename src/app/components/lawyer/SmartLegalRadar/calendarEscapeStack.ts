@@ -24,7 +24,8 @@ function recomputeEscapeTopLayer(): CalendarEscapePriority {
     escapeTopLayer = top;
     if (typeof window !== 'undefined') {
         const w = window as unknown as Record<string, unknown>;
-        w.__hamiCalendarEscapeLayerMap = escapeLayerMap as Map<number, boolean> as unknown;
+        /* الحقل من نوع unknown في Record، فالخريطة تُسنَد كما هي بلا تحويل. */
+        w.__hamiCalendarEscapeLayerMap = escapeLayerMap;
         w.__hamiCalendarEscapeTopLayer = escapeTopLayer;
         w.__hamiCalendarEscapeSurfaceLocked = escapeSurfaceLocked;
     }
