@@ -9,7 +9,6 @@ import {
     isCriminalCaseShardRootKey,
     StorageDomainKeys,
 } from '@/app/infrastructure/persistence/storageDomains';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import type { BackupDomain } from './dossierPersistenceTypes';
 
 // المصدر الواحد لأسماء المفاتيح. كانت مكرّرة هنا كسلاسل حرفية، و`WORKSPACE_STORE_KEY`
@@ -186,9 +185,4 @@ export function backupDomainForStorageKey(key: string): BackupDomain | null {
     if (key === 'hami:transactions:v1' || isTransactionsTaskTemplatesKey(key)) return 'transactions';
     if (isTransactionsThreadingStateKey(key)) return 'transactionsThreading';
     return null;
-}
-
-/** L4 SecureStore FIRST LINE — bootstrap مفاتيح التخزين المحمية */
-export function bootstrapProtectedStorageKeys(): void {
-    if (typeof SecureStoreService?.ensurePersistedReady === 'function') { try { SecureStoreService.ensurePersistedReady(); } catch {} }
 }
