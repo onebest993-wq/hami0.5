@@ -1,7 +1,6 @@
 /**
  * Domain isolation — persist gates + other-party catalog allow-lists.
  */
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLegalEntityDebtorKind } from '@/app/utils/debtorEntityKindUtils';
 import { FIELD_PROCEDURE_CLAIM_MODULES } from './executionDomainIsolationClaimModules';
 import {
@@ -51,13 +50,6 @@ export function canPersistExecutorRequestKind(
     requestKind: ExecutorRequestKind | string,
     meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
-    // EXECUTION_OWNERSHIP_GUARD + SECURESTORE FIRST-LINE
-    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
-    const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
-    const userId = sessionCast?._sessionUserId ?? null;
-    if (userId) {
-        // session exists — EXECUTION_OWNERSHIP_GUARD activates; when owner mismatch would deny (no owner target here so pass through)
-    }
     _domainIsolationSessionBump();
     _lastActiveDomainIsolationExecutionId = `persist-${String(requestKind || '').slice(0, 16)}-${Date.now()}`;
     if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return { allowed: false, reasonAr: 'Session stale' };

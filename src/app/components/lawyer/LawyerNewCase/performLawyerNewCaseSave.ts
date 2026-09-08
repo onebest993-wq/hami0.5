@@ -89,13 +89,6 @@ export async function performLawyerNewCaseSave(args: LawyerNewCaseSaveArgs): Pro
         const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady();
     } catch { /* ignore */ }
-    // LITIGATION_OWNERSHIP_GUARD
-    let userId: string | null = null;
-    try {
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
-        userId = (SecureStoreService as unknown as {_sessionUserId?: string | null})._sessionUserId ?? null;
-    } catch {}
-    if (!userId) return false;
     const {
         isPersonalCase,
         errorMap,

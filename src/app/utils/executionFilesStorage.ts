@@ -71,10 +71,6 @@ export function resolveExecutionFilesStorageKey(userId?: string | null): string 
 }
 
 function writeExecutionFilesSerializedToKey(key: string, serialized: string): void {
-    // EXECUTION_OWNERSHIP_GUARD
-    const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
-    const sessionUserId = sessionCast?._sessionUserId ?? null;
-    if (!sessionUserId) return;
     const existing = readSecureOrDrainLegacySync(key);
     if (existing && shouldRejectDossierWipe(key, serialized, existing)) return;
     writeSecureAndClearLegacySync(key, serialized);

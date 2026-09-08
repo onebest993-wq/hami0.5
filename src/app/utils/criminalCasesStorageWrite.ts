@@ -77,11 +77,6 @@ export function patchCriminalCaseRecord(
     caseId: string,
     mutator: (caseRecord: CriminalCaseRecord) => CriminalCaseRecord,
 ): boolean {
-    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch { /* ignore */ }
-    // LITIGATION_OWNERSHIP_GUARD
-    let userId: string | null = null;
-    try { userId = (SecureStoreService as unknown as {_sessionUserId?: string | null})._sessionUserId ?? null; } catch {}
-    if (!userId) return false;
     const trimmedId = String(caseId ?? '').trim();
     if (!trimmedId) return false;
 

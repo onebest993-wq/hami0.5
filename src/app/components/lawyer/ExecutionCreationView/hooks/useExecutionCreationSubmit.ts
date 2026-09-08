@@ -1,7 +1,6 @@
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import logger from '@/app/utils/logger';
 import { SupabaseService } from '@/app/services/SupabaseService';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 import type { ExecutionArchiveFile } from '@/app/types/common';
 import { useEffect, useRef } from 'react';
@@ -145,11 +144,6 @@ export function useExecutionCreationSubmit(
     }, []);
 
     const handleSubmit = async () => {
-        // EXECUTION_OWNERSHIP_GUARD
-        try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
-        const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
-        const userId = sessionCast?._sessionUserId ?? null;
-        if (!userId) return;
         executionCreationSubmitOpenCounter += 1;
         const newSessionId = executionCreationSubmitOpenCounter;
         executionCreationSessionIdRef.current = newSessionId;

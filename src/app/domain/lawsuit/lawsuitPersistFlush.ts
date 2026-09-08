@@ -72,10 +72,6 @@ function raceWithTimeout(work: Promise<void>, timeoutMs: number): Promise<boolea
 export async function flushLawsuitWorkspacePersist(
     timeoutMs = LAWSUIT_FLUSH_TIMEOUT_MS,
 ): Promise<boolean> {
-    // LITIGATION_OWNERSHIP_GUARD
-    let userId: string | null = null;
-    try { userId = (SecureStoreService as unknown as { _sessionUserId?: string | null })._sessionUserId ?? null; } catch {}
-    if (!userId) return false;
     SecureStoreService.flushHeavyPersistPending();
     const work = (async () => {
         await SecureStoreService.waitForAllPendingPersist();
