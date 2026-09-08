@@ -44,6 +44,9 @@ out/
 # --- مخرجات مولَّدة بسكربتات المستودع ---
 src/app/api/vercelRouteManifest.ts
 api/handler.js
+# esbuild يُخرج ورقة أنماط مرافقة لـ handler.js حين تسحب الحزمة أي CSS.
+# كانت الوحيدة من عائلتها متعقَّبة — 8888 سطراً مولَّداً في كل بناء.
+api/handler.css
 code-quality-report.json
 src/imports/lawyer-dashboard-error.txt
 
@@ -139,3 +142,7 @@ desktop.ini
 
 # Hami handoff outputs (local-only — copied to ../hami-handoff external when complete)
 .hami-handoff-output/
+# صندوق رمل المحرّر منع الكتابة خارج جذر المشروع، فحُوّلت الحزمة إلى الداخل
+# باسم بلا نقطة فسقطت من القاعدة أعلاه: ~45 ميغا من الـ diffs غير محجوبة،
+# يدفنها أول `git add -A` في التاريخ للأبد.
+hami-handoff/
