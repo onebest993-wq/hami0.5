@@ -108,9 +108,41 @@ if (!supabaseUrlFromEnv) {
     );
 }
 
+/*
+ * أصل الـAPI: عطل صامت على الجهاز ما لم يُقَل هنا.
+ *
+ * أصل الوثيقة داخل WebView هو `https://localhost` (androidScheme: 'https' بلا
+ * server.url)، وهو خادم محلي للأصول المحزومة. فكل مسار نسبي `/api/*` يرتدّ ٤٠٤ —
+ * وهي ١٩ عائلة مسارات: الدخول والمنتدى ومشاركة القضايا وطلبات المساعدة ورفع
+ * الملفات وkv-proxy والإشعارات وغيرها. لا استثناء.
+ *
+ * ولا يُوقَف البناء: حزمة تجربة على جهاز مشروعة، والتحذير أصدق من المنع هنا.
+ * لكنه لا يمرّ صامتاً، لأن الصمت هو ما جعل هذا يبقى مخفياً — كان
+ * VITE_SHELL_AUTH_OPEN مفروضاً 'true' فلا يبلغ أحد شاشة الدخول أصلاً.
+ */
+const apiOriginRaw = String(buildEnv.VITE_API_ORIGIN ?? '').trim();
+let apiOriginState = 'missing';
+if (apiOriginRaw) {
+    try {
+        const parsed = new URL(apiOriginRaw);
+        apiOriginState =
+            parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.origin : 'invalid';
+    } catch {
+        apiOriginState = 'invalid';
+    }
+}
+if (apiOriginState === 'missing' || apiOriginState === 'invalid') {
+    console.warn(
+        `\n[cap-sync-android] ⚠ VITE_API_ORIGIN ${apiOriginState === 'invalid' ? 'قيمته غير صالحة' : 'غير مضبوط'} — الحزمة لن تصل إلى أي طرف خلفي.\n` +
+            '                     نداءات /api/* النسبية تُحلّ على https://localhost داخل WebView\n' +
+            '                     فترتدّ ٤٠٤: الدخول والمنتدى ومشاركة القضايا ورفع الملفات وkv-proxy.\n' +
+            '                     اضبطه على أصل الإنتاج المطلق، مثل https://app.example.com\n',
+    );
+}
+
 const shellOpen = buildEnv.VITE_SHELL_AUTH_OPEN ?? 'false';
 console.log(
-    `[cap-sync-android] build env: VITE_SUPABASE_URL=${String(buildEnv.VITE_SUPABASE_URL).slice(0, 32)}… shellOpen=${shellOpen} supabaseFrom=${supabaseUrlFromEnv ? 'env' : 'info.ts(dev)'} cloudSync=${buildEnv.VITE_ENABLE_CLOUD_SYNC ?? '0'} sentry=${buildEnv.VITE_ENABLE_SENTRY ?? '0'} pdfMinimal=${buildEnv.VITE_PDF_MINIMAL_ASSETS ?? '0'}\n`,
+    `[cap-sync-android] build env: VITE_SUPABASE_URL=${String(buildEnv.VITE_SUPABASE_URL).slice(0, 32)}… shellOpen=${shellOpen} supabaseFrom=${supabaseUrlFromEnv ? 'env' : 'info.ts(dev)'} apiOrigin=${apiOriginState} bffAuth=${buildEnv.VITE_BFF_AUTH ?? '0'} cloudSync=${buildEnv.VITE_ENABLE_CLOUD_SYNC ?? '0'} sentry=${buildEnv.VITE_ENABLE_SENTRY ?? '0'} pdfMinimal=${buildEnv.VITE_PDF_MINIMAL_ASSETS ?? '0'}\n`,
 );
 
 run('npm', ['run', 'build'], buildEnv);
