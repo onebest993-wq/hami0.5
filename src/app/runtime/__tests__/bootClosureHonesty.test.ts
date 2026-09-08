@@ -124,7 +124,20 @@ describe('boot closure honesty', () => {
         expect(html).toContain('data-hami-app="handheld"');
         expect(html).toContain('data-hami-color-mode="dark"');
         expect(html).toContain('name="color-scheme"');
-        expect(html).not.toContain('fonts.googleapis.com');
+        /*
+         * المقصود: لا خطّ خارجي يحجب أول رسم. والصيغة السابقة كانت
+         * `not.toContain('fonts.googleapis.com')` على النصّ الخام، فكانت تلتقط
+         * ذكر النطاق داخل **ترويسة CSP** (`style-src … https://fonts.googleapis.com`)
+         * — وهو قائمة سماح لا طلب شبكة. فأخفق الاختبار على شيء صحيح، وبقي مخفقاً
+         * لا يُقرأ. والفحص الذي يخطئ في تحديد ما يفحص أسوأ من غيابه، لأنه يستهلك
+         * ثقةً بلا مقابل.
+         *
+         * الشرط الحقيقي: لا وسم `<link>` يشير إلى خطوط جوجل. والتحقّق من أن هذا
+         * ليس تليينًا: صفر مرجع لـ`fonts.googleapis`/`fonts.gstatic` في CSS أو
+         * HTML في المستودع كلّه، وصفر ملف خط محلي — التطبيق على خطوط النظام.
+         */
+        const externalFontLink = /<link\b[^>]*href=["'][^"']*fonts\.(?:googleapis|gstatic)\.com/i;
+        expect(html).not.toMatch(externalFontLink);
         expect(html).not.toContain('hami-handheld-app');
         expect(html).toContain('interactive-widget=resizes-content');
         const boot = fs.readFileSync(path.join(root, 'public/hami-boot.js'), 'utf8');
