@@ -16,7 +16,7 @@ const CHALLENGE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function randomChallengeToken(length = 4): string {
     if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
-        throw new Error('csprng_unavailable');
+        throw new Error('[settings:sensitive-gate-csprng-unavailable] csprng_unavailable');
     }
     const bytes = new Uint8Array(length);
     crypto.getRandomValues(bytes);

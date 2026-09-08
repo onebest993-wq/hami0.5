@@ -108,7 +108,7 @@ export async function searchForumRepositoryDocsOnServer(
 
 export async function createForumRepositoryDocOnServer(doc: RepositoryDocument): Promise<RepositoryDocument> {
     const admin = await loadForumSupabaseAdmin();
-    if (!admin) throw new Error('تعذّر حفظ المستند في الفهرس');
+    if (!admin) throw new Error('[forumRepo:postgres:opcode] تعذّر حفظ المستند في الفهرس');
     const { error } = await admin.from('forum_repository_docs').insert({
         id: doc.id,
         author_id: doc.authorId,
@@ -132,8 +132,8 @@ export async function createForumRepositoryDocOnServer(doc: RepositoryDocument):
                 .maybeSingle();
             if (data) return rowToDocument(data as ForumRepositoryDocRow);
         }
-        if (isMissingTableError(error.message)) throw new Error('فهرس المستودع غير جاهز بعد');
-        throw new Error('تعذّر حفظ المستند في الفهرس');
+        if (isMissingTableError(error.message)) throw new Error('[forumRepo:postgres:opcode] فهرس المستودع غير جاهز بعد');
+        throw new Error('[forumRepo:postgres:opcode] تعذّر حفظ المستند في الفهرس');
     }
     return doc;
 }
@@ -145,16 +145,16 @@ export async function updateForumRepositoryDocOnServer(
     isAdmin: boolean,
 ): Promise<RepositoryDocument | null> {
     const admin = await loadForumSupabaseAdmin();
-    if (!admin) throw new Error('تعذّر تحديث المستند في الفهرس');
+    if (!admin) throw new Error('[forumRepo:postgres:opcode] تعذّر تحديث المستند في الفهرس');
     let query = admin.from('forum_repository_docs').update(patch).eq('id', docId);
     if (!isAdmin) query = query.eq('author_id', requesterId);
     const { data, error } = await query.select('*');
     if (error) {
-        if (isMissingTableError(error.message)) throw new Error('فهرس المستودع غير جاهز بعد');
-        throw new Error('تعذّر تحديث المستند في الفهرس');
+        if (isMissingTableError(error.message)) throw new Error('[forumRepo:postgres:opcode] فهرس المستودع غير جاهز بعد');
+        throw new Error('[forumRepo:postgres:opcode] تعذّر تحديث المستند في الفهرس');
     }
     const rows = (data ?? []) as ForumRepositoryDocRow[];
-    if (rows.length === 0) throw new Error('المستند غير موجود أو لا يخصّك');
+    if (rows.length === 0) throw new Error('[forumRepo:postgres:opcode] المستند غير موجود أو لا يخصّك');
     return rowToDocument(rows[0]!);
 }
 

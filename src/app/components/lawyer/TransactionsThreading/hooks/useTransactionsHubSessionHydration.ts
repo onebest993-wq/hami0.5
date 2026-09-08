@@ -1,8 +1,11 @@
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { useTransactionsThreadingStore, ensureTransactionsUserBound } from '@/app/modules/transactionsThreading/store';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { resolveInitialTransactionsView } from '@/app/services/transactions/resolveInitialTransactionsView';
 import { consumeOpenTransactionsAddSheet } from '@/app/services/transactions/procedureGuideNavigation';
+
+let transactionsOpenFlowSessionCounter = 0;
+let lastActiveTransactionsHydrationFlowId: number | null = null;
 
 export function useTransactionsHubSessionHydration({
     open,
@@ -29,9 +32,18 @@ export function useTransactionsHubSessionHydration({
     setListAddSheetOpen: Dispatch<SetStateAction<boolean>>;
     revealDetails: (transactionId: string) => void;
 }): void {
+    const sessionIdRef = useRef<number>(++transactionsOpenFlowSessionCounter);
+    const activeSessionIdRef = useRef<number>(sessionIdRef.current);
+    lastActiveTransactionsHydrationFlowId = sessionIdRef.current;
+
+    const isActiveFlow = () =>
+        sessionIdRef.current === activeSessionIdRef.current &&
+        lastActiveTransactionsHydrationFlowId === sessionIdRef.current;
+
     useEffect(() => {
         if (open) return;
         ensureTransactionsUserBound(userId);
+        if (!isActiveFlow()) return;
         void setUserId(userId).catch(() => undefined);
     }, [open, setUserId, userId]);
 
@@ -43,6 +55,7 @@ export function useTransactionsHubSessionHydration({
 
         const applyResolvedView = () => {
             if (cancelled) return;
+            if (!isActiveFlow()) return;
 
             const focusId = focusPendingRef.current;
             if (!focusId) {
@@ -88,6 +101,7 @@ export function useTransactionsHubSessionHydration({
         void (async () => {
             await setUserId(userId);
             if (cancelled) return;
+            if (!isActiveFlow()) return;
             const afterBind = useTransactionsThreadingStore.getState();
             const focusId = focusPendingRef.current;
             const hasFocus =
@@ -100,6 +114,7 @@ export function useTransactionsHubSessionHydration({
                     /* hydrate may still have seeded the store */
                 }
                 if (cancelled) return;
+                if (!isActiveFlow()) return;
                 hydrated = true;
                 applyResolvedView();
             };
@@ -113,6 +128,9 @@ export function useTransactionsHubSessionHydration({
         })();
         return () => {
             cancelled = true;
+            if (activeSessionIdRef.current === sessionIdRef.current) {
+                activeSessionIdRef.current = 0;
+            }
         };
     }, [onInitialFocusConsumed, open, refreshTransactions, revealDetails, setUserId, userId]);
 }

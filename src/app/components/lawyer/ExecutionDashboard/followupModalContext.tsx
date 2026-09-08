@@ -49,7 +49,7 @@ export function FollowupModalStoreProvider({
 export function useFollowupModal(): FollowupModalSnapshot {
     const snapshot = useContext(FollowupModalStoreContext);
     if (!snapshot) {
-        throw new Error('useFollowupModal must run inside FollowupModalStoreProvider');
+        throw new Error('[execution:followup_modal:ctx_provider_missing] useFollowupModal must run inside FollowupModalStoreProvider');
     }
     return snapshot;
 }

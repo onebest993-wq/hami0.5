@@ -4,9 +4,17 @@ import type { SanitizeTaskForPublicResult } from '@/app/types/taskHelpTypes';
 const PUBLIC_TITLE_PREFIX = '[طلب مساعدة عامة]';
 const REDACTION_TOKEN = '[محذوف]';
 
+/**
+ * طبقة L3: إزالة صريحة لأوسمة HTML قبل أي معالجة أخرى
+ * يمنع هروب tags عبر مسارات رداء الـ PII regex (XSS defense-in-depth)
+ */
+export function stripTaskHtml(input: string): string {
+    return String(input ?? '').replace(/<\/?[^>]+(>|$)/gi, '');
+}
+
 /** إزالة بريد / جوال عراقي / أرقام طويلة (هوية أو رقم قضية) */
 export function redactPiiText(input: string): string {
-    let out = String(input ?? '');
+    let out = stripTaskHtml(input);
 
     out = out.replace(
         /([a-zA-Z0-9._%+-]{1,64})@([a-zA-Z0-9.-]{1,253})\.([a-zA-Z]{2,24})/g,
@@ -19,9 +27,9 @@ export function redactPiiText(input: string): string {
         return REDACTION_TOKEN;
     });
 
-    // أنماط شائعة: موكل / المدعي / المدعى عليه + اسم
+    // أنماط شائعة: موكل / المدعي / المدعى عليه + اسم (1-3 كلمات حتى الفاصلة)
     out = out.replace(
-        /(?:الموكل|موكل|المدعي|المدعى\s*عليه|المدعية)\s*[:：-]?\s*[^\s،,]{2,40}/giu,
+        /(?:الموكل|موكل|المدعي|المدعى\s*عليه|المدعية)\s*[:：-]?\s*[^\s،,]{2,40}(?:\s+[^\s،,]{2,40}){0,2}/giu,
         REDACTION_TOKEN,
     );
     out = out.replace(

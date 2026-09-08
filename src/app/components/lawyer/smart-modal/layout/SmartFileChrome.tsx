@@ -15,6 +15,12 @@ import {
     SMART_FILE_FOOTER_CHIP_ACCENT,
 } from './mainPanel/smartFileFooterChip';
 
+/* Mobile Safe-Area tokens (read-only, ZVF no visual layout change) */
+const SAFE_AREA_INSET_TOP = 'env(safe-area-inset-top)';
+const SAFE_AREA_INSET_RIGHT = 'env(safe-area-inset-right)';
+const SAFE_AREA_INSET_BOTTOM = 'env(safe-area-inset-bottom)';
+const SAFE_AREA_INSET_LEFT = 'env(safe-area-inset-left)';
+
 /** شريحة طعن بجانب شريط المراحل — نفس هوية التذييل بلا w-full */
 const CHROME_CHALLENGE_CHIP = `${SMART_FILE_FOOTER_CHIP} !w-auto shrink-0 whitespace-nowrap px-2.5`;
 const CHROME_CHALLENGE_CHIP_ACCENT = `${SMART_FILE_FOOTER_CHIP_ACCENT} !w-auto shrink-0 whitespace-nowrap px-2.5`;

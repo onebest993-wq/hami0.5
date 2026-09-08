@@ -39,7 +39,7 @@ export const ForumPostFollowRepository = {
             { user_id: userId, post_id: postId, created_at: createdAt },
             { onConflict: 'user_id,post_id' },
         );
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:postfollow:opcode] ' + (error.message));
         return { userId, postId, createdAt };
     },
 
@@ -55,7 +55,7 @@ export const ForumPostFollowRepository = {
             .delete()
             .eq('user_id', userId)
             .eq('post_id', postId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:postfollow:opcode] ' + (error.message));
     },
 
     async isSubscribed(userId: string, postId: string): Promise<boolean> {

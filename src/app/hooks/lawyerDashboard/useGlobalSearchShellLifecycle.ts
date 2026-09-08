@@ -6,6 +6,8 @@ import {
 } from '@/app/services/search/globalSearchPerfMetrics';
 import { observeGlobalSearchOverlayInteractive } from '@/app/hooks/lawyerDashboard/observeGlobalSearchOverlayInteractive';
 
+let sessionIdCounter = 0;
+
 /**
  * علامات interactive من الـ eager shell — تجنّب دوران استيراد داخل lazy chunk.
  */
@@ -15,16 +17,45 @@ export function useGlobalSearchShellLifecycle(
     hasLocalCache: boolean,
 ) {
     const reportedRef = useRef(false);
+    const stopObserveRef = useRef<(() => void) | null>(null);
+    const fallbackTimerRef = useRef<number | null>(null);
+    const sessionIdRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
+
+    const cleanupActiveGuards = () => {
+        if (stopObserveRef.current) {
+            try {
+                stopObserveRef.current();
+            } catch {
+                /* ignore */
+            }
+            stopObserveRef.current = null;
+        }
+        if (fallbackTimerRef.current !== null) {
+            window.clearTimeout(fallbackTimerRef.current);
+            fallbackTimerRef.current = null;
+        }
+    };
 
     useEffect(() => {
         if (!isOpen) {
             reportedRef.current = false;
+            activeSessionIdRef.current = 0;
+            cleanupActiveGuards();
             return;
         }
 
+        sessionIdCounter += 1;
+        sessionIdRef.current = sessionIdCounter;
+        const currentSessionId = sessionIdRef.current;
+        activeSessionIdRef.current = currentSessionId;
+        reportedRef.current = false;
+
+        cleanupActiveGuards();
         markGlobalSearchPerfPhase('first-paint');
 
         const markInteractiveNow = () => {
+            if (activeSessionIdRef.current !== currentSessionId) return;
             if (reportedRef.current) return;
             reportedRef.current = true;
             markGlobalSearchPerfPhase('interactive');
@@ -33,24 +64,22 @@ export function useGlobalSearchShellLifecycle(
                 hadLocalCache: hasLocalCache,
                 hadChunkCached: isGlobalSearchOverlayModuleResolved(),
             });
+            cleanupActiveGuards();
         };
 
         /* بلا userId — interactive فوراً للقياس (لا نُسقِط العلامة) */
         if (!userId) {
-            const fallbackNoUser = window.setTimeout(markInteractiveNow, 0);
-            return () => window.clearTimeout(fallbackNoUser);
+            fallbackTimerRef.current = window.setTimeout(markInteractiveNow, 0);
+            return cleanupActiveGuards;
         }
 
-        const stopObserve = observeGlobalSearchOverlayInteractive({
+        stopObserveRef.current = observeGlobalSearchOverlayInteractive({
             isDone: () => reportedRef.current,
             onInteractive: markInteractiveNow,
         });
 
-        const fallback = window.setTimeout(markInteractiveNow, 1_200);
+        fallbackTimerRef.current = window.setTimeout(markInteractiveNow, 1_200);
 
-        return () => {
-            stopObserve();
-            window.clearTimeout(fallback);
-        };
+        return cleanupActiveGuards;
     }, [hasLocalCache, isOpen, userId]);
 }

@@ -20,6 +20,12 @@ export function endLawsuitVaultCommitHold(): void {
     if (holdCount === 0) return;
     holdCount -= 1;
     emit();
+    void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+        m.tearDownLitigationFloatingState({
+            targetSurface: 'archive-portal',
+            reason: 'tearDown',
+        }),
+    );
 }
 
 export function isLawsuitVaultCommitHold(): boolean {

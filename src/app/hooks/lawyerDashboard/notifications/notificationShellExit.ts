@@ -5,10 +5,54 @@ const CLOSING_ATTR = 'data-hami-notifications-closing';
 const OPEN_ATTR = 'data-hami-notifications-open';
 const TRACK_SELECTOR = '.hami-notif-sheet-track';
 const SHEET_SELECTOR = '[data-testid="notification-panel"]';
+const PANEL_LAYER_SELECTORS = ['.hami-notif-layer', TRACK_SELECTOR, SHEET_SELECTOR] as const;
 
 /** مدة هبوط الورقة — تُطابق CSS؛ احتياط إن لم يصل transitionend */
 export const NOTIFICATION_SHEET_EXIT_MS = 200;
 export const NOTIFICATION_SHEET_EXIT_PAD_MS = 16;
+
+function tearDownNotificationFloatingState(): void {
+    if (typeof document === 'undefined') return;
+    try {
+        const input = document.activeElement instanceof HTMLElement
+            ? document.activeElement.closest<HTMLElement>('input, textarea, button, [tabindex]')
+            : null;
+        if (input && typeof input.blur === 'function') {
+            try { input.blur(); } catch { /* ignore */ }
+        }
+        for (const sel of PANEL_LAYER_SELECTORS) {
+            const node = document.querySelector<HTMLElement>(sel);
+            if (!node) continue;
+            try {
+                const inside = node.contains(document.activeElement);
+                if (inside && document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur();
+                }
+            } catch { /* ignore */ }
+        }
+        if (document.activeElement instanceof HTMLElement) {
+            const ae = document.activeElement;
+            for (const sel of PANEL_LAYER_SELECTORS) {
+                try {
+                    if (ae.closest && ae.closest(sel)) {
+                        ae.blur();
+                        break;
+                    }
+                } catch { /* ignore */ }
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+    try {
+        if (typeof window !== 'undefined') {
+            const w = window as unknown as { __hamiNotifDraft?: unknown };
+            if (w.__hamiNotifDraft !== undefined) {
+                w.__hamiNotifDraft = undefined;
+            }
+        }
+    } catch { /* ignore */ }
+}
 
 function shouldSkipNotificationSheetMotion(): boolean {
     if (typeof document === 'undefined') return true;
@@ -41,9 +85,11 @@ export function clearNotificationShellClosing(): void {
  * لا يحذف React قبل اكتمال الحركة.
  */
 export function beginNotificationShellExit(onDone: () => void): void {
+    tearDownNotificationFloatingState();
     if (typeof document === 'undefined' || shouldSkipNotificationSheetMotion()) {
         clearOverlayEnterSettle('data-hami-notif-enter');
         clearNotificationShellClosing();
+        tearDownNotificationFloatingState();
         onDone();
         return;
     }
@@ -52,6 +98,7 @@ export function beginNotificationShellExit(onDone: () => void): void {
     if (document.documentElement.getAttribute(OPEN_ATTR) !== '1') {
         clearOverlayEnterSettle('data-hami-notif-enter');
         clearNotificationShellClosing();
+        tearDownNotificationFloatingState();
         onDone();
         return;
     }
@@ -63,6 +110,7 @@ export function beginNotificationShellExit(onDone: () => void): void {
             : document.querySelector(SHEET_SELECTOR);
     if (!(sheet instanceof HTMLElement)) {
         clearNotificationShellClosing();
+        tearDownNotificationFloatingState();
         onDone();
         return;
     }
@@ -81,6 +129,7 @@ export function beginNotificationShellExit(onDone: () => void): void {
         if (typeof window !== 'undefined') window.clearTimeout(fallbackTimer);
         sheet.removeEventListener('transitionend', onTransitionEnd);
         clearNotificationShellClosing();
+        tearDownNotificationFloatingState();
         onDone();
     };
 

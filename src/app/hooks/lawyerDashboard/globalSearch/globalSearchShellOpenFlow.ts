@@ -16,6 +16,9 @@ import {
     markGlobalSearchPerfPhase,
 } from '@/app/services/search/globalSearchPerfMetrics';
 
+let flowSessionIdCounter = 0;
+const flowActiveSessionIdRef = { current: 0 };
+
 type CommitGlobalSearchShellOpenParams = {
     querySeed?: string;
     showGlobalSearchRef: MutableRefObject<boolean>;
@@ -31,6 +34,10 @@ export function commitGlobalSearchShellOpen({
     setGlobalSearchInitialQuery,
     setShowGlobalSearch,
 }: CommitGlobalSearchShellOpenParams): void {
+    flowSessionIdCounter += 1;
+    const currentFlowId = flowSessionIdCounter;
+    flowActiveSessionIdRef.current = currentFlowId;
+
     try {
         if (typeof performance !== 'undefined') {
             clearGlobalSearchPerfMarks();
@@ -57,18 +64,20 @@ export function commitGlobalSearchShellOpen({
     persistGlobalSearchSessionOpen(true);
 
     if (isGlobalSearchOverlayModuleResolved()) {
-        markGlobalSearchPerfPhase('chunk-ready');
+        if (flowActiveSessionIdRef.current === currentFlowId && showGlobalSearchRef.current) {
+            markGlobalSearchPerfPhase('chunk-ready');
+        }
     }
 
     queueMicrotask(() => {
-        if (!showGlobalSearchRef.current) return;
+        if (flowActiveSessionIdRef.current !== currentFlowId || !showGlobalSearchRef.current) return;
         warmGlobalSearchOnOpen();
         dismissTransientOverlays('global-search');
         prefetchGlobalSearchSearchEngine();
         void loadGlobalSearchOverlayModule()
             .catch(() => undefined)
             .then(() => {
-                if (showGlobalSearchRef.current) {
+                if (flowActiveSessionIdRef.current === currentFlowId && showGlobalSearchRef.current) {
                     markGlobalSearchPerfPhase('chunk-ready');
                 }
             });

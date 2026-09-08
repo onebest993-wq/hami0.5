@@ -76,7 +76,7 @@ export async function deleteForumPost(
     requesterId?: string | null,
 ): Promise<void> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:posts:opcode] يجب تسجيل الدخول');
 
     const isOwner = userId === authorId;
 
@@ -87,7 +87,7 @@ export async function deleteForumPost(
         void forumApiPostJson<ApiOk<{ action: string }>>('/api/forum/delete', { postId }).catch(() => undefined);
         await removeForumPostLocally(postId);
     } else {
-        throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
+        throw new Error('[forumApi:posts:opcode] ليس لديك صلاحية لحذف هذا المنشور');
     }
 
     try {
@@ -103,7 +103,7 @@ export async function toggleForumPin(postId: string, pinned: boolean): Promise<C
         postId,
         pinned,
     });
-    if (!res.post) throw new Error('المنشور غير موجود بعد التثبيت');
+    if (!res.post) throw new Error('[forumApi:posts:opcode] المنشور غير موجود بعد التثبيت');
     await persistForumPostLocally(res.post);
     return res.post;
 }
@@ -132,7 +132,7 @@ export async function updateForumPost(
     requesterId?: string | null,
 ): Promise<CommunityPost> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:posts:opcode] يجب تسجيل الدخول');
 
     const localSaved = await updateCommunityPost(postId, content, userId);
 
@@ -203,7 +203,7 @@ export async function listForumBookmarks(requesterId?: string | null): Promise<s
 
 export async function toggleForumBookmark(postId: string, requesterId?: string | null): Promise<boolean> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:posts:opcode] يجب تسجيل الدخول');
 
     const bookmarked = await ForumBookmarkDB.toggle(userId, postId);
 
@@ -222,7 +222,7 @@ export async function toggleForumLockDiscussion(
     authorHint?: string,
 ): Promise<CommunityPost> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:posts:opcode] يجب تسجيل الدخول');
 
     const ownerId = authorHint?.trim() || '';
     const isOwner = ownerId !== '' && userId === ownerId;
@@ -265,10 +265,10 @@ export async function toggleForumLockDiscussion(
             '/api/forum/lock',
             { postId, locked },
         );
-        if (!res.post) throw new Error('تعذّر تحديث حالة القفل');
+        if (!res.post) throw new Error('[forumApi:posts:opcode] تعذّر تحديث حالة القفل');
         await persistForumPostLocally(res.post);
         return res.post;
     }
 
-    throw new Error('ليس لديك صلاحية لقفل النقاش');
+    throw new Error('[forumApi:posts:opcode] ليس لديك صلاحية لقفل النقاش');
 }

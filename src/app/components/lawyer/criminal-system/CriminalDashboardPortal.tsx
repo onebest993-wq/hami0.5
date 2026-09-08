@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -50,6 +50,17 @@ export function CriminalDashboardPortal({
 }: CriminalDashboardPortalProps) {
     const handleExit = onExitToHome ?? onClose;
     useBodyScrollLock(true);
+
+    useEffect(() => {
+        return () => {
+            void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+                m.tearDownLitigationFloatingState({
+                    targetSurface: 'criminal-dashboard',
+                    reason: 'unmount',
+                }),
+            );
+        };
+    }, []);
 
     const layer = (
         <ErrorBoundary key={caseId} fallback={<CriminalDossierCrashFallback onClose={onClose} />}>

@@ -77,7 +77,7 @@ export function renderWallpaperCanvas(
     );
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('canvas unavailable');
+    if (!ctx) throw new Error('[settings:wallpaper-render-canvas-unavailable] canvas unavailable');
     ctx.drawImage(img as CanvasImageSource, left, top, drawW, drawH);
     return canvas;
 }
@@ -106,7 +106,7 @@ export function canvasToWallpaperDataUrl(canvas: HTMLCanvasElement): Promise<str
 
     return (async () => {
         let best = canvas.toDataURL('image/jpeg', high);
-        if (!best) throw new Error('canvas export failed');
+        if (!best) throw new Error('[settings:wallpaper-render-export-failed] canvas export failed');
 
         if (best.length <= WALLPAPER_EXPORT_MAX_BYTES) {
             return best;
@@ -125,7 +125,7 @@ export function canvasToWallpaperDataUrl(canvas: HTMLCanvasElement): Promise<str
         }
 
         if (best.length > WALLPAPER_EXPORT_MAX_BYTES) {
-            throw new Error('image too large');
+            throw new Error('[settings:wallpaper-render-image-too-large] image too large');
         }
         return best;
     })();

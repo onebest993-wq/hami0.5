@@ -115,7 +115,7 @@ export async function downloadRepositoryFile(url: string, fileName: string): Pro
 
     const response = await withForumAsyncTimeout(fetch(url), DOWNLOAD_FETCH_TIMEOUT_MS, null);
     if (!response?.ok) {
-        throw new Error('download-failed');
+        throw new Error('[community:storage:opcode] download-failed');
     }
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);

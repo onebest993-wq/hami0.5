@@ -32,7 +32,7 @@ async function deleteCloudAccount(): Promise<AccountDeleteResponse> {
             }),
         });
         if (!result?.ok || !result.complete || result.authDeleted !== true) {
-            throw new Error('account_delete_incomplete');
+            throw new Error(`[settings:delete-account-cloud-incomplete] account_delete_incomplete`);
         }
         return result;
     });
@@ -47,7 +47,7 @@ async function terminateSession(
     }
     if (isBffAuthEnabled()) {
         if (!(await bffLogout())) {
-            throw new Error('bff_logout_failed');
+            throw new Error(`[settings:delete-account-bff-logout-failed] bff_logout_failed`);
         }
         return;
     }
@@ -62,7 +62,7 @@ export async function deleteLawyerAccount(
 ): Promise<DeleteLawyerAccountResult> {
     const userId = resolveLiveAuthUserIdForStorage();
     if (!userId) {
-        throw new Error('account_delete_unauthenticated');
+        throw new Error('[settings:delete-account-unauthenticated] account_delete_unauthenticated');
     }
 
     await deleteCloudAccount();
@@ -76,7 +76,7 @@ export async function deleteLawyerAccount(
     }
 
     if (!local.complete) {
-        throw new Error(`local_wipe_incomplete:${local.failedStages.join(',')}`);
+        throw new Error(`[settings:delete-account-local-wipe-incomplete] local_wipe_incomplete:${local.failedStages.join(',')}`);
     }
     if (logoutError) throw logoutError;
 

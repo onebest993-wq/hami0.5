@@ -16,7 +16,7 @@ export function toBase64(buf: ArrayBuffer) {
 
 export function fromBase64(b64: string, label: string) {
     if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(b64) || b64.length % 4 !== 0) {
-        throw new Error(`invalid ${label} encoding`);
+        throw new Error(`[settings:backup-encoding-base64-invalid] invalid ${label} encoding`);
     }
     const binary = atob(b64);
     const buf = new ArrayBuffer(binary.length);
@@ -34,14 +34,14 @@ function decodedBase64ByteLength(value: string): number {
 export function validateVaultBlobRecords(value: unknown): BusinessBackupVaultBlob[] {
     if (value === undefined) return [];
     if (!Array.isArray(value) || value.length > MAX_BACKUP_VAULT_BLOB_COUNT) {
-        throw new Error('invalid vault blob manifest');
+        throw new Error('[settings:backup-encoding-vault-manifest-invalid] invalid vault blob manifest');
     }
     const records: BusinessBackupVaultBlob[] = [];
     const seen = new Set<string>();
     let totalBytes = 0;
     for (const candidate of value) {
         if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-            throw new Error('invalid vault blob record');
+            throw new Error('[settings:backup-encoding-vault-blob-invalid] invalid vault blob record');
         }
         const record = candidate as Record<string, unknown>;
         const authorId = typeof record.authorId === 'string' ? record.authorId : '';
@@ -69,14 +69,14 @@ export function validateVaultBlobRecords(value: unknown): BusinessBackupVaultBlo
             data.length % 4 !== 0 ||
             decodedBase64ByteLength(data) !== size
         ) {
-            throw new Error('invalid vault blob record');
+            throw new Error('[settings:backup-encoding-vault-blob-invalid-fields] invalid vault blob record');
         }
         const identity = `${authorId}:${docId}`;
-        if (seen.has(identity)) throw new Error('duplicate vault blob record');
+        if (seen.has(identity)) throw new Error('[settings:backup-encoding-vault-blob-duplicate] duplicate vault blob record');
         seen.add(identity);
         totalBytes += size as number;
         if (totalBytes > MAX_BACKUP_VAULT_BINARY_BYTES) {
-            throw new Error('vault blobs exceed the mobile-safe backup limit');
+            throw new Error('[settings:backup-encoding-vault-blobs-oversized] vault blobs exceed the mobile-safe backup limit');
         }
         records.push({
             authorId,

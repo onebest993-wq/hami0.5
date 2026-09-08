@@ -21,7 +21,12 @@ export function RepositoryCardBody({
     const typeBadgeClass = repositoryCardTypeBadgeClass(doc.type);
 
     return (
-        <div className="px-3 pt-3 pb-2 cursor-pointer" onClick={() => onPreview(doc)}>
+        <button
+            type="button"
+            className="px-3 pt-3 pb-2 cursor-pointer text-left w-full"
+            onClick={() => onPreview(doc)}
+            style={{ appearance: 'none', background: 'transparent', border: 'none', padding: '0', margin: '0', font: 'inherit', color: 'inherit' }}
+        >
             <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2 min-w-0 flex-1">
                     {!isImage ? (
@@ -70,6 +75,6 @@ export function RepositoryCardBody({
                     ))}
                 </div>
             ) : null}
-        </div>
+        </button>
     );
 }

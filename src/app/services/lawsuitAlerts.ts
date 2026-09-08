@@ -14,9 +14,17 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { composeRichAlert } from '@/app/services/alertRichContext';
 import type { DossierRegistry } from '@/app/services/alertDossierRegistry';
 import { parseYmdToTs, dayDiff } from '@/app/services/executionAlerts.helpers';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DORMANCY_DAYS = 90;
+const LEGAL_XSS_WHITELIST_OUT = /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s\,\.\-\(\)\:\u060C\u061B\u061F\u200C-\u200F]/g;
+function whitelistOutbound(raw: string): string {
+    return String(raw ?? '').replace(LEGAL_XSS_WHITELIST_OUT, '');
+}
+function safeOutbound(raw: unknown, maxLen: number): string {
+    return whitelistOutbound(sanitizeProfilePlainText(raw, maxLen));
+}
 
 function priorityByDaysToDue(days: number): number {
     if (days <= 1) return 1;
@@ -26,7 +34,7 @@ function priorityByDaysToDue(days: number): number {
 }
 
 function safeStr(v: unknown): string {
-    return typeof v === 'string' ? v.trim() : '';
+    return safeOutbound(typeof v === 'string' ? v.trim() : '', 300);
 }
 
 function asArray(v: unknown): unknown[] {

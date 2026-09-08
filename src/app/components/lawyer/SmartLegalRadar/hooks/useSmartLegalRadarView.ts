@@ -12,6 +12,33 @@ import {
     todayYmd,
 } from '@/app/components/lawyer/SmartLegalRadar/radarCalendarMath';
 
+const RADAR_ZONE_MARK_PREFIX = 'hami:calendar:zone:';
+
+function latestRadarZoneMark(name: string): PerformanceEntry | null {
+    if (typeof performance === 'undefined' || typeof performance.getEntriesByName !== 'function') return null;
+    const entries = performance.getEntriesByName(name, 'mark');
+    return entries.length > 0 ? entries[entries.length - 1] : null;
+}
+
+export function markRadarZoneSwitch(zone: string): void {
+    if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
+    try {
+        performance.mark(`${RADAR_ZONE_MARK_PREFIX}${zone}`);
+    } catch {
+        /* ignore */
+    }
+}
+
+export function getRadarZoneSwitchMs(fromZone: string, toZone: string): number | null {
+    if (typeof performance === 'undefined') return null;
+    const from = latestRadarZoneMark(`${RADAR_ZONE_MARK_PREFIX}${fromZone}`);
+    const to = latestRadarZoneMark(`${RADAR_ZONE_MARK_PREFIX}${toZone}`);
+    if (!from || !to) return null;
+    const delta = to.startTime - from.startTime;
+    if (delta < 0) return null;
+    return Math.round(delta);
+}
+
 function sessionSeed(initialDate?: string): CalendarShellSession {
     const existing = peekCalendarShellSession();
     if (existing) return existing;
@@ -54,6 +81,7 @@ export function useSmartLegalRadarView(initialDate?: string) {
     }, [commit]);
 
     const prevMonth = useCallback(() => {
+        markRadarZoneSwitch('prev-month');
         const next = selectedDateAfterMonthShift(selectedDate, viewYear, viewMonth, -1);
         commit(
             patchCalendarShellSession({
@@ -65,6 +93,7 @@ export function useSmartLegalRadarView(initialDate?: string) {
     }, [commit, selectedDate, viewMonth, viewYear]);
 
     const nextMonth = useCallback(() => {
+        markRadarZoneSwitch('next-month');
         const next = selectedDateAfterMonthShift(selectedDate, viewYear, viewMonth, 1);
         commit(
             patchCalendarShellSession({
@@ -76,6 +105,7 @@ export function useSmartLegalRadarView(initialDate?: string) {
     }, [commit, selectedDate, viewMonth, viewYear]);
 
     const goToToday = useCallback(() => {
+        markRadarZoneSwitch('today');
         const now = new Date();
         commit(
             patchCalendarShellSession({
@@ -88,6 +118,7 @@ export function useSmartLegalRadarView(initialDate?: string) {
 
     const handleDateClick = useCallback(
         (day: number) => {
+            markRadarZoneSwitch('date-click');
             const m = String(viewMonth + 1).padStart(2, '0');
             const d = String(day).padStart(2, '0');
             commit(patchCalendarShellSession({ selectedDate: `${viewYear}-${m}-${d}` }));
@@ -96,11 +127,13 @@ export function useSmartLegalRadarView(initialDate?: string) {
     );
 
     const toggleFullMonth = useCallback(() => {
+        markRadarZoneSwitch('fullmonth-toggle');
         commit(patchCalendarShellSession({ showFullMonth: !showFullMonth }));
     }, [commit, showFullMonth]);
 
     const focusDate = useCallback(
         (dateStr: string) => {
+            markRadarZoneSwitch('focus-date');
             const parsed = viewFromCalendarYmd(dateStr);
             if (!parsed) return;
             commit(patchCalendarShellSession(parsed));

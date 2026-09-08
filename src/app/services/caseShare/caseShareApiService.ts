@@ -16,14 +16,36 @@ import {
     ShareSourceOwnershipError,
 } from './caseShareDossierOwnership';
 import { registerCriminalCaseOwnershipOnServer } from './caseShareCriminalOwnershipApi';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 type ApiOk<T> = { ok: true } & T;
 
+const LEGAL_XSS_WHITELIST_OUT = /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s\,\.\-\(\)\:\@\/\?\&\=\%\#\+\_\u060C\u061B\u061F\u200C-\u200F]/g;
+function whitelistOutbound(raw: string): string {
+    return String(raw ?? '').replace(LEGAL_XSS_WHITELIST_OUT, '');
+}
+function safeOutbound(raw: unknown, maxLen: number): string {
+    return whitelistOutbound(sanitizeProfilePlainText(raw, maxLen));
+}
+function sanitizeOutboundObject(obj: unknown, depth = 0): unknown {
+    if (depth > 6) return obj;
+    if (obj == null) return obj;
+    if (typeof obj === 'string') return safeOutbound(obj, 4000);
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map((item) => sanitizeOutboundObject(item, depth + 1));
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        out[k] = sanitizeOutboundObject(v, depth + 1);
+    }
+    return out;
+}
+
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    const safeBody = sanitizeOutboundObject(body) as Record<string, unknown>;
     return SecureAPIClient.fetchSecure<T>(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(safeBody),
     });
 }
 
@@ -86,7 +108,7 @@ export class CaseShareApiService {
         assertCollaborationNetworkReachable();
         const inNetwork = await assertRecipientInNetwork(params.ownerId, params.recipientId);
         if (!inNetwork) {
-            throw new Error('RECIPIENT_NOT_IN_NETWORK');
+            throw new Error('[caseshare:api_service:recipient_not_in_network] RECIPIENT_NOT_IN_NETWORK');
         }
         try {
             if (params.source.module === 'criminal') {
@@ -103,7 +125,7 @@ export class CaseShareApiService {
                 sessionDurationMinutes: params.sessionDurationMinutes,
             });
             if (res.share) return res.share;
-            throw new Error('CREATE_SHARE_EMPTY');
+            throw new Error('[caseshare:api_service:create_share_empty] CREATE_SHARE_EMPTY');
         } catch (err) {
             if (err instanceof ShareSourceOwnershipError) throw err;
             if (import.meta.env.PROD) {
@@ -120,7 +142,7 @@ export class CaseShareApiService {
                 action,
                 shareId,
             });
-            if (!res.share) throw new Error('RESPOND_FAILED');
+            if (!res.share) throw new Error('[caseshare:api_service:respond_failed] RESPOND_FAILED');
             return;
         } catch (err) {
             if (import.meta.env.PROD) {
@@ -131,7 +153,7 @@ export class CaseShareApiService {
                 userId,
                 action === 'accept' ? 'accepted' : 'declined',
             );
-            if (!updated) throw new Error('SHARE_NOT_FOUND');
+            if (!updated) throw new Error('[caseshare:api_service:share_not_found] SHARE_NOT_FOUND');
         }
     }
 
@@ -143,7 +165,7 @@ export class CaseShareApiService {
                 shareId,
             });
             if (res.share) return res.share;
-            throw new Error('END_SESSION_EMPTY');
+            throw new Error('[caseshare:api_service:end_session_empty] END_SESSION_EMPTY');
         } catch (err) {
             if (import.meta.env.PROD) {
                 throw err;

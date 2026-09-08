@@ -5,6 +5,7 @@ import {
     isCalendarPaintCoverInteractive,
     isCalendarReminderOverlayOpen,
 } from '@/app/services/calendar/calendarReminderOverlayGate';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
 
 type UseScheduleTabEscapeParams = {
     enabled: boolean;
@@ -36,6 +37,7 @@ export function useScheduleTabEscape({
                 if (!formSaving) onCloseForm();
                 return true;
             }
+            try { tearDownCalendarFloatingState(); } catch { /* ignore */ }
             onBack();
             return true;
         };
@@ -54,6 +56,7 @@ export function useScheduleTabEscape({
 
             e.preventDefault();
             e.stopPropagation();
+            try { tearDownCalendarFloatingState(); } catch { /* ignore */ }
             onBack();
         };
 

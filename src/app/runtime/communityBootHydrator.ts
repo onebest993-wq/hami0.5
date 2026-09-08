@@ -11,6 +11,7 @@ import { prefetchCommunityCloudModule } from '@/app/services/forum/communityClou
 import { warmForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
 
 export const COMMUNITY_SHELL_HYDRATED_EVENT = 'hami:community-shell-hydrated';
 
@@ -125,6 +126,7 @@ export function bindCommunityBootHydrator(): () => void {
     return () => {
         bootHydratorArmed = false;
         window.removeEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone);
+        tearDownForumFloatingState();
     };
 }
 

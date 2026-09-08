@@ -1,10 +1,12 @@
 import React, { useLayoutEffect } from 'react';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import { removeTasksManagerInstantChrome } from '@/app/runtime/tasksManagerInstantPaint';
+import { tearDownTasksFloatingState } from '@/app/components/lawyer/dashboard/tasksManager/tearDownTasksFloatingState';
 
 function TasksManagerErrorFallback({ onClose }: { onClose: () => void }) {
     useLayoutEffect(() => {
         removeTasksManagerInstantChrome();
+        tearDownTasksFloatingState();
     }, []);
     return (
         <div
@@ -18,7 +20,10 @@ function TasksManagerErrorFallback({ onClose }: { onClose: () => void }) {
             </p>
             <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                    tearDownTasksFloatingState();
+                    onClose();
+                }}
                 data-testid="tasks-manager-error-close"
                 className="min-h-[44px] px-6 rounded-xl bg-[#E6C673]/15 text-[#E6C673] border border-[#E6C673]/35 active:bg-[#E6C673]/25 transition-colors text-sm font-bold"
             >

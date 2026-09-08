@@ -35,6 +35,11 @@ describe('profileContactInputSecurity', () => {
         expect(clampProfileDisplayName('<b>أحمد</b>')).toBe('أحمد');
     });
 
+    it('strips tags from contact values (defense-in-depth)', () => {
+        expect(clampProfileContactValue('<a href="evil">07801234567</a>')).toBe('07801234567');
+        expect(clampProfileContactValue('<script>alert(1)</script>user@example.com')).toBe('user@example.com');
+    });
+
     it('refuses dangerous clipboard schemes', () => {
         expect(safeProfileContactClipboardText('javascript:alert(1)')).toBe('');
         expect(safeProfileContactClipboardText('07701234567')).toBe('07701234567');

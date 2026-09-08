@@ -6,9 +6,18 @@ import { executionDocumentsStorageKey } from '@/app/utils/executionStorageKeysLi
 import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { ShareCatalogItem, ShareCatalogSection } from './caseShareTypes';
 import { EXECUTION_CONSULT_SECTION_DEFS } from './caseShareTypes';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
+
+const LEGAL_XSS_WHITELIST = /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s\,\.\-\(\)\u060C\u061B\u061F\u200C-\u200F]/g;
+function whitelistPlain(raw: string): string {
+    return String(raw ?? '').replace(LEGAL_XSS_WHITELIST, '');
+}
+function safeInbound(raw: unknown, maxLen: number): string {
+    return whitelistPlain(sanitizeProfilePlainText(raw, maxLen));
+}
 
 function clip(text: string | undefined, max = 100): string {
-    const t = String(text ?? '').trim();
+    const t = safeInbound(text, max);
     if (!t) return '';
     return t.length <= max ? t : `${t.slice(0, max)}…`;
 }

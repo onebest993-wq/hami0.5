@@ -14,6 +14,6 @@ export async function assertForumPostGroupAccess(
     if (!post.groupId) return;
     const isMember = await ForumGroupRepository.isMember(post.groupId, userId);
     if (!canViewForumGroupPost(post, isMember, isAdmin)) {
-        throw new Error('يجب الانضمام للمجموعة قبل التفاعل مع منشوراتها');
+        throw new Error('[forum:guard:group_membership_required] يجب الانضمام للمجموعة قبل التفاعل مع منشوراتها');
     }
 }

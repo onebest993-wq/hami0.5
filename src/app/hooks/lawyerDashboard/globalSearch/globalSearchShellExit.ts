@@ -1,9 +1,11 @@
 import { clearOverlayEnterSettle } from '@/app/runtime/overlayEnterSettle';
+import { clearGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 
 const CLOSING_ATTR = 'data-hami-global-search-closing';
 const OPEN_ATTR = 'data-hami-global-search-open';
 const LAYER_SELECTOR = '.hami-gs-layer[data-search-open="true"], .hami-gs-layer';
 const SHEET_SELECTOR = '.hami-gs-sheet';
+const INPUT_SELECTOR = '.hami-gs-input, [data-hami-global-search-input="true"]';
 
 export const GLOBAL_SEARCH_LAYER_EXIT_MS = 150;
 export const GLOBAL_SEARCH_LAYER_EXIT_PAD_MS = 16;
@@ -26,6 +28,35 @@ function shouldSkipGlobalSearchMotion(): boolean {
     }
 }
 
+function tearDownGlobalSearchFloatingState(): void {
+    if (typeof document === 'undefined') return;
+    try {
+        const input = document.querySelector(INPUT_SELECTOR);
+        if (input instanceof HTMLElement) {
+            try {
+                input.blur();
+            } catch {
+                /* ignore */
+            }
+        }
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active.closest('.hami-gs-layer, .hami-gs-sheet')) {
+            try {
+                active.blur();
+            } catch {
+                /* ignore */
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+    try {
+        clearGlobalSearchDraftQuery();
+    } catch {
+        /* ignore */
+    }
+}
+
 export function clearGlobalSearchShellClosing(): void {
     if (typeof document === 'undefined') return;
     document.documentElement.removeAttribute(CLOSING_ATTR);
@@ -35,6 +66,8 @@ export function clearGlobalSearchShellClosing(): void {
  * يُبقي الطبقة للخروج ثم onDone — لا يُخفِ React قبل اكتمال التلاشي.
  */
 export function beginGlobalSearchShellExit(onDone: () => void): void {
+    tearDownGlobalSearchFloatingState();
+
     if (typeof document === 'undefined' || shouldSkipGlobalSearchMotion()) {
         clearOverlayEnterSettle('data-hami-gs-enter');
         clearGlobalSearchShellClosing();
@@ -64,6 +97,7 @@ export function beginGlobalSearchShellExit(onDone: () => void): void {
         window.clearTimeout(fallbackTimer);
         motionEl.removeEventListener('transitionend', onTransitionEnd);
         clearGlobalSearchShellClosing();
+        tearDownGlobalSearchFloatingState();
         onDone();
     };
 

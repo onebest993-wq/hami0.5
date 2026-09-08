@@ -36,6 +36,17 @@ export function getExecutionWarmCoordinatorSnapshot(): {
     };
 }
 
+export function cleanupExecutionWarmCoordinator(): void {
+    if (typeof window !== 'undefined') {
+        void import('@/app/services/execution/tearDownExecutionFloatingState')
+            .then((m) => m.tearDownExecutionFloatingState({
+                targetSurface: 'execution-shell',
+                reason: 'idle-release',
+            }))
+            .catch(() => { /* tearDown never throws */ });
+    }
+}
+
 /** للاختبارات فقط */
 export function __resetExecutionWarmCoordinatorForTests(): void {
     workspaceWarmGeneration = 0;

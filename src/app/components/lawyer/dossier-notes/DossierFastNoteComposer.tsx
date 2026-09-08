@@ -13,6 +13,7 @@ import { voiceNoteTitleFromMeta } from '@/app/services/voice/voiceNoteCodec';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { createQuickNoteId, quickNoteTitle } from '@/app/components/lawyer/dashboard/quickNoteUtils';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 import {
     DossierLawArticleRichEditor,
     type DossierLawArticleRichEditorHandle,
@@ -165,7 +166,9 @@ export function DossierFastNoteComposer({
     const handleSave = useCallback(() => {
         const latest = prependStamp(editorRef.current?.getHtml() ?? bodyHtml);
         if (latest !== bodyHtml) onBodyChange(latest);
-        onSave({ title: title.trim() || 'ملاحظة', bodyHtml: latest });
+        const safeTitle = sanitizeProfilePlainText(title, 120);
+        const safeBody = sanitizeProfilePlainText(latest, 20000);
+        onSave({ title: safeTitle.trim() || 'ملاحظة', bodyHtml: safeBody });
     }, [bodyHtml, onBodyChange, onSave, prependStamp, title]);
 
     const handleVoiceSave = useCallback(

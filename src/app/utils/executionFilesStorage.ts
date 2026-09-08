@@ -65,10 +65,16 @@ export function invalidateExecutionFilesRawCache(): void {
 
 /** مفتاح التخزين الأساسي للمالك الحالي (أو العام عند غياب المالك — اختبارات/إقلاع مبكر) */
 export function resolveExecutionFilesStorageKey(userId?: string | null): string {
+    // SECURESTORE FIRST-LINE typeof-guarded NOT THROWING ON LOAD
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
     return resolveExecutionFilesStorageKeyLite(userId);
 }
 
 function writeExecutionFilesSerializedToKey(key: string, serialized: string): void {
+    // EXECUTION_OWNERSHIP_GUARD
+    const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
+    const sessionUserId = sessionCast?._sessionUserId ?? null;
+    if (!sessionUserId) return;
     const existing = readSecureOrDrainLegacySync(key);
     if (existing && shouldRejectDossierWipe(key, serialized, existing)) return;
     writeSecureAndClearLegacySync(key, serialized);

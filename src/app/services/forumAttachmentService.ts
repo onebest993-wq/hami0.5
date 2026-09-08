@@ -123,7 +123,7 @@ export async function persistForumAttachmentFile(file: File): Promise<string> {
         ]);
         return buildForumIdbPath(cacheKey);
     } catch {
-        throw new Error('forum-attachment-idb-failed');
+        throw new Error('[services_forumattachment:forumattachmentidb] forum-attachment-idb-failed');
     }
 }
 
@@ -208,7 +208,7 @@ async function finalizeForumAttachmentForPersist(
 
     const file = await readCommunityAttachmentFile(attachment);
     if (!file) {
-        throw new Error('forum-attachment-missing-bytes');
+        throw new Error('[services_forumattachment:forumattachmentmis] forum-attachment-missing-bytes');
     }
 
     const category =

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pencil } from '@/app/components/ui/icons/Pencil';
 import { Pin } from '@/app/components/ui/icons/Pin';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
@@ -13,6 +13,9 @@ import {
     REPO_CARD_TIMESTAMP,
     REPO_NOTE_ROW,
 } from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
+
+let dossierVaultOpenSessionCounter = 0;
+let lastActiveDossierVaultId = 0;
 
 export type DossierVaultNote = {
     id: string;
@@ -63,6 +66,24 @@ export function DossierNotesVault({
     testId = 'dossier-notes-vault',
     lawContext,
 }: DossierNotesVaultProps) {
+    const dossierVaultSessionIdRef = useRef(0);
+    const dossierVaultActiveSessionIdRef = useRef(0);
+    useEffect(() => {
+        dossierVaultOpenSessionCounter += 1;
+        lastActiveDossierVaultId = dossierVaultOpenSessionCounter;
+        dossierVaultSessionIdRef.current = dossierVaultOpenSessionCounter;
+        dossierVaultActiveSessionIdRef.current = dossierVaultOpenSessionCounter;
+        return () => {
+            dossierVaultActiveSessionIdRef.current = 0;
+            try {
+                void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
+                    tearDownRepoFloatingState({ targetSurface: 'dossier-notes-vault', reason: 'unmount' });
+                });
+            } catch {
+                /* never throw on component unmount */
+            }
+        };
+    }, []);
     return (
         <div className="space-y-2" data-testid={testId} dir="rtl">
             <p className={REPO_CARD_HEADING}>
@@ -94,6 +115,7 @@ export function DossierNotesVault({
                                     <button
                                         type="button"
                                         onClick={(e) => {
+                                            if (dossierVaultSessionIdRef.current !== dossierVaultActiveSessionIdRef.current) return;
                                             e.stopPropagation();
                                             onTogglePin(note.id);
                                         }}
@@ -110,6 +132,7 @@ export function DossierNotesVault({
                                     <button
                                         type="button"
                                         onClick={(e) => {
+                                            if (dossierVaultSessionIdRef.current !== dossierVaultActiveSessionIdRef.current) return;
                                             e.stopPropagation();
                                             onEdit(note);
                                         }}
@@ -125,6 +148,7 @@ export function DossierNotesVault({
                                     <button
                                         type="button"
                                         onClick={(e) => {
+                                            if (dossierVaultSessionIdRef.current !== dossierVaultActiveSessionIdRef.current) return;
                                             e.stopPropagation();
                                             onDelete(note.id);
                                         }}

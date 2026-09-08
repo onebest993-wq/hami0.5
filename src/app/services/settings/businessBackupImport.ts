@@ -14,7 +14,7 @@ export async function importBusinessBackupEntries(
 ) {
     const validation = validateBusinessBackupImport(entries);
     if (validation.ok === false) {
-        throw new Error(validation.reason);
+        throw new Error(`[settings:backup-import-preflight-validation] ${validation.reason}`);
     }
     const vaultBlobs = validateVaultBlobRecords(vaultBlobInput);
     const vaultStore =
@@ -41,11 +41,11 @@ export async function importBusinessBackupEntries(
         for (const record of vaultBlobs) {
             const expectedPath = vaultStore.buildVaultIdbPath(record.authorId, record.docId);
             if (!expectedVaultBlobPaths.has(expectedPath)) {
-                throw new Error('vault blob is not referenced by the imported vault index');
+                throw new Error('[settings:backup-import-vault-orphan] vault blob is not referenced by the imported vault index');
             }
             const buffer = fromBase64(record.data, 'vault blob');
             if ((await sha256Hex(buffer)) !== record.sha256) {
-                throw new Error('vault blob checksum mismatch');
+                throw new Error('[settings:backup-import-vault-checksum] vault blob checksum mismatch');
             }
             preparedVaultBlobs.push({
                 record,
@@ -68,7 +68,7 @@ export async function importBusinessBackupEntries(
         for (const [k, v] of entries) {
             await SecureStoreService.setItem(k, v, { allowVerifiedEmptyOverwrite: true });
             if ((await SecureStoreService.getItem(k)) !== v) {
-                throw new Error(`backup restore verification failed:${k}`);
+                throw new Error(`[settings:backup-import-restore-verification] backup restore verification failed:${k}`);
             }
             written.push(k);
             persistenceRepository.synchronizeExternalWrite(k, v);
@@ -130,7 +130,7 @@ export async function importBusinessBackupEntries(
                 if (prior == null) {
                     await SecureStoreService.deleteItem(k);
                     if ((await SecureStoreService.getItem(k)) != null) {
-                        throw new Error(`backup rollback delete verification failed:${k}`);
+                        throw new Error(`[settings:backup-import-rollback-delete-verification] backup rollback delete verification failed:${k}`);
                     }
                     persistenceRepository.synchronizeExternalWrite(k, null);
                 } else {
@@ -138,7 +138,7 @@ export async function importBusinessBackupEntries(
                         allowVerifiedEmptyOverwrite: true,
                     });
                     if ((await SecureStoreService.getItem(k)) !== prior) {
-                        throw new Error(`backup rollback restore verification failed:${k}`);
+                        throw new Error(`[settings:backup-import-rollback-restore-verification] backup rollback restore verification failed:${k}`);
                     }
                     persistenceRepository.synchronizeExternalWrite(k, prior);
                 }
@@ -147,7 +147,7 @@ export async function importBusinessBackupEntries(
             }
         }
         if (rollbackIncomplete) {
-            throw new Error('backup restore failed and rollback was incomplete', { cause: err });
+            throw new Error('[settings:backup-import-rollback-incomplete] backup restore failed and rollback was incomplete', { cause: err });
         }
         throw err;
     }
@@ -164,7 +164,7 @@ export function parseBusinessBackupFile(text: string): {
     vaultBlobs: BusinessBackupVaultBlob[];
 } {
     if (new TextEncoder().encode(text).byteLength > MAX_BACKUP_PLAINTEXT_BYTES) {
-        throw new Error('backup exceeds the mobile-safe import limit');
+        throw new Error('[settings:backup-import-file-oversized] backup exceeds the mobile-safe import limit');
     }
     const parsed = JSON.parse(text) as unknown;
     const obj = parsed as {
@@ -183,17 +183,17 @@ export function parseBusinessBackupFile(text: string): {
         !obj.items ||
         typeof obj.items !== 'object'
     ) {
-        throw new Error('invalid backup');
+        throw new Error('[settings:backup-import-envelope-invalid] invalid backup');
     }
     const entriesAll = Object.entries(obj.items as Record<string, unknown>);
     const entries = entriesAll.filter(
         (e): e is [string, string] => typeof e[0] === 'string' && typeof e[1] === 'string',
     );
     if (entries.length !== entriesAll.length) {
-        throw new Error('backup contains invalid records');
+        throw new Error('[settings:backup-import-records-invalid] backup contains invalid records');
     }
     const validation = validateBusinessBackupImport(entries);
-    if (!validation.ok) throw new Error(validation.reason);
+    if (!validation.ok) throw new Error(`[settings:backup-import-validation] ${validation.reason}`);
     const vaultBlobs = validateVaultBlobRecords(obj.vaultBlobs);
     return {
         version: obj.version as 1 | 2,

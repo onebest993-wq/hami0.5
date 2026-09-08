@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useLawyerDashboardHomeTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardHomeTab';
+import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 vi.mock('@/app/runtime/homeHubCardLoader', () => ({
     prefetchLawyerHomeHubCardModule: vi.fn(() => Promise.resolve()),
@@ -25,10 +26,10 @@ describe('useLawyerDashboardHomeTab', () => {
         vi.clearAllMocks();
     });
 
-    it('يسجّل open-request عند العودة للرئيسية', () => {
+    it('يصفّر جلسة القياس ثم يسجّل open-request عند العودة للرئيسية', () => {
         const { rerender } = renderHook(
             ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab }),
-            { initialProps: { activeTab: 'schedule' as const } },
+            { initialProps: { activeTab: 'schedule' as LawyerDashboardTab } },
         );
 
         vi.mocked(clearHomeHubPerfMarks).mockClear();
@@ -36,14 +37,14 @@ describe('useLawyerDashboardHomeTab', () => {
 
         rerender({ activeTab: 'home' });
 
-        expect(clearHomeHubPerfMarks).not.toHaveBeenCalled();
+        expect(clearHomeHubPerfMarks).toHaveBeenCalledTimes(1);
         expect(markHomeHubPerfPhase).toHaveBeenCalledWith('open-request');
     });
 
     it('لا يمسح علامات الأداء عند مغادرة الرئيسية — ثبات الكارت', () => {
         const { rerender } = renderHook(
             ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab }),
-            { initialProps: { activeTab: 'home' as const } },
+            { initialProps: { activeTab: 'home' as LawyerDashboardTab } },
         );
 
         vi.mocked(clearHomeHubPerfMarks).mockClear();
@@ -51,5 +52,22 @@ describe('useLawyerDashboardHomeTab', () => {
         rerender({ activeTab: 'schedule' });
 
         expect(clearHomeHubPerfMarks).not.toHaveBeenCalled();
+    });
+
+    it('يعيد تصفير القياس عند كل دخول جديد إلى الرئيسية', () => {
+        const { rerender } = renderHook(
+            ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab }),
+            { initialProps: { activeTab: 'home' as LawyerDashboardTab } },
+        );
+
+        vi.mocked(clearHomeHubPerfMarks).mockClear();
+        vi.mocked(markHomeHubPerfPhase).mockClear();
+
+        rerender({ activeTab: 'schedule' });
+        rerender({ activeTab: 'home' });
+
+        expect(clearHomeHubPerfMarks).toHaveBeenCalledTimes(1);
+        expect(markHomeHubPerfPhase).toHaveBeenCalledTimes(1);
+        expect(markHomeHubPerfPhase).toHaveBeenCalledWith('open-request');
     });
 });

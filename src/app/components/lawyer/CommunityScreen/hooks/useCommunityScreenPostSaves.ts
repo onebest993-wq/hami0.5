@@ -65,7 +65,7 @@ export function useCommunityScreenPostSaves({
             if (!post) return;
             try {
                 const copied = await copyTextWithFallback(post.content);
-                if (!copied) throw new Error('copy-failed');
+                if (!copied) throw new Error('[community:saves:opcode] copy-failed');
                 SmartToast.success('تم نسخ نص المنشور');
             } catch {
                 SmartToast.error('تعذّر نسخ النص');

@@ -57,6 +57,11 @@ export type CommitRepositoryCloseParams = {
 const REPOSITORY_MODAL_SELECTOR = '[data-testid="smart-repository-modal"]';
 const REPOSITORY_OVERLAY_ENTRY_FAILSAFE_MS = 3_000;
 
+let repoShellOpenSessionCounter = 0;
+let lastActiveRepoShellId = 0;
+const repoShellSessionIdRef: { current: number } = { current: 0 };
+const repoShellActiveSessionIdRef: { current: number } = { current: 0 };
+
 let repositoryOpenLoadSeq = 0;
 let repositoryOpenInFlight = false;
 let repositoryInstantDismissBound = false;
@@ -166,7 +171,15 @@ export function commitRepositoryOpen({
     isRepositoryOpen = false,
     onChunkFailed,
 }: CommitRepositoryOpenParams): void {
+    /** REPOSITORY_OWNERSHIP_GUARD — L2 Session !userId early return before any work */
+    if (!userId) {
+        return;
+    }
     if (repositoryOpenInFlight) return;
+    repoShellOpenSessionCounter += 1;
+    lastActiveRepoShellId = repoShellOpenSessionCounter;
+    repoShellSessionIdRef.current = repoShellOpenSessionCounter;
+    repoShellActiveSessionIdRef.current = repoShellOpenSessionCounter;
     bindRepositoryInstantDismissCancel();
     const wasClosing =
         typeof document !== 'undefined' &&
@@ -191,9 +204,11 @@ export function commitRepositoryOpen({
     applyRepositoryOpenTheme();
 
     const reveal = () => {
+        if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
         repositoryOpenInFlight = false;
 
         flushSync(() => {
+            if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
             applyRepositoryOpenState(opts, {
                 armRepositoryHost,
                 setRepositoryTab,
@@ -205,20 +220,31 @@ export function commitRepositoryOpen({
             });
             persistRepositorySessionOpen(true, opts?.tab ?? 'notepad');
         });
+        if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
         paintRepositoryInstantChrome();
         markRepositoryPerfPhase('interactive');
 
         void loadRepositoryHubModule()
             .then(() => {
+                if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
                 void loadRepositoryIntentWarm()
                     .then((m) => {
+                        if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
                         void m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad');
                         void m.warmRepositoryDataCache(userId);
                     })
                     .catch(() => undefined);
             })
             .catch(() => {
+                if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
                 onChunkFailed?.();
+                try {
+                    void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
+                        tearDownRepoFloatingState({ targetSurface: 'repository-hub', reason: 'tearDown' });
+                    });
+                } catch {
+                    /* never throw on chunk fail cleanup */
+                }
             });
     };
 
@@ -241,6 +267,7 @@ export function commitRepositoryOpen({
     let failSafeId = 0;
     let settled = false;
     const finishPending = (next: () => void) => {
+        if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
         if (failSafeId) {
             window.clearTimeout(failSafeId);
             failSafeId = 0;
@@ -249,21 +276,25 @@ export function commitRepositoryOpen({
         next();
     };
     const revealOnce = () => {
+        if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
         if (settled || cancelled.current || seq !== repositoryOpenLoadSeq) return;
         settled = true;
         reveal();
     };
 
     failSafeId = window.setTimeout(() => {
+        if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
         failSafeId = 0;
         finishPending(revealOnce);
     }, REPOSITORY_OVERLAY_ENTRY_FAILSAFE_MS);
 
     void loadRepositoryHubModule()
         .then(() => {
+            if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
             finishPending(revealOnce);
         })
         .catch(() => {
+            if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
             finishPending(revealOnce);
         });
 }
@@ -280,6 +311,7 @@ export function commitRepositoryClose({
     beginHubLayerExit(REPOSITORY_HUB_LAYER, () => {
         executeRepositoryOverlayClose({
             conceal: () => {
+                if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
                 if (typeof document !== 'undefined') {
                     const modal = document.querySelector(REPOSITORY_MODAL_SELECTOR);
                     blurFocusWithin(modal instanceof HTMLElement ? modal : null);
@@ -287,6 +319,7 @@ export function commitRepositoryClose({
                 concealRepositoryWarmShell();
             },
             commit: () => {
+                if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
                 flushSync(() => {
                     setIsRepositoryOpen(false);
                     setFocusNoteId(undefined);
@@ -297,4 +330,12 @@ export function commitRepositoryClose({
             },
         });
     });
+    repoShellActiveSessionIdRef.current = 0;
+    try {
+        void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
+            tearDownRepoFloatingState({ targetSurface: 'repository-shell', reason: 'unmount' });
+        });
+    } catch {
+        /* never throw on tail teardown */
+    }
 }

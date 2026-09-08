@@ -32,7 +32,7 @@ export function clampProfileContactLabel(raw: string): string {
 }
 
 export function clampProfileContactValue(raw: string): string {
-    return clampProfileContactValueLive(raw).trim();
+    return sanitizeProfilePlainText(clampProfileContactValueLive(raw), MAX_PROFILE_CONTACT_VALUE_LENGTH).trim();
 }
 
 export function clampProfileDisplayName(raw: string): string {
@@ -80,7 +80,7 @@ function assertProfileContactsValid(actions: ProfileAction[]): void {
         if (!action.value.trim()) continue;
         if (buildProfileContactTarget(action) == null) {
             const label = action.label || action.type;
-            throw new ProfileContactValidationError(`قيمة «${label}» غير صالحة — صحّحها قبل الحفظ`);
+            throw new ProfileContactValidationError(`[profile:contact:invalid] قيمة «${label}» غير صالحة — صحّحها قبل الحفظ`);
         }
     }
 }

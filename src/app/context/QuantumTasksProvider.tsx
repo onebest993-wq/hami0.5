@@ -29,9 +29,13 @@ import { publishQuantumTasksMetrics } from '@/app/utils/quantumTasksMetrics';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { useQuantumTasksBackgroundFlush } from '@/app/hooks/useQuantumTasksBackgroundFlush';
+import { tearDownTasksFloatingState } from '@/app/components/lawyer/dashboard/tasksManager/tearDownTasksFloatingState';
 
 const AGENDA_ROLLOVER_CHECK_MS = 60_000;
 const ASYNC_PERSIST_DEBOUNCE_MS = 500;
+
+let quantumTasksProviderSessionCounter = 0;
+let lastActiveQuantumTasksProviderFlowId: number | null = null;
 
 function loadPrepareAgendaTasks() {
     return import('@/app/components/lawyer/dashboard/tasksManager/utils').then(
@@ -49,6 +53,12 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
     const tasksRef = useRef<LegalTask[]>([]);
     const asyncPersistTimerRef = useRef<number | null>(null);
     const pendingAsyncPersistRef = useRef<LegalTask[] | null>(null);
+    const sessionIdRef = useRef<number>(++quantumTasksProviderSessionCounter);
+    const activeSessionIdRef = useRef<number>(sessionIdRef.current);
+    lastActiveQuantumTasksProviderFlowId = sessionIdRef.current;
+    const isActiveFlow = () =>
+        sessionIdRef.current === activeSessionIdRef.current &&
+        lastActiveQuantumTasksProviderFlowId === sessionIdRef.current;
 
     const notifyTasksChanged = useCallback(() => {
         try {
@@ -180,11 +190,18 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         let cancelled = false;
+        /** AbortController #3: cancel SecureStore hydration + async awaits when provider unmounts early */
+        const hydrationAbort = new AbortController();
         const startHydrate = () => {
+            if (!isActiveFlow() || hydrationAbort.signal.aborted) return;
             void (async () => {
+                if (hydrationAbort.signal.aborted) return;
                 const { default: SecureStoreService } = await import('@/app/services/SecureStoreService');
+                if (!isActiveFlow() || hydrationAbort.signal.aborted) return;
                 await SecureStoreService.ensurePersistedReady();
+                if (!isActiveFlow() || hydrationAbort.signal.aborted) return;
                 let blob = await persistenceRepository.loadAsync<unknown>(QUANTUM_TASKS_STORAGE_KEY);
+                if (hydrationAbort.signal.aborted) return;
                 if (!blob) {
                     const { readLatestDossierBackup } = await import(
                         '@/app/services/dossierPersistence/dossierBackupStore'
@@ -194,7 +211,8 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
                         blob = { tasks: backup.payload };
                     }
                 }
-                if (cancelled) return;
+                if (cancelled || hydrationAbort.signal.aborted) return;
+                if (!isActiveFlow()) return;
 
                 const loaded = deserializeQuantumTasks(blob);
 
@@ -226,7 +244,9 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
                     }
                 }
 
+                if (!isActiveFlow() || hydrationAbort.signal.aborted) return;
                 value.setTasks((prev) => {
+                    if (!isActiveFlow() || hydrationAbort.signal.aborted) return prev;
                     const base =
                         prev.length > 0 ? prev : leftoverSeed.length > 0 ? leftoverSeed : prev;
                     const merged = mergeHydratedQuantumTasks(base, loaded);
@@ -235,11 +255,18 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
                 });
                 setStorageHydrated(true);
 
-                void loadPrepareAgendaTasks()
+                void Promise.race([
+                    loadPrepareAgendaTasks(),
+                    new Promise<never>((_, reject) => {
+                        hydrationAbort.signal.addEventListener('abort', () => reject(new Error('ABORTED')), { once: true });
+                    }),
+                ])
                     .then((prepareAgendaTasks) => {
-                        if (cancelled) return;
+                        if (cancelled || hydrationAbort.signal.aborted) return;
+                        if (!isActiveFlow()) return;
                         const now = new Date();
                         value.setTasks((prev) => {
+                            if (!isActiveFlow()) return prev;
                             const next = prepareAgendaTasks(prev, now, { skipRetentionPurge: true });
                             return agendaTasksLifecycleRevision(prev) ===
                                 agendaTasksLifecycleRevision(next)
@@ -247,7 +274,10 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
                                 : next;
                         });
                     })
-                    .catch(() => undefined);
+                    .catch((err) => {
+                        if (err?.message === 'ABORTED') return;
+                        /* ignore prepare agenda errors */
+                    });
 
                 try {
                     if (!leftoverRaw?.trim()) return;
@@ -266,16 +296,23 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
         /** بعد content-ready — لا تنافس I/O القرص مع HomeTab قبل كشف الشعار */
         const unbind = onBootContentReady(startHydrate);
         return () => {
+            hydrationAbort.abort();
             cancelled = true;
             unbind();
+            tearDownTasksFloatingState();
+            if (activeSessionIdRef.current === sessionIdRef.current) {
+                activeSessionIdRef.current = 0;
+            }
         };
     }, [value.setTasks]);
 
     useEffect(() => {
         const onUpsert = (event: Event) => {
+            if (!isActiveFlow()) return;
             const task = (event as CustomEvent<{ task?: LegalTask }>).detail?.task;
             if (!task?.id) return;
             value.setTasks((prev) => {
+                if (!isActiveFlow()) return prev;
                 if (prev.some((t) => t.id === task.id)) return prev;
                 const next = [...prev, task];
                 tasksRef.current = next;
@@ -287,13 +324,16 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
     }, [value.setTasks]);
 
     const applyAgendaRollover = useCallback(() => {
+        if (!isActiveFlow()) return;
         const now = new Date();
         const dayKey = now.toDateString();
         if (dayKey === agendaDayRef.current) return;
         agendaDayRef.current = dayKey;
         void loadPrepareAgendaTasks()
             .then((prepareAgendaTasks) => {
+                if (!isActiveFlow()) return;
                 value.setTasks((prev) => {
+                    if (!isActiveFlow()) return prev;
                     const next = prepareAgendaTasks(prev, now);
                     return agendaTasksLifecycleRevision(prev) === agendaTasksLifecycleRevision(next)
                         ? prev

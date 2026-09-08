@@ -13,7 +13,10 @@ import { executeProfileOverlayClose } from '@/app/runtime/overlaySnapClose';
 import { clearProfileShellClosing } from '@/app/services/profile/profileShellSnap';
 import { blurFocusWithin } from '@/app/utils/inertProps';
 import { clearProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
-import { beginProfileShellExit } from '@/app/hooks/lawyerDashboard/profile/profileShellExit';
+import {
+    beginProfileShellExit,
+    tearDownProfileFloatingState,
+} from '@/app/hooks/lawyerDashboard/profile/profileShellExit';
 
 const PROFILE_SURFACE_SELECTOR = '[data-testid="lawyer-dashboard-profile-surface"]';
 
@@ -31,6 +34,7 @@ export type CommitProfileCloseParams = {
 };
 
 function runProfileClosePaint(openInFlightRef?: MutableRefObject<boolean>): void {
+    tearDownProfileFloatingState();
     if (openInFlightRef) openInFlightRef.current = false;
     clearProfileOpenedThisPage();
     blurProfileSurfaceFocus();

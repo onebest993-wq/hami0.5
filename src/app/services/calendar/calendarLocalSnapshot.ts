@@ -9,6 +9,7 @@ import {
     peekSecureOrLegacySync,
     readSecureOrDrainLegacySync,
 } from '@/app/services/storage/readSecureOrDrainLegacySync';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 export const CALENDAR_LOCAL_STORAGE_KEY = CALENDAR_EVENTS_STORAGE_KEY;
 
@@ -48,6 +49,8 @@ function collectEventsForUser(userId: string, eventsRaw: unknown, tombsRaw: unkn
 /** أول طلاء — بلا ترحيل ولا setItemSync */
 export function peekLocalCalendarSnapshotSync(userId: string): CalendarEvent[] {
     if (!userId) return [];
+    // L4 SecureStore At-Rest: التأكد من جاهزية المخزن المؤمن قبل أول قراءة لقطة لسلسلة الأحداث (anti-partial-unlock)
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch { /* ignore */ }
     return collectEventsForUser(
         userId,
         parseJsonUnknown(peekSecureOrLegacySync(CALENDAR_LOCAL_STORAGE_KEY)),

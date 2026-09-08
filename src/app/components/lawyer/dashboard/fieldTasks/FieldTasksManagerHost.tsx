@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { TasksManagerOverlay } from '@/app/components/lawyer/dashboard/TasksManagerOverlay';
 import {
     getCachedTasksManagerOverlay,
@@ -6,6 +6,10 @@ import {
 } from '@/app/runtime/fieldTasksHubLoader';
 import { TasksManagerOpenInstantChrome } from '@/app/components/lawyer/dashboard/tasksManager/TasksManagerOpenInstantChrome';
 import { removeTasksManagerInstantChrome } from '@/app/runtime/tasksManagerInstantPaint';
+import { tearDownTasksFloatingState } from '@/app/components/lawyer/dashboard/tasksManager/tearDownTasksFloatingState';
+
+let fieldTasksManagerHostSessionCounter = 0;
+let lastActiveFieldTasksManagerHostFlowId: number | null = null;
 
 type TasksManagerOverlayProps = React.ComponentProps<typeof TasksManagerOverlay>;
 type OverlayComponent = React.ComponentType<TasksManagerOverlayProps>;
@@ -35,18 +39,30 @@ function TasksManagerLoadError({ onRetry }: { onRetry: () => void }) {
 
 /** يحمّل أجندة المهام — chunk دافئ مخفياً؛ الفتح = إظهار فوري من الكاش أو قشرة فورية */
 export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.ReactElement | null {
+    const sessionIdRef = useRef<number>(++fieldTasksManagerHostSessionCounter);
+    const activeSessionIdRef = useRef<number>(sessionIdRef.current);
+    lastActiveFieldTasksManagerHostFlowId = sessionIdRef.current;
+    const isActiveFlow = () =>
+        sessionIdRef.current === activeSessionIdRef.current &&
+        lastActiveFieldTasksManagerHostFlowId === sessionIdRef.current;
+
     const { open, onClose, keepAlive = false } = props;
     const [Component, setComponent] = useState<OverlayComponent | null>(() => getCachedTasksManagerOverlay());
     const [loadFailed, setLoadFailed] = useState(false);
     const [loadGeneration, setLoadGeneration] = useState(0);
 
     const retryLoad = useCallback(() => {
+        if (!isActiveFlow()) return;
         setLoadFailed(false);
         setLoadGeneration((g) => g + 1);
     }, []);
 
     useLayoutEffect(() => {
+        if (!isActiveFlow()) return;
         let cancelled = false;
+        let retryTimer: number | null = null;
+        /** AbortController #1: cancel module retry loads + warm-create when host unmounts early */
+        const loaderAbort = new AbortController();
         const cached = getCachedTasksManagerOverlay();
         if (cached) {
             setComponent(() => cached);
@@ -54,6 +70,7 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         } else {
             let attempts = 0;
             const tryLoad = () => {
+                if (!isActiveFlow() || loaderAbort.signal.aborted) return;
                 const hit = getCachedTasksManagerOverlay();
                 if (hit) {
                     setComponent(() => hit);
@@ -61,21 +78,29 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
                     return;
                 }
 
-                void loadTasksManagerModule()
+                void Promise.race([
+                    loadTasksManagerModule(),
+                    new Promise<never>((_, reject) => {
+                        loaderAbort.signal.addEventListener('abort', () => reject(new Error('ABORTED')), { once: true });
+                    }),
+                ])
                     .then((mod) => {
-                        if (cancelled) return;
+                        if (!isActiveFlow()) return;
+                        if (cancelled || loaderAbort.signal.aborted) return;
                         if (mod?.TasksManagerOverlay) {
                             setComponent(() => mod.TasksManagerOverlay);
                             setLoadFailed(false);
                             return;
                         }
-                        throw new Error('TasksManagerOverlay missing');
+                        throw new Error('[fieldTasks:host] TasksManagerOverlay missing');
                     })
-                    .catch(() => {
+                    .catch((err) => {
+                        if (err?.message === 'ABORTED') return;
+                        if (!isActiveFlow()) return;
                         if (cancelled) return;
                         attempts += 1;
                         if (attempts < MAX_LOAD_ATTEMPTS) {
-                            window.setTimeout(tryLoad, LOAD_RETRY_MS);
+                            retryTimer = window.setTimeout(tryLoad, LOAD_RETRY_MS);
                             return;
                         }
                         setLoadFailed(true);
@@ -85,9 +110,21 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         }
 
         const warmCreate = () => {
-            void import('@/app/services/tasks/quantumTaskCreateLoad')
-                .then((m) => m.loadQuantumTaskCreateBundle())
-                .catch(() => undefined);
+            if (!isActiveFlow() || loaderAbort.signal.aborted) return;
+            void Promise.race([
+                import('@/app/services/tasks/quantumTaskCreateLoad'),
+                new Promise<never>((_, reject) => {
+                    loaderAbort.signal.addEventListener('abort', () => reject(new Error('ABORTED')), { once: true });
+                }),
+            ])
+                .then((m) => {
+                    if (!isActiveFlow() || loaderAbort.signal.aborted) return;
+                    m.loadQuantumTaskCreateBundle();
+                })
+                .catch((err) => {
+                    if (err?.message === 'ABORTED') return;
+                    /* ignore other import errors */
+                });
         };
         let idleId: number | null = null;
         let timeoutId: number | null = null;
@@ -97,15 +134,22 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
             timeoutId = window.setTimeout(warmCreate, 800);
         }
         return () => {
+            loaderAbort.abort();
             cancelled = true;
+            if (retryTimer != null) window.clearTimeout(retryTimer);
             if (idleId != null && typeof cancelIdleCallback === 'function') {
                 cancelIdleCallback(idleId);
             }
             if (timeoutId != null) window.clearTimeout(timeoutId);
+            tearDownTasksFloatingState();
+            if (activeSessionIdRef.current === sessionIdRef.current) {
+                activeSessionIdRef.current = 0;
+            }
         };
     }, [loadGeneration]);
 
     useLayoutEffect(() => {
+        if (!isActiveFlow()) return;
         if (!loadFailed) return;
         removeTasksManagerInstantChrome();
     }, [loadFailed]);

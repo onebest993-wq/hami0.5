@@ -28,6 +28,20 @@ describe('settingsPerfMetrics', () => {
         expect(getSettingsOpenToInteractiveMs()).toBeNull();
     });
 
+    it('يستخدم آخر marks عند تعدد الفتحات داخل الجلسة نفسها', () => {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:settings:open-request') {
+                return [{ startTime: 1000 }, { startTime: 2500 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:settings:interactive') {
+                return [{ startTime: 1400 }, { startTime: 2915 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+
+        expect(getSettingsOpenToInteractiveMs()).toBe(415);
+    });
+
     it('reportSettingsPerf يستدعي Sentry reporter', () => {
         vi.mocked(reportSettingsOpenToSentry).mockClear();
         vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {

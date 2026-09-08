@@ -120,6 +120,13 @@ export function executeTasksManagerOverlayClose(steps: OverlaySnapCloseSteps): v
 /** إغلاق المستودع — طبقة معتمة؛ على الأصلي بلا unfreeze للوحة */
 export function executeRepositoryOverlayClose(steps: OverlaySnapCloseSteps): void {
     executeOpaqueOverlayClose(steps);
+    try {
+        void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
+            tearDownRepoFloatingState({ targetSurface: 'repository-shell', reason: 'navigate-away' });
+        });
+    } catch {
+        /* never throw during close */
+    }
 }
 
 /** إغلاق المنتدى — طبقة معتمة؛ على الأصلي بلا unfreeze للوحة */

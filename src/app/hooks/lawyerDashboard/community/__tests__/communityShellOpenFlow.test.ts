@@ -66,6 +66,9 @@ vi.mock('@/app/hooks/lawyerDashboard/community/communityLazyImports', async (imp
 
 describe('communityShellOpenFlow', () => {
     beforeEach(async () => {
+        if (typeof performance !== 'undefined' && typeof performance.clearMarks === 'function') {
+            performance.clearMarks();
+        }
         vi.clearAllMocks();
         mocks.loadOverlayEntryMock.mockImplementation(() => Promise.resolve({}));
         mocks.isOverlayResolvedMock.mockReturnValue(false);
@@ -156,7 +159,7 @@ describe('communityShellOpenFlow', () => {
         mocks.loadOverlayEntryMock.mockImplementation(
             () =>
                 new Promise((resolve) => {
-                    resolveLoad = resolve;
+                    resolveLoad = resolve as unknown as (value: unknown) => void;
                 }),
         );
         const { commitCommunityOpen } = await import(
@@ -241,7 +244,7 @@ describe('communityShellOpenFlow', () => {
         mocks.loadOverlayEntryMock.mockImplementation(
             () =>
                 new Promise((resolve) => {
-                    resolveLoad = resolve;
+                    resolveLoad = resolve as unknown as (value: unknown) => void;
                 }),
         );
         const { commitCommunityOpen } = await import(

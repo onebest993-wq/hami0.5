@@ -53,6 +53,20 @@ describe('homeHubPerfMetrics', () => {
         expect(getHomeHubOpenToInteractiveMs()).toBeNull();
     });
 
+    it('يستخدم آخر marks عند تعدد الفتحات داخل الجلسة نفسها', () => {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:home-hub:open-request') {
+                return [{ startTime: 1000 }, { startTime: 1800 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:home-hub:interactive') {
+                return [{ startTime: 1400 }, { startTime: 2315 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+
+        expect(getHomeHubOpenToInteractiveMs()).toBe(515);
+    });
+
     it('reportHomeHubPerf لا يرمي بدون marks', () => {
         expect(() => reportHomeHubPerf({ alertsTabCount: 1 })).not.toThrow();
     });

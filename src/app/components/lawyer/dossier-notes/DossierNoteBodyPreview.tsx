@@ -7,6 +7,8 @@ import { isSmartLawLinksEnabled } from '@/app/services/dossier-notes/smartLawLin
 import { SmartLawLinkPopover } from './SmartLawLinkPopover';
 import { SmartLawPickerMenu } from './SmartLawPickerMenu';
 import { useSmartLawLinkInteractions } from './useSmartLawLinkInteractions';
+import { stripRepositoryHtml } from '@/app/services/repository/stripRepositoryHtml';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 type DossierNoteBodyPreviewProps = {
     body: string;
@@ -20,7 +22,9 @@ export function DossierNoteBodyPreview({
     className = '',
     lawContext = { kind: 'repository' },
 }: DossierNoteBodyPreviewProps) {
-    const safeHtml = useMemo(() => sanitizeRichNoteHtml(body), [body]);
+    // XSS L5 Safe: stripRepositoryHtml(phase0+phase1) + sanitizeProfilePlainText before render
+    const phaseCleanedBody = sanitizeProfilePlainText(stripRepositoryHtml(body ?? ''), 20000);
+    const safeHtml = useMemo(() => sanitizeRichNoteHtml(phaseCleanedBody), [phaseCleanedBody]);
     const isRich = /<[a-z][\s\S]*>/i.test(body);
 
     const lawLinksEnabled = isSmartLawLinksEnabled(lawContext);

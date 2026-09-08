@@ -223,7 +223,7 @@ export async function buildBusinessBackupPayload(
             (doc) => typeof doc.storagePath === 'string' && doc.storagePath.startsWith('idb:vault:'),
         );
         if (localDocs.length > MAX_BACKUP_VAULT_BLOB_COUNT) {
-            throw new Error('عدد ملفات المخزن المحلي يتجاوز حد النسخة الآمن');
+            throw new Error('[settings:backup-build-vault-count-exceeded] عدد ملفات المخزن المحلي يتجاوز حد النسخة الآمن');
         }
         if (localDocs.length > 0 && !materializeVaultBlobs) {
             for (const doc of localDocs) {
@@ -234,7 +234,7 @@ export async function buildBusinessBackupPayload(
                         ? doc.fileSize
                         : 0;
                 if (counts.vault.localBytes + size > MAX_BACKUP_VAULT_BINARY_BYTES) {
-                    throw new Error('ملفات المخزن المحلي تتجاوز حد النسخة الآمن للهاتف');
+                    throw new Error('[settings:backup-build-vault-bytes-exceeded] ملفات المخزن المحلي تتجاوز حد النسخة الآمن للهاتف');
                 }
                 counts.vault.localFiles += 1;
                 counts.vault.localBytes += size;
@@ -245,13 +245,13 @@ export async function buildBusinessBackupPayload(
             await vaultStore.waitForVaultBlobWrites();
             for (const doc of localDocs) {
                 const parsedPath = vaultStore.parseVaultIdbPath(String(doc.storagePath));
-                if (!parsedPath) throw new Error('مسار ملف محلي غير صالح في المخزن الذكي');
+                if (!parsedPath) throw new Error('[settings:backup-build-vault-path-invalid] مسار ملف محلي غير صالح في المخزن الذكي');
                 const blob = await vaultStore.getVaultBlob(parsedPath.userId, parsedPath.docId);
                 if (!blob) {
-                    throw new Error(`ملف المخزن المحلي غير متاح للنسخ: ${String(doc.fileName ?? doc.id ?? '')}`);
+                    throw new Error(`[settings:backup-build-vault-blob-unavailable] ملف المخزن المحلي غير متاح للنسخ: ${String(doc.fileName ?? doc.id ?? '')}`);
                 }
                 if (counts.vault.localBytes + blob.size > MAX_BACKUP_VAULT_BINARY_BYTES) {
-                    throw new Error('ملفات المخزن المحلي تتجاوز حد النسخة الآمن للهاتف');
+                    throw new Error('[settings:backup-build-vault-blob-bytes-exceeded] ملفات المخزن المحلي تتجاوز حد النسخة الآمن للهاتف');
                 }
                 const buffer = await blob.arrayBuffer();
                 const mimeType =
@@ -297,12 +297,12 @@ export async function buildBusinessBackupPayload(
     const entries = Object.entries(items);
     if (entries.length > 0) {
         const validation = validateBusinessBackupImport(entries);
-        if (!validation.ok) throw new Error(validation.reason);
+        if (!validation.ok) throw new Error(`[settings:backup-build-payload-validation] ${validation.reason}`);
     }
     validateVaultBlobRecords(vaultBlobs);
     const bytes = new TextEncoder().encode(text).byteLength + estimatedVaultManifestBytes;
     if (bytes > MAX_BACKUP_PLAINTEXT_BYTES) {
-        throw new Error('حجم النسخة يتجاوز الحد الآمن للأجهزة المحمولة');
+        throw new Error('[settings:backup-build-payload-size-exceeded] حجم النسخة يتجاوز الحد الآمن للأجهزة المحمولة');
     }
     return {
         payload,

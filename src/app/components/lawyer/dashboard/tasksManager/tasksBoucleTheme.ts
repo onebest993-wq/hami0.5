@@ -21,11 +21,14 @@ export const TASKS_PAGE =
 
 export const TASKS_HEADER =
     'shrink-0 px-3 py-2 flex items-center justify-between gap-2 ' +
-    'border-b border-white/[0.06] bg-[#0A0F1C]';
+    'border-b border-white/[0.06] bg-[#0A0F1C] ' +
+    'pt-[calc(0.5rem+env(safe-area-inset-top,0px))]';
 
 export const TASKS_BODY =
     'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y ' +
     'px-3 py-3 pb-12 max-w-3xl mx-auto w-full space-y-3 ' +
+    'pb-[calc(3rem+env(safe-area-inset-bottom,0px))] ' +
+    'pt-[calc(0.75rem+env(safe-area-inset-top,0px))] ' +
     TASKS_SCROLL_CHROME;
 
 /** حاويات الأيام والأقسام */
@@ -93,11 +96,13 @@ export const CURTAIN_BTN_MANAGE =
 /** عناصر رأس الستارة — مشتركة بين المكوّنات */
 export const CURTAIN_HANDLE = 'w-8 h-0.5 rounded-full bg-white/28';
 export const CURTAIN_HEADER_ROW =
-    'shrink-0 flex items-center justify-between gap-2 px-3 pb-2 border-b border-white/[0.06] relative z-[1]';
+    'shrink-0 flex items-center justify-between gap-2 px-3 pb-2 border-b border-white/[0.06] relative z-[1] ' +
+    'pt-[calc(0.5rem+env(safe-area-inset-top,0px))]';
 export const CURTAIN_CLOSE_BTN =
     'shrink-0 w-11 h-11 rounded-xl border border-white/[0.08] bg-transparent flex items-center justify-center text-[#F4F4F5]/80 hover:bg-white/[0.05] touch-manipulation';
 export const CURTAIN_FOOTER_ROW =
-    'shrink-0 p-3 pt-2 border-t border-white/[0.06] bg-[#0A0F1C] relative z-[1]';
+    'shrink-0 p-3 pt-2 border-t border-white/[0.06] bg-[#0A0F1C] relative z-[1] ' +
+    'pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]';
 
 /** بطاقة المهمة */
 export const TASK_CARD_BASE =

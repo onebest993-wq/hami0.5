@@ -39,7 +39,7 @@ export async function runPublicHelpLifecycleScenario(params: {
     });
 
     const first = await TaskHelpRepository.accept(created.id, params.helperA.id, params.helperA.name);
-    if (first.ok === false) throw new Error(`expected first accept ok, got ${first.code}`);
+    if (first.ok === false) throw new Error(`[taskHelp:scenario] expected first accept ok, got ${first.code}`);
 
     const second = await TaskHelpRepository.accept(created.id, params.helperB.id, params.helperB.name);
     const secondAcceptCode = second.ok === false ? second.code : undefined;
@@ -63,13 +63,13 @@ export async function runPublicHelpLifecycleScenario(params: {
         'حضرت الجلسة',
         params.helperA.name,
     );
-    if (!ownerNote || !helperNote) throw new Error('party notes should succeed');
+    if (!ownerNote || !helperNote) throw new Error('[taskHelp:scenario] party notes should succeed');
 
     const done = await TaskHelpRepository.complete(created.id, params.helperA.id, 'helper_done');
-    if (done.ok === false) throw new Error(`helper_done failed: ${done.code}`);
+    if (done.ok === false) throw new Error(`[taskHelp:scenario] helper_done failed: ${done.code}`);
 
     const confirmed = await TaskHelpRepository.complete(created.id, params.owner.id, 'owner_confirm');
-    if (confirmed.ok === false) throw new Error(`owner_confirm failed: ${confirmed.code}`);
+    if (confirmed.ok === false) throw new Error(`[taskHelp:scenario] owner_confirm failed: ${confirmed.code}`);
 
     return {
         request: confirmed.request,

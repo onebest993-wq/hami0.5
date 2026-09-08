@@ -17,6 +17,33 @@ import {
     markExecutionWorkspaceWarmed,
 } from '@/app/services/executionWarmCoordinator';
 
+let executionWorkspaceWarmOpenCounter = 0;
+let lastActiveWarmWorkspaceExecutionId: string | number = 0;
+let executionWorkspaceWarmSessionId = 0;
+let activeExecutionWorkspaceWarmSessionId = 0;
+const executionWorkspaceWarmSessionIdRef = { current: 0 };
+const activeExecutionWorkspaceWarmSessionIdRef = { current: 0 };
+
+function _warmWorkspaceSessionBump() {
+    executionWorkspaceWarmOpenCounter += 1;
+    executionWorkspaceWarmSessionId = executionWorkspaceWarmOpenCounter;
+    executionWorkspaceWarmSessionIdRef.current = executionWorkspaceWarmSessionId;
+    activeExecutionWorkspaceWarmSessionId = executionWorkspaceWarmSessionId;
+    activeExecutionWorkspaceWarmSessionIdRef.current = activeExecutionWorkspaceWarmSessionId;
+}
+
+export function cleanupExecutionWorkspaceWarm(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/services/execution/tearDownExecutionFloatingState')
+        .then((m) => m.tearDownExecutionFloatingState({
+            targetSurface: 'execution-shell',
+            reason: 'idle-release',
+        }))
+        .catch(() => { /* tearDown never throws */ });
+    activeExecutionWorkspaceWarmSessionId = 0;
+    activeExecutionWorkspaceWarmSessionIdRef.current = 0;
+}
+
 export type ExecutionWorkspaceWarmOptions = {
     includeSecondary?: boolean;
     secondaryDelayMs?: number;
@@ -31,6 +58,8 @@ export type ExecutionWorkspaceWarmOptions = {
  */
 export function warmExecutionWorkspace(options?: ExecutionWorkspaceWarmOptions): void {
     if (typeof window === 'undefined') return;
+    _warmWorkspaceSessionBump();
+    lastActiveWarmWorkspaceExecutionId = `workspace-${Date.now()}`;
 
     markExecutionWorkspaceWarmed();
 
@@ -41,12 +70,18 @@ export function warmExecutionWorkspace(options?: ExecutionWorkspaceWarmOptions):
     prefetchArchivePortalForWorkspace('execution');
 
     void import('@/app/services/SecureStoreService')
-        .then((m) => m.default.ensureExecutionIndexReady())
+        .then((m) => {
+            if (executionWorkspaceWarmSessionIdRef.current !== activeExecutionWorkspaceWarmSessionIdRef.current) return;
+            return m.default.ensureExecutionIndexReady();
+        })
         .catch(() => undefined);
 
     if (options?.userId !== undefined) {
         void import('@/app/runtime/executionFilesEagerHydrate')
-            .then((m) => m.startExecutionFilesEagerHydrate(options.userId))
+            .then((m) => {
+                if (executionWorkspaceWarmSessionIdRef.current !== activeExecutionWorkspaceWarmSessionIdRef.current) return;
+                return m.startExecutionFilesEagerHydrate(options.userId);
+            })
             .catch(() => undefined);
     }
 
@@ -57,6 +92,7 @@ export function warmExecutionWorkspace(options?: ExecutionWorkspaceWarmOptions):
     if (!includeSecondary) return;
 
     const scheduleSecondaryWarm = () => {
+        if (executionWorkspaceWarmSessionIdRef.current !== activeExecutionWorkspaceWarmSessionIdRef.current) return;
         markExecutionDossierWarmed();
         // جذري: أكمل سلسلة أول paint الآن بينما المستخدم يتصفّح القائمة
         primeExecutionDossierSurface();
@@ -79,6 +115,8 @@ export function warmExecutionWorkspace(options?: ExecutionWorkspaceWarmOptions):
 
 export function warmExecutionDossier(mode: ExecutionDashboardPrefetchMode = 'intent'): void {
     if (typeof window === 'undefined') return;
+    _warmWorkspaceSessionBump();
+    lastActiveWarmWorkspaceExecutionId = `dossier-${mode}-${Date.now()}`;
     markExecutionDossierWarmed();
     prefetchExecutionDashboardByMode(mode);
     if (mode === 'urgent' || mode === 'intent') {

@@ -15,6 +15,10 @@ import {
     subscribeAccountNetworkGate,
 } from '@/app/services/auth/accountNetworkGate';
 import { syncLawyerVerificationFromServer } from '@/app/services/auth/lawyerVerificationRemote';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
+
+let communityAccessGateSessionCounter = 0;
+let lastActiveCommunityAccessGateId = 0;
 
 export type UseCommunityForumAccessParams = {
     lawyerShellAccess?: boolean;
@@ -60,27 +64,39 @@ export function useCommunityForumAccess({
     const [accountFrozen, setAccountFrozen] = useState(false);
     const [frozenMessage, setFrozenMessage] = useState<string | null>(null);
 
+    const openSessionIdRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
+
     useEffect(() => {
         if (!signedIn || !uid) {
             setAccountFrozen(false);
             setFrozenMessage(null);
             return;
         }
+        communityAccessGateSessionCounter += 1;
+        openSessionIdRef.current += 1;
+        const currentSessionId = openSessionIdRef.current;
+        activeSessionIdRef.current = currentSessionId;
+        lastActiveCommunityAccessGateId = currentSessionId;
         let cancelled = false;
         void (async () => {
             const syncStatus = syncLawyerVerificationFromServer(uid)
                 .then(() => {
-                    if (!cancelled) setVerificationEpoch((n) => n + 1);
+                    if (cancelled) return;
+                    if (activeSessionIdRef.current !== currentSessionId) return;
+                    setVerificationEpoch((n) => n + 1);
                 })
                 .catch(() => undefined);
             const syncFreeze = fetchAccountNetworkGate(uid)
                 .then((gate) => {
                     if (cancelled) return;
+                    if (activeSessionIdRef.current !== currentSessionId) return;
                     setAccountFrozen(gate.frozen || gate.code === 'ACCOUNT_LOCKED' || gate.code === 'ACCOUNT_FROZEN');
                     setFrozenMessage(gate.message);
                 })
                 .catch(() => {
                     if (cancelled) return;
+                    if (activeSessionIdRef.current !== currentSessionId) return;
                     setAccountFrozen(false);
                     setFrozenMessage(null);
                 });
@@ -88,17 +104,33 @@ export function useCommunityForumAccess({
         })();
         return () => {
             cancelled = true;
+            if (activeSessionIdRef.current === currentSessionId) {
+                activeSessionIdRef.current = 0;
+            }
         };
     }, [signedIn, uid]);
 
     useEffect(() => {
         if (!signedIn || !uid) return;
-        return subscribeAccountNetworkGate(() => {
+        communityAccessGateSessionCounter += 1;
+        openSessionIdRef.current += 1;
+        const currentSessionId = openSessionIdRef.current;
+        activeSessionIdRef.current = currentSessionId;
+        lastActiveCommunityAccessGateId = currentSessionId;
+        const unsubscribe = subscribeAccountNetworkGate(() => {
+            if (activeSessionIdRef.current !== currentSessionId) return;
             const gate = peekAccountNetworkGate(uid);
             if (!gate) return;
             setAccountFrozen(gate.frozen || gate.code === 'ACCOUNT_LOCKED' || gate.code === 'ACCOUNT_FROZEN');
             setFrozenMessage(gate.message);
         });
+        return () => {
+            unsubscribe();
+            if (activeSessionIdRef.current === currentSessionId) {
+                activeSessionIdRef.current = 0;
+                tearDownForumFloatingState(currentSessionId);
+            }
+        };
     }, [signedIn, uid]);
 
     const showLoadingShell =

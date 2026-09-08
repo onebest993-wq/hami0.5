@@ -29,12 +29,12 @@ export async function assertForumCommentGroupAccess(
 ): Promise<void> {
     const postId = await resolveForumCommentPostId(commentId);
     if (!postId) {
-        throw new Error('التعليق غير موجود');
+        throw new Error('[forum:guard:comment_notfound] التعليق غير موجود');
     }
     const { ForumRepository } = await import('./forumRepository');
     const existing = await ForumRepository.getPostById(postId);
     if (!existing) {
-        throw new Error('المنشور غير موجود');
+        throw new Error('[forum:guard:post_notfound] المنشور غير موجود');
     }
     await assertForumPostGroupAccess(existing, userId, isAdmin);
 }

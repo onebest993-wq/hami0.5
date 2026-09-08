@@ -165,7 +165,7 @@ export const CaseShareRepository = {
     }): Promise<CaseShareRecord> {
         const inNetwork = await assertRecipientInNetwork(params.ownerId, params.recipientId);
         if (!inNetwork) {
-            throw new Error('RECIPIENT_NOT_IN_NETWORK');
+            throw new Error('[caseshare:repository:recipient_not_in_network] RECIPIENT_NOT_IN_NETWORK');
         }
         await assertShareSourceOwnedByUser(params.ownerId, params.source);
         const sessionDurationMinutes = params.sessionDurationMinutes ?? DEFAULT_CASE_SHARE_SESSION_MINUTES;

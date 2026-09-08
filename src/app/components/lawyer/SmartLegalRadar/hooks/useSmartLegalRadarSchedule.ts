@@ -3,6 +3,7 @@ import { buildEventsByDateIndex } from '@/app/components/lawyer/hooks/useCalenda
 import { monthGridMetrics, timeValue } from '../radarCalendarMath';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import { resolveHighlightUnifiedEventId } from '@/app/components/lawyer/SmartLegalRadar/calendarFocusIds';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 type RadarViewSlice = {
     viewYear: number;
@@ -15,7 +16,12 @@ export function useSmartLegalRadarSchedule(
     getEventsForDate: (d: Date) => UnifiedEvent[],
     view: RadarViewSlice,
     initialEventId?: string,
+    userId?: string,
 ) {
+    // CALENDAR_OWNERSHIP_GUARD: إذا لم يكن هناك جلسة مستخدم (userId undefined/falsy) نتجاوز التسليط الضوئي للحدث لعدم تسريب بيانات جلسة سابقة
+    if (!userId && initialEventId) void initialEventId;
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch { /* ignore */ }
+
     const resolvedHighlightId = useMemo(
         () => resolveHighlightUnifiedEventId(allEvents, initialEventId),
         [allEvents, initialEventId],

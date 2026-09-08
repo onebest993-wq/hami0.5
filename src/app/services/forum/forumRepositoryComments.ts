@@ -16,7 +16,7 @@ export function createForumCommentRepository(posts: ForumPostReader) {
     return {
         async addComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
             const existingPost = await posts.getPostById(postId);
-            if (!existingPost) throw new Error('المنشور غير موجود');
+            if (!existingPost) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
             assertForumPostAcceptsComments(existingPost);
             resolveForumReplyParentId(existingPost.comments, comment.parentId);
 
@@ -24,7 +24,7 @@ export function createForumCommentRepository(posts: ForumPostReader) {
             if (!admin) {
                 await addCommunityComment(postId, comment);
                 const post = await posts.getPostById(postId);
-                if (!post) throw new Error('المنشور غير موجود');
+                if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
                 const parentComment = comment.parentId
                     ? post.comments.find((c) => c.id === comment.parentId) ?? null
                     : null;
@@ -46,10 +46,10 @@ export function createForumCommentRepository(posts: ForumPostReader) {
                 parent_id: comment.parentId ?? null,
                 created_at: comment.createdAt,
             });
-            if (error) throw new Error(error.message);
+            if (error) throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
 
             const post = await posts.getPostById(postId);
-            if (!post) throw new Error('المنشور غير موجود');
+            if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
 
             const parentComment = comment.parentId
                 ? post.comments.find((c) => c.id === comment.parentId) ?? null
@@ -70,13 +70,13 @@ export function createForumCommentRepository(posts: ForumPostReader) {
             requesterRole?: UserRole,
         ): Promise<CommunityPost> {
             const post = await posts.getPostById(postId);
-            if (!post) throw new Error('المنشور غير موجود');
+            if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
             const comment = post.comments.find((c) => c.id === commentId);
-            if (!comment) throw new Error('التعليق غير موجود');
+            if (!comment) throw new Error('[forumRepo:postgres:opcode] التعليق غير موجود');
             const isAdmin =
                 requesterRole === UserRole.SUPER_ADMIN || requesterRole === UserRole.MODERATOR;
             if (comment.authorId !== requesterId && post.authorId !== requesterId && !isAdmin) {
-                throw new Error('ليس لديك صلاحية لحذف هذا التعليق');
+                throw new Error('[forumRepo:postgres:opcode] ليس لديك صلاحية لحذف هذا التعليق');
             }
 
             const admin = await loadForumSupabaseAdmin();
@@ -97,14 +97,14 @@ export function createForumCommentRepository(posts: ForumPostReader) {
             }
 
             const { error } = await admin.from('forum_comments').delete().in('id', [...toRemove]);
-            if (error) throw new Error(error.message);
+            if (error) throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
 
             if (post.bestCommentId && toRemove.has(post.bestCommentId)) {
                 await admin.from('forum_posts').update({ best_comment_id: null }).eq('id', postId);
             }
 
             const refreshed = await posts.getPostById(postId);
-            if (!refreshed) throw new Error('المنشور غير موجود');
+            if (!refreshed) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
             return refreshed;
         },
 
@@ -115,18 +115,18 @@ export function createForumCommentRepository(posts: ForumPostReader) {
             requesterId: string,
         ): Promise<CommunityPost> {
             const post = await posts.getPostById(postId);
-            if (!post) throw new Error('المنشور غير موجود');
+            if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
             const comment = post.comments.find((c) => c.id === commentId);
-            if (!comment) throw new Error('التعليق غير موجود');
+            if (!comment) throw new Error('[forumRepo:postgres:opcode] التعليق غير موجود');
             if (comment.authorId !== requesterId) {
-                throw new Error('ليس لديك صلاحية لتعديل هذا التعليق');
+                throw new Error('[forumRepo:postgres:opcode] ليس لديك صلاحية لتعديل هذا التعليق');
             }
             if (post.bestCommentId === commentId) {
-                throw new Error('لا يمكن تعديل تعليق مميّز كأفضل إجابة');
+                throw new Error('[forumRepo:postgres:opcode] لا يمكن تعديل تعليق مميّز كأفضل إجابة');
             }
             const trimmed = sanitizeForumPostContent(content);
-            if (trimmed.length < 2) throw new Error('نص التعليق قصير جداً');
-            if (trimmed.length > 5_000) throw new Error('نص التعليق طويل جداً');
+            if (trimmed.length < 2) throw new Error('[forumRepo:postgres:opcode] نص التعليق قصير جداً');
+            if (trimmed.length > 5_000) throw new Error('[forumRepo:postgres:opcode] نص التعليق طويل جداً');
 
             const admin = await loadForumSupabaseAdmin();
             if (!admin) {
@@ -137,10 +137,10 @@ export function createForumCommentRepository(posts: ForumPostReader) {
                 .from('forum_comments')
                 .update({ content: trimmed })
                 .eq('id', commentId);
-            if (error) throw new Error(error.message);
+            if (error) throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
 
             const refreshed = await posts.getPostById(postId);
-            if (!refreshed) throw new Error('المنشور غير موجود');
+            if (!refreshed) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
             return refreshed;
         },
     };

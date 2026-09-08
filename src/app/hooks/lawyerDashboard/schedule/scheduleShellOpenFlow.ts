@@ -18,6 +18,7 @@ import {
 import { clearPersistedLawyerScheduleTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { primeCalendarEventsCacheFromPeek } from '@/app/services/calendar/calendarEventsWarm';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
 
 export type CalendarSearchFocus = { date?: string; eventId?: string } | null;
 
@@ -34,6 +35,9 @@ export type CommitScheduleTabCloseParams = {
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
 };
 
+let scheduleOpenFlowSessionCounter = 0;
+let lastActiveScheduleShellId = 0;
+
 function applyScheduleSearchFocus(
     opts: CommitScheduleTabOpenParams['opts'],
     setCalendarSearchFocus: (focus: CalendarSearchFocus) => void,
@@ -48,34 +52,42 @@ function applyScheduleSearchFocus(
     setCalendarSearchFocus(null);
 }
 
-function runScheduleOpenSideEffects(): void {
+function runScheduleOpenSideEffects(activeShellId: number): void {
+    if (lastActiveScheduleShellId !== activeShellId) return;
     markCalendarPerfPhase('first-paint');
     markCalendarPerfPhase('interactive');
 
     queueMicrotask(() => {
-        void import('@/app/hooks/lawyerDashboard/scheduleIntentWarm').then((m) =>
-            m.warmScheduleOnOpen(),
-        );
+        if (lastActiveScheduleShellId !== activeShellId) return;
+        void import('@/app/hooks/lawyerDashboard/scheduleIntentWarm')
+            .then((m) => {
+                if (lastActiveScheduleShellId !== activeShellId) return;
+                m.warmScheduleOnOpen();
+            })
+            .catch(() => {
+                if (lastActiveScheduleShellId !== activeShellId) return;
+                return undefined;
+            });
     });
 }
 
-function stampCalendarOpenPerfMarks(): void {
+function stampCalendarOpenPerfMarks(activeShellId: number): void {
+    if (lastActiveScheduleShellId !== activeShellId) return;
     markCalendarPerfPhase('open-request');
     markCalendarPerfPhase('first-paint');
     markCalendarPerfPhase('interactive');
 }
 
-function runScheduleOpenCommit({
-    opts,
-    armScheduleHost,
-    setCalendarSearchFocus,
-    setActiveTab,
-}: CommitScheduleTabOpenParams): void {
+type RunScheduleOpenCommitInput = CommitScheduleTabOpenParams & { activeShellId: number };
+
+function runScheduleOpenCommit(input: RunScheduleOpenCommitInput): void {
+    const { opts, armScheduleHost, setCalendarSearchFocus, setActiveTab, activeShellId } = input;
     const syncReact = () => {
+        if (lastActiveScheduleShellId !== activeShellId) return;
         armScheduleHost();
         applyScheduleSearchFocus(opts, setCalendarSearchFocus);
         setActiveTab('schedule');
-        runScheduleOpenSideEffects();
+        runScheduleOpenSideEffects(activeShellId);
     };
 
     /* snap DOM قبل إغلاق المستودع — يمنع ومضة غطاء الرئيسية #0a0f1c */
@@ -83,6 +95,7 @@ function runScheduleOpenCommit({
     armHubLayerEnter(SCHEDULE_HUB_LAYER);
     if (!snapped) {
         flushSync(() => {
+            if (lastActiveScheduleShellId !== activeShellId) return;
             armScheduleHost();
         });
         snapped = snapScheduleShellOpen();
@@ -100,28 +113,38 @@ function runScheduleOpenCommit({
 
 /**
  * فتح التقويم: snap + تسليح فوري — لا انتظار لمقطع Host.
- * المقطع يُسخَّن في الخلفية؛ قشرة InstantChrome تغطي Suspense حتى يصل.
+ * المقطع يُسخَّن في الخلفية؛ قشرة InstantChrome تغطي Suspense حتى يصل.
  * ScheduleTabHost يبقى كسولاً (~١٧٦٥ ك.ب) خارج جذع الإقلاع.
  */
 export function commitScheduleTabOpen(params: CommitScheduleTabOpenParams): void {
+    scheduleOpenFlowSessionCounter += 1;
+    const activeShellId = scheduleOpenFlowSessionCounter;
+    lastActiveScheduleShellId = activeShellId;
+
+    if (lastActiveScheduleShellId !== activeShellId) return;
     primeCalendarEventsCacheFromPeek(params.userId);
+    if (lastActiveScheduleShellId !== activeShellId) return;
     void import('@/app/runtime/scheduleHubLoader')
-        .then((m) => m.loadScheduleTabHostModule())
+        .then((m) => {
+            if (lastActiveScheduleShellId !== activeShellId) return;
+            m.loadScheduleTabHostModule();
+        })
         .catch(() => undefined);
 
     if (isScheduleShellSnappedOpen()) {
         flushSync(() => {
+            if (lastActiveScheduleShellId !== activeShellId) return;
             params.armScheduleHost();
             applyScheduleSearchFocus(params.opts, params.setCalendarSearchFocus);
             params.setActiveTab('schedule');
         });
-        stampCalendarOpenPerfMarks();
+        stampCalendarOpenPerfMarks(activeShellId);
         return;
     }
 
     clearCalendarPerfMarks();
-    stampCalendarOpenPerfMarks();
-    runScheduleOpenCommit(params);
+    stampCalendarOpenPerfMarks(activeShellId);
+    runScheduleOpenCommit({ ...params, activeShellId });
 }
 
 /** رجوع للرئيسية: إخفاء فوري ثم commit متزامن — على الأصلي بلا unfreeze للوحة */
@@ -129,13 +152,21 @@ export function commitScheduleTabClose({
     setCalendarSearchFocus,
     setActiveTab,
 }: CommitScheduleTabCloseParams): void {
+    scheduleOpenFlowSessionCounter += 1;
+    const activeShellId = scheduleOpenFlowSessionCounter;
+    lastActiveScheduleShellId = activeShellId;
+
     beginHubLayerExit(SCHEDULE_HUB_LAYER, () => {
+        if (lastActiveScheduleShellId !== activeShellId) return;
         executeScheduleOverlayClose({
             conceal: () => {
+                if (lastActiveScheduleShellId !== activeShellId) return;
+                tearDownCalendarFloatingState(activeShellId);
                 snapScheduleShellClose();
             },
             commit: () => {
                 flushSync(() => {
+                    if (lastActiveScheduleShellId !== activeShellId) return;
                     clearPersistedLawyerScheduleTab();
                     setCalendarSearchFocus(null);
                     setActiveTab('home');

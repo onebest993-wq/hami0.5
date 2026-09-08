@@ -22,6 +22,6 @@ export async function removeRemoteStoragePathsBestEffort(paths: string[]): Promi
             body: JSON.stringify({ paths: toRemove }),
         });
     } catch {
-        console.warn('[LawyerStorage] فشل حذف ملف(ات) من المخزن:', toRemove.join(', '));
+        if (import.meta.env.DEV) console.warn('[LawyerStorage] فشل حذف ملف(ات) من المخزن:', toRemove.join(', '));
     }
 }

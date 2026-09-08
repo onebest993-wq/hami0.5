@@ -49,6 +49,17 @@ export async function prefetchExecutionOverlayEntries(opts?: {
     await LazyExecutionCreateOverlayEntry.preload();
 }
 
+export function cleanupExecutionOverlayEntryLoader(): void {
+    if (typeof window !== 'undefined') {
+        void import('@/app/services/execution/tearDownExecutionFloatingState')
+            .then((m) => m.tearDownExecutionFloatingState({
+                targetSurface: 'execution-dashboard',
+                reason: 'reduced-motion',
+            }))
+            .catch(() => { /* tearDown never throws */ });
+    }
+}
+
 export function resetExecutionOverlayEntryLoaderForTests(): void {
     LazyExecutionOverlayEntry.resetForTests();
     LazyExecutionDossierOverlayEntry.resetForTests();

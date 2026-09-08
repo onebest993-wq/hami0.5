@@ -10,9 +10,9 @@ export function assertCanWriteProfile(writerId: string | null | undefined, targe
     const writer = writerId?.trim();
     const target = targetUserId?.trim();
     if (!writer || !target) {
-        throw new ProfileWriteForbiddenError('profile-write-unauthorized');
+        throw new ProfileWriteForbiddenError('[profile:write:unauthorized] profile-write-unauthorized');
     }
     if (writer !== target) {
-        throw new ProfileWriteForbiddenError();
+        throw new ProfileWriteForbiddenError('[profile:write:cross_user_forbidden] cross-user profile write forbidden');
     }
 }

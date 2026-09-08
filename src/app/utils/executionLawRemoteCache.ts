@@ -131,7 +131,7 @@ async function fetchRemoteLawRows(): Promise<LawRow[]> {
     });
 
     if (!data || data.ok === false) {
-        throw new Error((data?.error || data?.details || 'تعذر تحميل مواد قانون التنفيذ.').trim());
+        throw new Error('[execution:law_cache:read_failed] ' + (data?.error || data?.details || 'تعذر تحميل مواد قانون التنفيذ.').trim());
     }
     return Array.isArray(data.items) ? data.items : [];
 }

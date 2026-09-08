@@ -29,7 +29,7 @@ export function buildProfileEditPersistPayload(
     const persistActions = sanitizeProfileActionsForPersist(editDraft.actions);
     const name = clampProfileDisplayName(editDraft.header.name ?? '');
     if (!name) {
-        throw new Error('profile-edit-name-required');
+        throw new Error('[profile:persist:name_required] profile-edit-name-required');
     }
     const actionIds = new Set(persistActions.map((a) => a.id));
     const header = {

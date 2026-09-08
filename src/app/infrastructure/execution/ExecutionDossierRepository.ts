@@ -1,4 +1,5 @@
 import type { ExecutionFile } from '@/app/types/execution';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { storageCache } from '@/app/utils/storageCache';
 import { isInabaSubFileId } from '@/app/domain/execution/dossier/ExecutionDossierScope';
@@ -47,6 +48,11 @@ export function readExecutionDossierByIdFromCache(fileId: string): ExecutionFile
 }
 
 export function writeExecutionDossierByIdToCache(fileId: string, file: ExecutionFile): void {
+    // EXECUTION_OWNERSHIP_GUARD + SECURESTORE FIRST-LINE
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
+    const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
+    const userId = sessionCast?._sessionUserId ?? null;
+    if (!userId) return;
     const persistedId = String(fileId || '').trim();
     if (!persistedId) return;
     storageCache.set(executionStorageKey(persistedId), file);

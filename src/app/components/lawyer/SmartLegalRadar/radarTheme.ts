@@ -39,7 +39,9 @@ export const RADAR_ALERT_TEXT = 'hami-radar-text-primary';
 export const RADAR_ALERT_MUTED = 'hami-radar-text-secondary';
 
 export const RADAR_FORM_OVERLAY =
-    'hami-radar-form-overlay fixed inset-0 z-[99999] flex items-end sm:items-center justify-center';
+    'hami-radar-form-overlay fixed inset-0 z-[99999] flex items-end sm:items-center justify-center ' +
+    'ps-[max(0px,env(safe-area-inset-left,0px))] pe-[max(0px,env(safe-area-inset-right,0px))] ' +
+    'pt-[max(0px,env(safe-area-inset-top,0px))] pb-[max(0px,env(safe-area-inset-bottom,0px))]';
 
 export const RADAR_FORM_PANEL =
     'hami-radar-form-panel w-full sm:max-w-lg rounded-t-xl sm:rounded-xl max-h-full';

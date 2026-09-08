@@ -8,7 +8,7 @@ export function mergeFollowupSpecializationFlags(
     flagsList: FollowupSpecializationVisibility[],
 ): FollowupSpecializationVisibility {
     if (flagsList.length === 0) {
-        throw new Error('mergeFollowupSpecializationFlags requires at least one flags object');
+        throw new Error('[execution:followup_specialization:flags_empty] mergeFollowupSpecializationFlags requires at least one flags object');
     }
     if (flagsList.length === 1) return flagsList[0]!;
 

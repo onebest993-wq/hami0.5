@@ -60,7 +60,7 @@ function writeForumBlobRow(db: IDBDatabase, row: ForumBlobRow): Promise<void> {
 export async function putForumBlob(cacheKey: string, blob: Blob, mimeType: string): Promise<void> {
     const wrapped = await wrapForumBlobForAtRest(blob);
     const db = await openDb();
-    if (!db) throw new Error('forum blob store unavailable');
+    if (!db) throw new Error('[services_forumblobstore_:forumblobstoreunav] forum blob store unavailable');
 
     const row: ForumBlobRow = {
         key: cacheKey.trim(),

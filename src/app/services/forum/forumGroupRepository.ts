@@ -108,7 +108,7 @@ export const ForumGroupRepository = {
             is_official: isOfficial,
             created_at: now,
         });
-        if (groupError) throw new Error(groupError.message);
+        if (groupError) throw new Error('[forumRepo:group:opcode] ' + (groupError.message));
 
         const { error: memberError } = await admin.from('forum_group_members').insert({
             id: createId(),
@@ -117,10 +117,10 @@ export const ForumGroupRepository = {
             role: 'admin',
             joined_at: now,
         });
-        if (memberError) throw new Error(memberError.message);
+        if (memberError) throw new Error('[forumRepo:group:opcode] ' + (memberError.message));
 
         const group = await this.getGroup(groupId, creatorId);
-        if (!group) throw new Error('تعذّر إنشاء المجموعة');
+        if (!group) throw new Error('[forumRepo:group:opcode] تعذّر إنشاء المجموعة');
         return group;
     },
 
@@ -140,7 +140,7 @@ export const ForumGroupRepository = {
                 role: 'member',
                 joined_at: new Date().toISOString(),
             });
-            if (error) throw new Error(error.message);
+            if (error) throw new Error('[forumRepo:group:opcode] ' + (error.message));
         }
         return this.getGroup(groupId, lawyerId);
     },
@@ -156,7 +156,7 @@ export const ForumGroupRepository = {
             .delete()
             .eq('group_id', groupId)
             .eq('lawyer_id', lawyerId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:group:opcode] ' + (error.message));
     },
 
     async isMember(groupId: string, lawyerId: string): Promise<boolean> {

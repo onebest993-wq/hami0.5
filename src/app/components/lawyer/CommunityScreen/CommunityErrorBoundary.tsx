@@ -2,6 +2,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
 import { RefreshCw } from '@/app/components/ui/icons/RefreshCw';
 import { FORUM_PLUM_DEEP, FORUM_PUBLISH_BTN, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from './forumPlumTheme';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
 
 interface Props {
     children: ReactNode;
@@ -28,6 +29,7 @@ export class CommunityErrorBoundary extends Component<Props, State> {
     }
 
     private handleRetry = () => {
+        tearDownForumFloatingState();
         this.setState({ hasError: false, message: '' });
         this.props.onReset?.();
     };

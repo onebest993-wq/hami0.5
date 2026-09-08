@@ -50,7 +50,7 @@ export const ForumMuteRepository = {
         const { error } = await admin
             .from('forum_mutes')
             .upsert({ muter_id: muterId, muted_id: mutedId }, { onConflict: 'muter_id,muted_id' });
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:mute:opcode] ' + (error.message));
     },
 
     async unmute(muterId: string, mutedId: string): Promise<void> {
@@ -68,7 +68,7 @@ export const ForumMuteRepository = {
             .delete()
             .eq('muter_id', muterId)
             .eq('muted_id', mutedId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:mute:opcode] ' + (error.message));
     },
 
     async isMutedBy(muterId: string, mutedId: string): Promise<boolean> {

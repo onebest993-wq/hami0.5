@@ -53,4 +53,42 @@ describe('useSmartLegalRadarLifecycle', () => {
             hadLocalCache: false,
         });
     });
+
+    it('يرفض استدعاءات stale عند تبديل الجلسات بسرعة — آخر مستخدم فقط يُعلن', () => {
+        const { rerender } = renderHook(
+            ({ uid, count, active }) => useSmartLegalRadarLifecycle(uid, count, active),
+            { initialProps: { uid: 'user-1', count: 1, active: true } },
+        );
+
+        expect(perf.report).toHaveBeenCalledTimes(1);
+        expect(perf.report).toHaveBeenLastCalledWith({
+            userId: 'user-1',
+            eventCount: 1,
+            hadLocalCache: false,
+        });
+
+        perf.report.mockClear();
+        perf.mark.mockClear();
+
+        rerender({ uid: 'user-1', count: 1, active: true });
+        expect(perf.report).toHaveBeenCalledTimes(0);
+
+        rerender({ uid: 'user-2', count: 5, active: true });
+        expect(perf.report).toHaveBeenCalledTimes(1);
+        expect(perf.report).toHaveBeenLastCalledWith({
+            userId: 'user-2',
+            eventCount: 5,
+            hadLocalCache: false,
+        });
+
+        perf.report.mockClear();
+
+        rerender({ uid: 'user-3', count: 0, active: true });
+        expect(perf.report).toHaveBeenCalledTimes(1);
+        expect(perf.report).toHaveBeenLastCalledWith({
+            userId: 'user-3',
+            eventCount: 0,
+            hadLocalCache: false,
+        });
+    });
 });

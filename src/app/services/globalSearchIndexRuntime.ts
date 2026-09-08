@@ -38,17 +38,37 @@ function buildOnIdleThread(input: BuildGlobalSearchIndexInput): Promise<GlobalSe
 export async function resolveGlobalSearchIndex(
     input: BuildGlobalSearchIndexInput,
     priority: 'interactive' | 'idle' = 'idle',
+    signal?: AbortSignal,
 ): Promise<GlobalSearchEntry[]> {
+    if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+    }
     const key = computeGlobalSearchIndexKey(input);
     const hit = indexCache.get(key);
     if (hit) return hit;
 
     const existing = inflightByKey.get(key);
-    if (existing) return existing;
+    if (existing) {
+        if (!signal) return existing;
+        return Promise.race([
+            existing,
+            new Promise<GlobalSearchEntry[]>((_, reject) => {
+                if (signal.aborted) {
+                    reject(new DOMException('Aborted', 'AbortError'));
+                    return;
+                }
+                signal.addEventListener(
+                    'abort',
+                    () => reject(new DOMException('Aborted', 'AbortError')),
+                    { once: true },
+                );
+            }),
+        ]);
+    }
 
     const epoch = cacheEpoch;
     let promise: Promise<GlobalSearchEntry[]>;
-    promise = (
+    const basePromise = (
         priority === 'interactive'
             ? buildGlobalSearchIndexOffThread(input)
             : buildOnIdleThread(input)
@@ -61,8 +81,29 @@ export async function resolveGlobalSearchIndex(
             return index;
         })
         .finally(() => {
+            if (inflightByKey.get(key) === basePromise) inflightByKey.delete(key);
+        });
+
+    if (!signal) {
+        promise = basePromise;
+    } else {
+        promise = Promise.race([
+            basePromise,
+            new Promise<GlobalSearchEntry[]>((_, reject) => {
+                if (signal.aborted) {
+                    reject(new DOMException('Aborted', 'AbortError'));
+                    return;
+                }
+                signal.addEventListener(
+                    'abort',
+                    () => reject(new DOMException('Aborted', 'AbortError')),
+                    { once: true },
+                );
+            }),
+        ]).finally(() => {
             if (inflightByKey.get(key) === promise) inflightByKey.delete(key);
         });
+    }
 
     inflightByKey.set(key, promise);
     return promise;

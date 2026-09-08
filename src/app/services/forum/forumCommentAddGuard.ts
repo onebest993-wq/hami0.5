@@ -4,7 +4,7 @@ export const FORUM_COMMENT_MAX_DEPTH = 6;
 
 export function assertForumPostAcceptsComments(post: Pick<CommunityPost, 'isLocked'>): void {
     if (post.isLocked === true) {
-        throw new Error('النقاش على هذا المنشور مقفل');
+        throw new Error('[forum:guard:post_locked] النقاش على هذا المنشور مقفل');
     }
 }
 
@@ -17,7 +17,7 @@ export function resolveForumReplyParentId(
     if (!trimmed) return {};
     const parent = comments.find((c) => c.id === trimmed);
     if (!parent) {
-        throw new Error('التعليق الأصل غير موجود في هذا المنشور');
+        throw new Error('[forum:guard:parent_notfound] التعليق الأصل غير موجود في هذا المنشور');
     }
     let depth = 1;
     let cursor: typeof parent | undefined = parent;
@@ -29,7 +29,7 @@ export function resolveForumReplyParentId(
         if (!next) break;
         depth += 1;
         if (depth >= FORUM_COMMENT_MAX_DEPTH) {
-            throw new Error('تجاوزت حد تداخل الردود');
+            throw new Error('[forum:guard:max_depth] تجاوزت حد تداخل الردود');
         }
         cursor = next;
     }

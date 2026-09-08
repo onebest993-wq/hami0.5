@@ -23,6 +23,12 @@ import {
     buildIncidentalSpawnPrefill,
     type IncidentalSpawnContextEnriched,
 } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
+
+/* Mobile Safe-Area tokens (read-only, ZVF no visual layout change) */
+const SAFE_AREA_INSET_TOP = 'env(safe-area-inset-top)';
+const SAFE_AREA_INSET_RIGHT = 'env(safe-area-inset-right)';
+const SAFE_AREA_INSET_BOTTOM = 'env(safe-area-inset-bottom)';
+const SAFE_AREA_INSET_LEFT = 'env(safe-area-inset-left)';
 import {
     defaultCaseDetails,
     defaultParty,
@@ -65,6 +71,17 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
 
     useEffect(() => {
         consumePendingLawyerNewCaseJurisdiction();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+                m.tearDownLitigationFloatingState({
+                    targetSurface: 'newcase-root',
+                    reason: 'unmount',
+                }),
+            );
+        };
     }, []);
 
     useEffect(() => {

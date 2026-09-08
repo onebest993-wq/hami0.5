@@ -1,8 +1,9 @@
 /** حراسة ملكية مستندات المخزن — كل طفرة تمر عبر المطابقة authorId === الجلسة */
 
+/** REPOSITORY_OWNERSHIP_GUARD — L2 Session Ownership early-return before any assertion */
 export function assertVaultRequester(requesterId: string | null | undefined): asserts requesterId is string {
     if (!requesterId?.trim()) {
-        throw new Error('مطلوب تسجيل الدخول لإجراءاء عملية المخزن');
+        throw new Error('[vault:ownership:session_missing] مطلوب تسجيل الدخول لإجراءاء عملية المخزن');
     }
 }
 
@@ -13,10 +14,10 @@ export function assertVaultDocOwner(
     assertVaultRequester(requesterId);
     const author = (doc.authorId ?? '').trim();
     if (!author) {
-        throw new Error('authorId مطلوب لحفظ الملف');
+        throw new Error('[vault:ownership:author_required] authorId مطلوب لحفظ الملف');
     }
     if (author !== requesterId.trim()) {
-        throw new Error('غير مصرح بالوصول إلى ملف مستخدم آخر');
+        throw new Error('[vault:ownership:doc_owner_mismatch] غير مصرح بالوصول إلى ملف مستخدم آخر');
     }
 }
 
@@ -35,7 +36,7 @@ export function assertVaultStoragePathOwner(
         if (parts.length >= 4) {
             const pathUser = parts[2] ?? '';
             if (pathUser && pathUser !== requesterId.trim()) {
-                throw new Error('غير مصرح بالوصول إلى مسار تخزين مستخدم آخر');
+                throw new Error('[vault:ownership:storage_path_cross] غير مصرح بالوصول إلى مسار تخزين مستخدم آخر');
             }
         }
         return;
@@ -47,7 +48,7 @@ export function assertVaultStoragePathOwner(
         if (parts.length >= 4) {
             const pathUser = parts[2] ?? '';
             if (pathUser && pathUser !== requesterId.trim()) {
-                throw new Error('غير مصرح بالوصول إلى مسار تخزين مستخدم آخر');
+                throw new Error('[vault:ownership:storage_path_cross] غير مصرح بالوصول إلى مسار تخزين مستخدم آخر');
             }
         }
         return;
@@ -55,9 +56,9 @@ export function assertVaultStoragePathOwner(
 
     const normalized = path.replace(/^\/+/, '');
     if (normalized.includes('..') || normalized.includes('\\')) {
-        throw new Error('مسار تخزين غير صالح');
+        throw new Error('[vault:ownership:storage_path_invalid] مسار تخزين غير صالح');
     }
     if (!normalized.startsWith(`${requesterId.trim()}/`)) {
-        throw new Error('غير مصرح بالوصول إلى مسار تخزين مستخدم آخر');
+        throw new Error('[vault:ownership:storage_path_cross] غير مصرح بالوصول إلى مسار تخزين مستخدم آخر');
     }
 }

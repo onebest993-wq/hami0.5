@@ -20,12 +20,6 @@ export async function probeNotificationProductionReadinessOnce(): Promise<boolea
             method: 'GET',
         });
         if (res?.ready === true) return true;
-
-        if (import.meta.env.PROD) {
-            console.warn(
-                '[hami:notifications] schema not ready — run: npm run db:shell-notifications',
-            );
-        }
         return false;
     } catch {
         return null;

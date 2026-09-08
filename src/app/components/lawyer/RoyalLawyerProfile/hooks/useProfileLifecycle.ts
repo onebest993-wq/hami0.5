@@ -6,6 +6,8 @@ import {
 } from '@/app/services/profile/profilePerfMetrics';
 import { peekProfileWarmCache } from '@/app/services/profile/profileWarmCache';
 
+let sessionIdCounter = 0;
+
 type UseProfileLifecycleParams = {
     profileUserId: string;
     loading: boolean;
@@ -26,6 +28,8 @@ export function useProfileLifecycle({
         return Boolean(peekProfileWarmCache(profileUserId));
     });
     const reportedRef = useRef(false);
+    const sessionIdRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
 
     useEffect(() => {
         if (!profileUserId) {
@@ -47,7 +51,14 @@ export function useProfileLifecycle({
 
     useEffect(() => {
         if (!isShellReady || reportedRef.current) return;
+
+        sessionIdCounter += 1;
+        const thisSessionId = sessionIdCounter;
+        sessionIdRef.current = thisSessionId;
+        activeSessionIdRef.current = thisSessionId;
+
         reportedRef.current = true;
+        if (sessionIdRef.current !== activeSessionIdRef.current) return;
         markProfilePerfPhase('first-paint');
         markProfilePerfPhase('interactive');
         reportProfilePerf({
@@ -55,13 +66,24 @@ export function useProfileLifecycle({
             hadWarmCache,
             isOwnProfile,
         });
+        return () => {
+            if (activeSessionIdRef.current === thisSessionId) {
+                activeSessionIdRef.current = 0;
+            }
+        };
     }, [hadWarmCache, isOwnProfile, isShellReady, perfOpenEpoch, profileUserId]);
 
     /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (P1/P9) */
     useEffect(() => {
         if (reportedRef.current) return;
 
+        sessionIdCounter += 1;
+        const thisSessionId = sessionIdCounter;
+        sessionIdRef.current = thisSessionId;
+        activeSessionIdRef.current = thisSessionId;
+
         const markInteractiveFallback = () => {
+            if (sessionIdRef.current !== thisSessionId) return;
             if (reportedRef.current) return;
             reportedRef.current = true;
             markProfilePerfPhase('first-paint');
@@ -74,7 +96,12 @@ export function useProfileLifecycle({
         };
 
         const fallback = window.setTimeout(markInteractiveFallback, 1_200);
-        return () => window.clearTimeout(fallback);
+        return () => {
+            if (activeSessionIdRef.current === thisSessionId) {
+                activeSessionIdRef.current = 0;
+            }
+            window.clearTimeout(fallback);
+        };
     }, [hadWarmCache, isOwnProfile, perfOpenEpoch, profileUserId]);
 
     return { isShellReady, hadWarmCache };

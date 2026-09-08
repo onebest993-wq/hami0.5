@@ -7,7 +7,9 @@ export type LawsuitArchivePerfPhase =
     | 'keys-warm-start'
     | 'keys-ready'
     | 'hydrate-done'
-    | 'interactive';
+    | 'interactive'
+    | 'zone-request'
+    | 'zone-switched';
 
 const PHASES: readonly LawsuitArchivePerfPhase[] = [
     'open-request',
@@ -15,6 +17,8 @@ const PHASES: readonly LawsuitArchivePerfPhase[] = [
     'keys-ready',
     'hydrate-done',
     'interactive',
+    'zone-request',
+    'zone-switched',
 ] as const;
 
 let lawsuitArchivePerfReported = false;
@@ -40,11 +44,16 @@ export function clearLawsuitArchivePerfMarks(): void {
     lawsuitArchivePerfReported = false;
 }
 
-function markStartTime(phase: LawsuitArchivePerfPhase): number | null {
+function latestMarkStartTime(phase: LawsuitArchivePerfPhase): number | null {
     if (typeof performance === 'undefined') return null;
-    const entry = performance.getEntriesByName(`${MARK_PREFIX}${phase}`, 'mark')[0];
+    const entries = performance.getEntriesByName(`${MARK_PREFIX}${phase}`, 'mark');
+    const entry = entries.length > 0 ? entries[entries.length - 1] : null;
     if (!entry || !Number.isFinite(entry.startTime)) return null;
     return entry.startTime;
+}
+
+function markStartTime(phase: LawsuitArchivePerfPhase): number | null {
+    return latestMarkStartTime(phase);
 }
 
 /** فرق ms بين مرحلتين (null إن نقصت علامة) */
@@ -56,6 +65,20 @@ export function getLawsuitArchivePhaseDeltaMs(
     const b = markStartTime(to);
     if (a == null || b == null) return null;
     const ms = b - a;
+    if (!Number.isFinite(ms) || ms < 0) return null;
+    return Math.round(ms);
+}
+
+/** CR-7 zone-switch فرق ms من zone-request → zone-switched (CP-08/CP-09 لا يُعتمد قيمة [0] القديمة) */
+export function getLawsuitZoneSwitchDeltaMs(): number | null {
+    if (typeof performance === 'undefined') return null;
+    const reqEntries = performance.getEntriesByName(`${MARK_PREFIX}zone-request`, 'mark');
+    const doneEntries = performance.getEntriesByName(`${MARK_PREFIX}zone-switched`, 'mark');
+    const zoneReq = reqEntries.length > 0 ? reqEntries[reqEntries.length - 1] : null;
+    const zoneDone = doneEntries.length > 0 ? doneEntries[doneEntries.length - 1] : null;
+    if (!zoneReq || !zoneDone) return null;
+    if (zoneDone.startTime < zoneReq.startTime) return null;
+    const ms = zoneDone.startTime - zoneReq.startTime;
     if (!Number.isFinite(ms) || ms < 0) return null;
     return Math.round(ms);
 }

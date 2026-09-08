@@ -88,7 +88,7 @@ export async function loadProfileImageBitmap(file: File): Promise<ImageBitmap> {
         canvas.width = image.naturalWidth || image.width;
         canvas.height = image.naturalHeight || image.height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('canvas unavailable');
+        if (!ctx) throw new Error('[profile:image:canvas_unavailable] canvas unavailable');
         ctx.drawImage(image, 0, 0);
         return createImageBitmap(canvas);
     } finally {
@@ -131,7 +131,7 @@ export async function exportProfileBackgroundImage(
     canvas.width = outW;
     canvas.height = outH;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('canvas unavailable');
+    if (!ctx) throw new Error('[profile:image:canvas_unavailable] canvas unavailable');
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -142,7 +142,7 @@ export async function exportProfileBackgroundImage(
     const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob((b) => resolve(b), mime, usePng ? undefined : quality);
     });
-    if (!blob) throw new Error('export failed');
+    if (!blob) throw new Error('[profile:image:export_failed] export failed');
 
     const base = sourceName.replace(/\.[^.]+$/, '') || 'profile-bg';
     const ext = usePng ? 'png' : 'jpg';

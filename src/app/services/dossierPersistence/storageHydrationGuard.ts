@@ -10,8 +10,9 @@ import { debug } from '@/app/utils/debug';
  * أي أن التخزين لم يُحمَّل بعد أو حدث فساد مؤقت. في هذه الحالة لا نُجرِّب purge للتقويم.
  */
 export async function shouldSkipDossierDependentCalendarPurge(): Promise<boolean> {
-    await SecureStoreService.ensurePersistedReady();
-
+    if (typeof SecureStoreService?.ensurePersistedReady === 'function') {
+        try { await SecureStoreService.ensurePersistedReady(); } catch {}
+    }
     const lawsuits = loadLawsuitFilesRaw();
     const executions = loadExecutionFilesRaw();
     const criminal = loadCriminalCasesRaw();

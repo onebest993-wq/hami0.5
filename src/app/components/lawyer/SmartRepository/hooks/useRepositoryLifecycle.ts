@@ -5,6 +5,8 @@ import {
 } from '@/app/services/repository/repositoryPerfMetrics';
 import { peekVaultDocsWarmCache } from '@/app/services/vault/vaultDocsWarmCache';
 
+let sessionIdCounter = 0;
+
 export function useRepositoryLifecycle(
     userId: string | undefined,
     vaultDocCount: number,
@@ -15,6 +17,8 @@ export function useRepositoryLifecycle(
     const hadVaultCacheRef = useRef(peekVaultDocsWarmCache(uid) !== undefined);
     const reportedRef = useRef(false);
     const wasOpenRef = useRef(false);
+    const sessionIdRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
 
     useEffect(() => {
         reportedRef.current = false;
@@ -30,7 +34,14 @@ export function useRepositoryLifecycle(
 
     useEffect(() => {
         if (!repositoryOpen || reportedRef.current) return;
+
+        sessionIdCounter += 1;
+        const thisSessionId = sessionIdCounter;
+        sessionIdRef.current = thisSessionId;
+        activeSessionIdRef.current = thisSessionId;
+
         reportedRef.current = true;
+        if (sessionIdRef.current !== activeSessionIdRef.current) return;
         markRepositoryPerfPhase('first-paint');
         markRepositoryPerfPhase('interactive');
         reportRepositoryPerf({
@@ -45,7 +56,13 @@ export function useRepositoryLifecycle(
     useEffect(() => {
         if (!repositoryOpen || reportedRef.current) return;
 
+        sessionIdCounter += 1;
+        const fallbackSessionId = sessionIdCounter;
+        sessionIdRef.current = fallbackSessionId;
+        activeSessionIdRef.current = fallbackSessionId;
+
         const markInteractiveFallback = () => {
+            if (sessionIdRef.current !== activeSessionIdRef.current) return;
             if (reportedRef.current) return;
             reportedRef.current = true;
             markRepositoryPerfPhase('first-paint');

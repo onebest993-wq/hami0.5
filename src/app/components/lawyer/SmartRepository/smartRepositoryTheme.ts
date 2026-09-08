@@ -28,11 +28,11 @@ export const REPO_CARD_ICON_BTN_ACTIVE =
     'hami-repo-card-icon-btn ' +
     `${REPO_TOUCH_ICON} rounded-xl border-0 bg-[#E6C673]/12 text-[#E6C673] transition-colors`;
 
-export const REPO_CONTROLS_SHELL = 'hami-repository-controls shrink-0 relative z-[1]';
+export const REPO_CONTROLS_SHELL = 'hami-repository-controls shrink-0 relative z-[1] pt-[calc(env(safe-area-inset-top))]';
 
 /** شريط الغرف تحت البحث */
 export const REPO_FILTER_RAIL =
-    'hami-repository-filter-scroll flex items-center gap-1.5 px-3 py-1 shrink-0 min-h-[44px]';
+    'hami-repository-filter-scroll flex items-center gap-1.5 px-3 py-1 shrink-0 min-h-[44px] ps-[calc(env(safe-area-inset-left))]';
 
 export const REPO_ADD_MENU_BTN =
     'inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-xl text-xs font-medium touch-manipulation ' +
@@ -76,7 +76,7 @@ export const REPO_ROOM_MENU_ACTION =
     'hover:bg-[#E6C673]/12 text-right touch-manipulation';
 
 export const REPO_HEADER =
-    'hami-repository-header relative px-3 py-1.5 shrink-0 z-[20] isolate';
+    'hami-repository-header relative px-3 py-1.5 shrink-0 z-[20] isolate pt-[env(safe-area-inset-top)] pe-[calc(env(safe-area-inset-right))]';
 
 export const REPO_ICON_BTN =
     'hami-repository-back-btn ' +
@@ -85,7 +85,10 @@ export const REPO_ICON_BTN =
 
 export const REPO_BODY =
     'hami-repository-feed-scroll hami-repository-feed-surface h-0 flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-3 py-2.5 ' +
-    '[-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]';
+    '[-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]' +
+    ' ps-[calc(env(safe-area-inset-left))]' +
+    ' pe-[calc(env(safe-area-inset-right))]' +
+    ' pb-[calc(env(safe-area-inset-bottom))]';
 
 export const REPO_FEED_ITEM = 'hami-repository-feed-item';
 
@@ -108,7 +111,7 @@ export const REPO_COMPOSE_TITLE =
     'placeholder:text-white/28 outline-none focus:border-[#E6C673]/35 transition-colors';
 
 export const REPO_COMPOSE_FOOTER =
-    'flex flex-wrap items-center gap-2 pt-2 mt-0.5 border-t border-white/[0.06]';
+    'flex flex-wrap items-center gap-2 pt-2 mt-0.5 border-t border-white/[0.06] pb-[calc(env(safe-area-inset-bottom))]';
 
 export const REPO_COMPOSE_ICON_BTN = REPO_CARD_ICON_BTN;
 

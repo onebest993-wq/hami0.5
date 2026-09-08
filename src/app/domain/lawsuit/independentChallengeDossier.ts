@@ -222,7 +222,7 @@ export function applyIndependentChallengeSpawn(params: {
     const sourceStages = [...(params.sourceFile.stages ?? [])];
     const sourceStage = sourceStages[params.sourceStageIndex];
     if (!sourceStage) {
-        throw new Error('applyIndependentChallengeSpawn: source stage missing');
+        throw new Error('[litigation:ind_challenge:stage_missing] applyIndependentChallengeSpawn: source stage missing');
     }
 
     const relatedAppealIndex = findExtractedAppealStageIndex(sourceStages);

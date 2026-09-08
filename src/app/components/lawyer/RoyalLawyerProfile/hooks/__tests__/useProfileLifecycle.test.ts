@@ -16,6 +16,8 @@ vi.mock('@/app/services/profile/profileSentryReporting', () => ({
     reportProfileOpenToSentry: vi.fn(),
 }));
 
+import { reportProfileOpenToSentry } from '@/app/services/profile/profileSentryReporting';
+
 describe('useProfileLifecycle', () => {
     beforeEach(() => {
         invalidateProfileWarmCache();
@@ -130,5 +132,67 @@ describe('useProfileLifecycle', () => {
         });
 
         expect(spy).toHaveBeenCalledWith('interactive');
+    });
+
+    it('يُرفض استدعاء stale fallback من الجلسة القديمة عند تغيير perfOpenEpoch قبل انتهاء timeout', () => {
+        vi.useFakeTimers();
+        vi.mocked(reportProfileOpenToSentry).mockClear();
+
+        markProfilePerfPhase('open-request');
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:profile:open-request') {
+                return [{ startTime: 100 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:profile:interactive') {
+                return [{ startTime: 600 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+
+        const { rerender } = renderHook(
+            ({ epoch }: { epoch: number }) =>
+                useProfileLifecycle({
+                    profileUserId: 'u1',
+                    loading: true,
+                    hasHeader: false,
+                    isOwnProfile: true,
+                    perfOpenEpoch: epoch,
+                }),
+            { initialProps: { epoch: 1 } },
+        );
+
+        act(() => {
+            vi.advanceTimersByTime(800);
+        });
+
+        markProfilePerfPhase('open-request');
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:profile:open-request') {
+                return [{ startTime: 900 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:profile:interactive') {
+                return [{ startTime: 1200 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+
+        rerender({ epoch: 2 });
+
+        vi.mocked(reportProfileOpenToSentry).mockClear();
+
+        act(() => {
+            vi.advanceTimersByTime(600);
+        });
+
+        expect(vi.mocked(reportProfileOpenToSentry)).toHaveBeenCalledTimes(0);
+
+        act(() => {
+            vi.advanceTimersByTime(800);
+        });
+
+        expect(vi.mocked(reportProfileOpenToSentry)).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(reportProfileOpenToSentry)).toHaveBeenLastCalledWith(300, expect.objectContaining({
+            userId: 'u1',
+        }));
     });
 });

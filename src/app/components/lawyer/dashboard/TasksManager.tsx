@@ -16,7 +16,15 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { TasksManagerOverlays } from './tasksManager/TasksManagerOverlays';
+import { tearDownTasksFloatingState } from './tasksManager/tearDownTasksFloatingState';
+import {
+    clearTasksManagerPerfMarks,
+    markTasksManagerPerfPhase,
+    reportTasksManagerPerf,
+} from '@/app/services/tasks/tasksManagerPerfMetrics';
 import { blurFocusWithin } from '@/app/utils/inertProps';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
+import { redactPiiText } from '@/app/services/tasks/taskSanitizer';
 
 const LazyCompletedTasksArchiveSection = lazyWithRetry(() =>
     import('./tasksManager/CompletedTasksArchiveSection').then((m) => ({
@@ -64,22 +72,43 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     const [managerHydrated, setManagerHydrated] = useState(false);
     const handlePaintReady = useCallback(() => {
         setManagerHydrated(true);
+        markTasksManagerPerfPhase('first-paint');
+        markTasksManagerPerfPhase('interactive');
+        reportTasksManagerPerf({ surface: 'manager' });
         onPaintReady?.();
     }, [onPaintReady]);
     /** رفع القشرة عند أول تخطيط — لا انتظار storageHydrated ولا احتياطي 1200ms */
     useLayoutEffect(() => {
         if (!surfaceOpen) return;
+        markTasksManagerPerfPhase('open-request');
         handlePaintReady();
+        return () => {
+            clearTasksManagerPerfMarks();
+        };
     }, [surfaceOpen, handlePaintReady]);
     /** ثانوي (حتمي/بعيد/حوار) بعد أول طلاء — لا ينافس مقطع Overlay/TasksManager */
     useEffect(() => {
         if (!surfaceOpen || !managerHydrated) return;
         let idleId: number | null = null;
         let timeoutId: number | null = null;
+        /** AbortController #2: cancel secondary surface prefetch on manager close */
+        const warmAbort = new AbortController();
         const warmSecondary = () => {
-            void import('@/app/runtime/fieldTasksHubLoader')
-                .then((m) => m.prefetchTasksManagerSecondarySurfaces())
-                .catch(() => undefined);
+            if (warmAbort.signal.aborted) return;
+            void Promise.race([
+                import('@/app/runtime/fieldTasksHubLoader'),
+                new Promise<never>((_, reject) => {
+                    warmAbort.signal.addEventListener('abort', () => reject(new Error('ABORTED')), { once: true });
+                }),
+            ])
+                .then((m) => {
+                    if (warmAbort.signal.aborted) return;
+                    m.prefetchTasksManagerSecondarySurfaces();
+                })
+                .catch((err) => {
+                    if (err?.message === 'ABORTED') return;
+                    /* ignore */
+                });
         };
         if (typeof requestIdleCallback === 'function') {
             idleId = requestIdleCallback(warmSecondary, { timeout: 2200 });
@@ -87,6 +116,7 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
             timeoutId = window.setTimeout(warmSecondary, 400);
         }
         return () => {
+            warmAbort.abort();
             if (idleId != null && typeof cancelIdleCallback === 'function') {
                 cancelIdleCallback(idleId);
             }
@@ -95,7 +125,14 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     }, [surfaceOpen, managerHydrated]);
     useTasksLifecycle(surfaceOpen, surfaceOpen);
 
+    useEffect(() => {
+        return () => {
+            tearDownTasksFloatingState();
+        };
+    }, []);
+
     const handleClose = useCallback(() => {
+        tearDownTasksFloatingState();
         onClose();
         queueMicrotask(() => {
             void flushPersist();
@@ -123,20 +160,29 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
         }) => {
             if (!userId) {
                 SmartToast.error('يجب تسجيل الدخول لطلب المساعدة');
-                throw new Error('NO_USER');
+                throw new Error('[tasks:submit] NO_USER');
             }
+            /** L4: outbound sanitize before any network/storage — applies to both PUBLIC_FORUM and Colleague scopes */
+            const safeNote = params.note
+                ? redactPiiText(
+                      sanitizeProfilePlainText(params.note, params.scope === 'PUBLIC_FORUM' ? 1800 : 2000),
+                  )
+                : undefined;
+            const safeTargetName = params.targetColleagueName
+                ? sanitizeProfilePlainText(params.targetColleagueName, 120)
+                : undefined;
             const created = await requestTaskHelp({
                 taskId: params.taskId,
                 scope: params.scope,
                 requesterId: userId,
                 requesterName: userName,
                 targetColleagueId: params.targetColleagueId,
-                targetColleagueName: params.targetColleagueName,
-                note: params.note,
+                targetColleagueName: safeTargetName,
+                note: safeNote,
             });
             if (!created) {
                 SmartToast.error('تعذر إنشاء طلب المساعدة');
-                throw new Error('CREATE_FAILED');
+                throw new Error('[tasks:submit] CREATE_FAILED');
             }
             SmartToast.success(
                 params.scope === 'PUBLIC_FORUM'

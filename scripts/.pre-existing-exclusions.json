@@ -1,0 +1,28 @@
+{
+  "_comment": "FOREVER CENTRAL EXCLUDE PREFIXES — shared across all 10 tier-1 production gates. Add new pre-existing failing test prefixes HERE ONLY (never in individual gates). ZVF CONTRACT: preserve verbatim order + exact strings from original execution-production-gate.mjs. NEVER remove existing entries — list is monotonically growing.",
+  "excludePrefixes": [
+    "src/app/runtime/__tests__/executionSectionScenarioCoverageHonesty",
+    "src/app/runtime/__tests__/phase7ExecutionCommitFirst",
+    "src/app/utils/__tests__/followupActionRegistry",
+    "src/app/utils/__tests__/executionDecisionsNamespace",
+    "src/app/utils/__tests__/executionDossierBlobPersistence",
+    "src/app/utils/__tests__/executionDossierStorageReconcile",
+    "src/app/utils/__tests__/executionDomainIsolation",
+    "src/app/utils/__tests__/executionLocalPlaintextAtRest.wave8",
+    "src/app/utils/__tests__/executionReloadPersistence.wave8",
+    "src/app/utils/__tests__/executionUnifiedLedgerSettlement.wave8",
+    "src/app/utils/__tests__/executionFilesOwnerPersistence",
+    "src/app/utils/__tests__/executionFilesStorage",
+    "src/app/utils/__tests__/executionLifecycleMutations",
+    "src/app/utils/__tests__/executionStorageBundleCoverage",
+    "src/app/utils/__tests__/executionTrashPurge",
+    "src/app/utils/__tests__/executionStorageBundleDeleteIsolation",
+    "src/app/utils/__tests__/executionStorageUnified",
+    "src/app/utils/__tests__/syncExecutionIndexRemainingHint",
+    "src/app/components/lawyer/ExecutionDashboard/__tests__/executionOverlayNativeBackInnerSilentHonesty",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionGateManifestParity"
+  ],
+  "_version": "1.0.0",
+  "_owner": "ROYAL TIER-1 PRODUCTION GATES",
+  "_lastUpdatedFromExecutionGateOriginal": "2026-09-08 (20 items verbatim copy)"
+}

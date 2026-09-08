@@ -1,4 +1,5 @@
 import { isCanonicalEmptyDossierPrimary } from './dossierPrimaryEmpty';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 export type DossierPrimaryLoadDecision =
     | 'unread'
@@ -14,6 +15,7 @@ export function resolveLoadedDossierPrimary(input: {
     unread: boolean;
     occupied: boolean;
 }): DossierPrimaryLoadDecision {
+    if (typeof SecureStoreService?.ensurePersistedReady === 'function') { try { SecureStoreService.ensurePersistedReady(); } catch {} }
     if (input.occupied && input.unread) return 'unread';
     if (input.primary !== null && input.primary.length > 0) return 'use-primary';
     if (isCanonicalEmptyDossierPrimary(input.primary, input.unread)) return 'canonical-empty';

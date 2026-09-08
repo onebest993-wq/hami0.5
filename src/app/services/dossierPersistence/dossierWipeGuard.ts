@@ -115,7 +115,12 @@ export function shouldRejectDossierWipe(
     storageKey: string,
     incomingRaw: string,
     existingRaw: string | null | undefined,
+    userId?: string | null,
 ): boolean {
+    /** REPOSITORY_OWNERSHIP_GUARD — L2 !userId رفض التفريغ عند وجود جلسة فارغة صراحةً */
+    if (userId !== undefined && (userId === null || !userId.trim())) {
+        return true;
+    }
     if (!existingRaw?.trim()) return false;
 
     const trimmed = incomingRaw.trim();

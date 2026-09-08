@@ -1,4 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
 
 type RadarErrorBoundaryProps = {
     onBack: () => void;
@@ -21,6 +22,11 @@ export class RadarErrorBoundary extends Component<RadarErrorBoundaryProps, Radar
     componentDidUpdate(prevProps: RadarErrorBoundaryProps): void {
         if (this.props.resetKey !== prevProps.resetKey && this.state.hasError) {
             this.setState({ hasError: false });
+            try {
+                tearDownCalendarFloatingState();
+            } catch {
+                /* teardown never throws */
+            }
         }
     }
 

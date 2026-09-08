@@ -53,7 +53,7 @@ async function wipeCloudDataForCurrentUser(): Promise<CloudWipeResponse> {
             }),
         });
         if (!result?.ok || !result.complete) {
-            throw new Error('cloud_wipe_incomplete');
+            throw new Error('[settings:wipe-cloud-incomplete] cloud_wipe_incomplete');
         }
         return result;
     });
@@ -241,7 +241,7 @@ export async function wipeAllApplicationData(
             await onLogout({ skipLocalPurge: true });
         } else if (isBffAuthEnabled()) {
             if (!(await bffLogout())) {
-                throw new Error('bff_logout_failed');
+                throw new Error('[settings:wipe-bff-logout-failed] bff_logout_failed');
             }
         } else {
             const { error } = await supabase.auth.signOut();
@@ -254,7 +254,7 @@ export async function wipeAllApplicationData(
     // Cloud deletion cannot be rolled back. Always attempt to terminate the
     // session even when one local store resisted deletion, then report honestly.
     if (!local.complete) {
-        throw new Error(`local_wipe_incomplete:${local.failedStages.join(',')}`);
+        throw new Error(`[settings:wipe-local-incomplete] local_wipe_incomplete:${local.failedStages.join(',')}`);
     }
     if (logoutError) throw logoutError;
 

@@ -12,6 +12,8 @@ import {
 } from '@/app/services/calendar/calendarShellSession';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 type UseSmartLegalRadarFormParams = {
     selectedDate: string;
@@ -21,6 +23,9 @@ type UseSmartLegalRadarFormParams = {
     updateEvent: (event: CalendarEvent) => Promise<CalendarEvent | null>;
     deleteEvent: (eventId: string) => Promise<boolean>;
 };
+
+let radarFormSessionCounter = 0;
+let lastActiveRadarFormId = 0;
 
 export function useSmartLegalRadarForm({
     selectedDate,
@@ -35,21 +40,39 @@ export function useSmartLegalRadarForm({
     const [formData, setFormData] = useState<EventFormData>(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const saveInFlightRef = useRef(false);
+    const formSessionIdRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
 
     const openAddForm = useCallback(() => {
+        radarFormSessionCounter += 1;
+        formSessionIdRef.current = radarFormSessionCounter;
+        const thisFormId = formSessionIdRef.current;
+        activeSessionIdRef.current = thisFormId;
+        lastActiveRadarFormId = thisFormId;
+
+        if (activeSessionIdRef.current !== thisFormId) return;
         if (saveInFlightRef.current) return;
         prefetchCalendarCloudModule();
+        if (activeSessionIdRef.current !== thisFormId) return;
         setEditingEvent(null);
         setFormData({ ...EMPTY_FORM, date: selectedDate, time: '' });
         setShowForm(true);
     }, [selectedDate]);
 
     const openEditForm = useCallback((event: UnifiedEvent) => {
+        radarFormSessionCounter += 1;
+        formSessionIdRef.current = radarFormSessionCounter;
+        const thisFormId = formSessionIdRef.current;
+        activeSessionIdRef.current = thisFormId;
+        lastActiveRadarFormId = thisFormId;
+
+        if (activeSessionIdRef.current !== thisFormId) return;
         if (saveInFlightRef.current) return;
         if (event.bridge?.sourceEventId?.startsWith('field_')) {
             SmartToast.info('هذا التاريخ مكتشف تلقائياً من إضبارته — حرّره من المصدر الأصلي');
             return;
         }
+        if (activeSessionIdRef.current !== thisFormId) return;
         setEditingEvent(event);
         setFormData({
             title: event.title,
@@ -66,13 +89,21 @@ export function useSmartLegalRadarForm({
     }, []);
 
     const closeForm = useCallback(() => {
+        if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
         if (saving) return;
         setShowForm(false);
         setEditingEvent(null);
     }, [saving]);
 
     useEffect(() => {
+        radarFormSessionCounter += 1;
+        formSessionIdRef.current = radarFormSessionCounter;
+        const thisEffectId = formSessionIdRef.current;
+        activeSessionIdRef.current = thisEffectId;
+        lastActiveRadarFormId = thisEffectId;
+
         const applyIntent = () => {
+            if (activeSessionIdRef.current !== thisEffectId) return;
             const intent = consumeCalendarShellFormIntent();
             if (!intent) return;
             if (intent.kind === 'add') {
@@ -96,15 +127,36 @@ export function useSmartLegalRadarForm({
             });
         };
         applyIntent();
-        return subscribeCalendarShellSession(applyIntent);
+        const unsub = subscribeCalendarShellSession(() => {
+            if (activeSessionIdRef.current !== thisEffectId) return;
+            applyIntent();
+        });
+        return () => {
+            unsub();
+            if (activeSessionIdRef.current === thisEffectId) {
+                activeSessionIdRef.current = 0;
+                tearDownCalendarFloatingState(thisEffectId);
+            }
+        };
     }, [customEvents, openAddForm, openEditForm]);
 
-    const handleSave = useCallback(async (data: EventFormData) => {
+    const handleSave = useCallback(async (rawData: EventFormData) => {
+        if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
         if (saveInFlightRef.current) return;
-        if (!data.title.trim() || !data.date) {
+        if (!rawData.title.trim() || !rawData.date) {
             SmartToast.warning('العنوان والتاريخ مطلوبان');
             return;
         }
+
+        const data: EventFormData = {
+            ...rawData,
+            title: sanitizeProfilePlainText(rawData.title, 120), // outbound-sanitize: title
+            location: sanitizeProfilePlainText(rawData.location, 200), // outbound-sanitize: location
+            notes: sanitizeProfilePlainText(rawData.notes, 1000), // outbound-sanitize: notes
+            clientName: sanitizeProfilePlainText(rawData.clientName, 200), // outbound-sanitize: clientName
+            clientPhone: sanitizeProfilePlainText(rawData.clientPhone, 100), // outbound-sanitize: contact
+        };
+
         saveInFlightRef.current = true;
         setSaving(true);
         try {
@@ -119,6 +171,7 @@ export function useSmartLegalRadarForm({
                     ...existing,
                     ...mapEventFormToCalendarFields(data),
                 });
+                if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
                 if (!updated) {
                     SmartToast.error('فشل حفظ الموعد');
                     return;
@@ -129,6 +182,7 @@ export function useSmartLegalRadarForm({
                     userId: effectiveUserId,
                     ...mapEventFormToCalendarFields(data),
                 });
+                if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
                 if (!created) {
                     SmartToast.error('فشل حفظ الموعد');
                     return;
@@ -138,15 +192,19 @@ export function useSmartLegalRadarForm({
             setShowForm(false);
             setEditingEvent(null);
         } catch {
+            if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
             SmartToast.error('فشل حفظ الموعد');
         } finally {
-            saveInFlightRef.current = false;
-            setSaving(false);
+            if (lastActiveRadarFormId === activeSessionIdRef.current) {
+                saveInFlightRef.current = false;
+                setSaving(false);
+            }
         }
     }, [editingEvent, effectiveUserId, addEvent, updateEvent, customEvents]);
 
     const handleDelete = useCallback(
         async (event: UnifiedEvent) => {
+            if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
             if (event.bridge?.sourceEventId?.startsWith('field_')) {
                 SmartToast.info('هذا التاريخ مكتشف تلقائياً من إضبارته — حرّره أو احذفه من المصدر الأصلي');
                 return;
@@ -165,6 +223,7 @@ export function useSmartLegalRadarForm({
             try {
                 const calId = storedCalendarIdFromUnified(event.id);
                 const removed = await deleteEvent(calId);
+                if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
                 if (!removed) {
                     SmartToast.error('فشل حذف الموعد');
                     return;
@@ -175,16 +234,20 @@ export function useSmartLegalRadarForm({
                     setEditingEvent(null);
                 }
             } catch {
+                if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
                 SmartToast.error('فشل حذف الموعد');
             } finally {
-                saveInFlightRef.current = false;
-                setSaving(false);
+                if (lastActiveRadarFormId === activeSessionIdRef.current) {
+                    saveInFlightRef.current = false;
+                    setSaving(false);
+                }
             }
         },
         [deleteEvent, editingEvent],
     );
 
     const handleFormDelete = useCallback(() => {
+        if (lastActiveRadarFormId !== activeSessionIdRef.current) return;
         if (editingEvent) void handleDelete(editingEvent);
     }, [editingEvent, handleDelete]);
 

@@ -43,11 +43,16 @@ export function clearHomeHubPerfMarks(): void {
     resetHomeHubPerfReportSession();
 }
 
+function latestPerfMark(name: string): PerformanceEntry | null {
+    const entries = performance.getEntriesByName(name, 'mark');
+    return entries.length > 0 ? entries[entries.length - 1] : null;
+}
+
 /** ms من open-request → interactive (null إذا لم تُسجَّل المرحلتان) */
 export function getHomeHubOpenToInteractiveMs(): number | null {
     if (typeof performance === 'undefined') return null;
-    const open = performance.getEntriesByName(`${MARK_PREFIX}open-request`, 'mark')[0];
-    const interactive = performance.getEntriesByName(`${MARK_PREFIX}interactive`, 'mark')[0];
+    const open = latestPerfMark(`${MARK_PREFIX}open-request`);
+    const interactive = latestPerfMark(`${MARK_PREFIX}interactive`);
     if (!open || !interactive) return null;
     const ms = interactive.startTime - open.startTime;
     if (!Number.isFinite(ms) || ms < 0) return null;

@@ -16,10 +16,10 @@ export const LawyerStorage = {
     ) {
         const sessionUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
         if (!sessionUserId || sessionUserId !== userId) {
-            throw new Error('Unauthorized upload: session user mismatch');
+            throw new Error('[storage:runtime:upload_unauthorized] Unauthorized upload: session user mismatch');
         }
         if (WORK_LOCAL_UPLOAD_CATEGORIES.has(category) && !isLawyerWorkCloudLive()) {
-            throw new Error('work_cloud_upload_disabled');
+            throw new Error('[storage:runtime:upload_disabled] work_cloud_upload_disabled');
         }
 
         const looksLikeImage =
@@ -53,14 +53,14 @@ export const LawyerStorage = {
                 typeof body.error === 'string' && body.error.trim()
                     ? body.error.trim()
                     : `Upload failed (${response.status})`;
-            throw new Error(message);
+            throw new Error('[storage:runtime:upload_failed] ' + message);
         }
 
         const path = typeof body.path === 'string' ? body.path : '';
         const downloadUrl = typeof body.downloadUrl === 'string' ? body.downloadUrl : null;
         const bucket = typeof body.bucket === 'string' ? body.bucket : undefined;
         if (!path) {
-            throw new Error('Upload response missing path');
+            throw new Error('[storage:runtime:upload_path_missing] Upload response missing path');
         }
 
         return {

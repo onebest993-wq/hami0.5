@@ -50,18 +50,18 @@ export async function createForumGroup(
 ): Promise<ForumGroup> {
     if (!(await hasForumRemoteSession())) {
         const creatorId = await getForumSessionUserId(requesterId);
-        if (!creatorId) throw new Error('يجب تسجيل الدخول');
+        if (!creatorId) throw new Error('[forumApi:groups:opcode] يجب تسجيل الدخول');
         return ForumGroupLocalStore.createGroup(creatorId, input);
     }
     return withForumMutationFallback(
         async () => {
             const res = await forumApiPostJson<ApiOk<{ group: ForumGroup }>>('/api/forum/groups', input);
-            if (!res.group) throw new Error('استجابة غير صالحة');
+            if (!res.group) throw new Error('[forumApi:groups:opcode] استجابة غير صالحة');
             return res.group;
         },
         async () => {
             const creatorId = await getForumSessionUserId(requesterId);
-            if (!creatorId) throw new Error('يجب تسجيل الدخول');
+            if (!creatorId) throw new Error('[forumApi:groups:opcode] يجب تسجيل الدخول');
             return ForumGroupLocalStore.createGroup(creatorId, input);
         },
     );
@@ -73,10 +73,10 @@ export async function joinForumGroup(
 ): Promise<ForumGroup> {
     if (!(await hasForumRemoteSession())) {
         const lawyerId = await getForumSessionUserId(requesterId);
-        if (!lawyerId) throw new Error('يجب تسجيل الدخول');
+        if (!lawyerId) throw new Error('[forumApi:groups:opcode] يجب تسجيل الدخول');
         ForumGroupLocalStore.joinGroup(groupId, lawyerId);
         const group = ForumGroupLocalStore.getGroup(groupId, lawyerId);
-        if (!group) throw new Error('المجموعة غير موجودة');
+        if (!group) throw new Error('[forumApi:groups:opcode] المجموعة غير موجودة');
         return group;
     }
     return withForumMutationFallback(
@@ -84,15 +84,15 @@ export async function joinForumGroup(
             const res = await forumApiPostJson<ApiOk<{ group: ForumGroup }>>('/api/forum/groups/join', {
                 groupId,
             });
-            if (!res.group) throw new Error('استجابة غير صالحة');
+            if (!res.group) throw new Error('[forumApi:groups:opcode] استجابة غير صالحة');
             return res.group;
         },
         async () => {
             const lawyerId = await getForumSessionUserId(requesterId);
-            if (!lawyerId) throw new Error('يجب تسجيل الدخول');
+            if (!lawyerId) throw new Error('[forumApi:groups:opcode] يجب تسجيل الدخول');
             ForumGroupLocalStore.joinGroup(groupId, lawyerId);
             const group = ForumGroupLocalStore.getGroup(groupId, lawyerId);
-            if (!group) throw new Error('المجموعة غير موجودة');
+            if (!group) throw new Error('[forumApi:groups:opcode] المجموعة غير موجودة');
             return group;
         },
     );
@@ -101,7 +101,7 @@ export async function joinForumGroup(
 export async function leaveForumGroup(groupId: string, requesterId?: string | null): Promise<void> {
     if (!(await hasForumRemoteSession())) {
         const lawyerId = await getForumSessionUserId(requesterId);
-        if (!lawyerId) throw new Error('يجب تسجيل الدخول');
+        if (!lawyerId) throw new Error('[forumApi:groups:opcode] يجب تسجيل الدخول');
         ForumGroupLocalStore.leaveGroup(groupId, lawyerId);
         return;
     }
@@ -111,7 +111,7 @@ export async function leaveForumGroup(groupId: string, requesterId?: string | nu
         },
         async () => {
             const lawyerId = await getForumSessionUserId(requesterId);
-            if (!lawyerId) throw new Error('يجب تسجيل الدخول');
+            if (!lawyerId) throw new Error('[forumApi:groups:opcode] يجب تسجيل الدخول');
             ForumGroupLocalStore.leaveGroup(groupId, lawyerId);
         },
     );

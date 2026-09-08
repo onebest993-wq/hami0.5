@@ -59,8 +59,8 @@ export async function followForumUser(
     },
 ): Promise<boolean> {
     const userId = await getForumSessionUserId(options?.requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
-    if (userId === followingId) throw new Error('لا يمكنك متابعة نفسك');
+    if (!userId) throw new Error('[forumApi:social:opcode] يجب تسجيل الدخول');
+    if (userId === followingId) throw new Error('[forumApi:social:opcode] لا يمكنك متابعة نفسك');
 
     await FollowDB.follow(userId, followingId);
 
@@ -81,7 +81,7 @@ export async function followForumUser(
 
 export async function unfollowForumUser(followingId: string, requesterId?: string | null): Promise<void> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:social:opcode] يجب تسجيل الدخول');
 
     await FollowDB.unfollow(userId, followingId);
 
@@ -101,7 +101,7 @@ export async function updateForumFollowPreferences(
     requesterId?: string | null,
 ): Promise<void> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:social:opcode] يجب تسجيل الدخول');
     await forumApiPostJson<ApiOk<{ follow: unknown }>>('/api/forum/follow', {
         action: 'update_prefs',
         followingId,
@@ -179,7 +179,7 @@ export async function toggleForumPostSubscription(
     requesterId?: string | null,
 ): Promise<boolean> {
     const userId = await getForumSessionUserId(requesterId);
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:social:opcode] يجب تسجيل الدخول');
 
     const wasSubscribed = await ForumPostFollowRepository.isSubscribed(userId, postId);
     let subscribed: boolean;

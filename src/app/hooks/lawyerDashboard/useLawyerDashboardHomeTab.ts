@@ -6,7 +6,10 @@ import {
 } from 'react';
 
 import { isDashboardInteractive, onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
-import { markHomeHubPerfPhase } from '@/app/services/alerts/homeHubPerfMetrics';
+import {
+    clearHomeHubPerfMarks,
+    markHomeHubPerfPhase,
+} from '@/app/services/alerts/homeHubPerfMetrics';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 function loadHomeHubCardLoader() {
@@ -40,6 +43,7 @@ export function useLawyerDashboardHomeTab({ activeTab }: UseLawyerDashboardHomeT
     useLayoutEffect(() => {
         const isHome = activeTab === 'home';
         if (isHome && !wasHomeTabVisibleRef.current) {
+            clearHomeHubPerfMarks();
             markHomeHubPerfPhase('open-request');
         }
         wasHomeTabVisibleRef.current = isHome;

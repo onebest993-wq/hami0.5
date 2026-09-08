@@ -64,7 +64,7 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
                         setLoadFailed(false);
                         return;
                     }
-                    throw new Error('ProfileSettingsSheet missing');
+                    throw new Error('[profile:sheet:missing] ProfileSettingsSheet missing');
                 })
                 .catch(() => {
                     if (cancelled) return;

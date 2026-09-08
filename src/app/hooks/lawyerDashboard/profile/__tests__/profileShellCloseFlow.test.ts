@@ -28,6 +28,7 @@ vi.mock('@/app/runtime/overlaySnapClose', () => ({
 vi.mock('@/app/hooks/lawyerDashboard/profile/profileShellExit', () => ({
     beginProfileShellExit: (onDone: () => void) => onDone(),
     PROFILE_SURFACE_EXIT_MS: 200,
+    tearDownProfileFloatingState: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/lawyerDashboardNav', () => ({

@@ -3,6 +3,8 @@ import {
     CALENDAR_MUTATION_TIMEOUT_MS,
     withCalendarTimeout,
 } from '@/app/services/calendar/calendarTimeout';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import '@/app/services/calendar/calendarNetworkAbort';
 
 type CalendarCloudModule = typeof import('@/app/services/cloud/lawyerCalendarCloud');
 
@@ -20,6 +22,9 @@ export async function fetchCalendarEvents(
     userId: string,
     options?: { forceRefresh?: boolean },
 ): Promise<CalendarEvent[]> {
+    // CALENDAR_OWNERSHIP_GUARD: لا تُنفّذ أي استعلام شبكي عند غياب هوية المستخدم المصادق
+    if (!userId) return [];
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch { /* ignore */ }
     const mod = await loadCalendarCloudModule();
     return mod.CalendarDB.getEvents(userId, options);
 }
@@ -47,6 +52,8 @@ export async function updateCalendarEvent(event: CalendarEvent): Promise<void> {
 }
 
 export async function deleteCalendarEvent(eventId: string, userId: string): Promise<void> {
+    // CALENDAR_OWNERSHIP_GUARD: حذف الحدث يقتضي هوية مصادقة سارية لمنع هجمات التلاعب بالمعرفات
+    if (!userId) return;
     await withMutationTimeout(
         (async () => {
             const mod = await loadCalendarCloudModule();

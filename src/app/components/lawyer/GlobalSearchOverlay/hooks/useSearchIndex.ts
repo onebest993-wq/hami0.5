@@ -110,6 +110,7 @@ export function useSearchIndex(options: UseSearchIndexOptions): {
 
         let cancelled = false;
         const priority = resolveSearchIndexPriority(true);
+        const abortController = new AbortController();
 
         void runSearchIndexBuild(
             {
@@ -122,27 +123,29 @@ export function useSearchIndex(options: UseSearchIndexOptions): {
             priority,
             {
                 applyFuse: (instance, key) => {
-                    if (cancelled) return;
+                    if (cancelled || abortController.signal.aborted) return;
                     activeKeyRef.current = key;
                     setAppliedKey(key);
                     setFuse(instance);
                 },
                 clearFuse: () => {
-                    if (cancelled) return;
+                    if (cancelled || abortController.signal.aborted) return;
                     activeKeyRef.current = null;
                     setAppliedKey(null);
                     setFuse(null);
                 },
                 setBuilding: (building) => {
-                    if (!cancelled) setIsBuildingIndex(building);
+                    if (!cancelled && !abortController.signal.aborted) setIsBuildingIndex(building);
                 },
                 isCancelled: () => cancelled,
                 resolveFuse: resolveFuseForKey,
+                signal: abortController.signal,
             },
         );
 
         return () => {
             cancelled = true;
+            abortController.abort();
         };
     }, [cacheKey, preparedInput, extrasReady, overlayOpen]);
 

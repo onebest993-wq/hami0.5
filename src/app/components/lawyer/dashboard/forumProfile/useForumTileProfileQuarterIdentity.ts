@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLawyerProfileHeader } from '@/app/hooks/useLawyerProfileHeader';
 import {
     isSameUserIdentity,
@@ -6,6 +6,10 @@ import {
     type UserIdentityUiState,
 } from '@/app/services/profile/userIdentityUiState';
 import { pickForumTileProfilePaintState } from '@/app/components/lawyer/dashboard/forumProfile/pickForumTileProfilePaintState';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
+
+let forumTileOpenSessionCounter = 0;
+let lastActiveForumTileSessionId = 0;
 
 export function useForumTileProfileQuarterIdentity(
     userId: string | undefined,
@@ -19,16 +23,36 @@ export function useForumTileProfileQuarterIdentity(
     const [identity, setIdentity] = useState(() =>
         pickForumTileProfilePaintState(userId, userMetadata, liveName, liveAvatar, seedDisplayName),
     );
+    const openSessionIdRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
 
     useEffect(() => {
-        return subscribeUserIdentityUiState((next) => {
+        forumTileOpenSessionCounter += 1;
+        openSessionIdRef.current += 1;
+        const currentSessionId = openSessionIdRef.current;
+        activeSessionIdRef.current = currentSessionId;
+        lastActiveForumTileSessionId = currentSessionId;
+        const unsubscribe = subscribeUserIdentityUiState((next) => {
+            if (activeSessionIdRef.current !== currentSessionId) return;
             if (!next) return;
             if (userId && next.userId !== userId) return;
             setIdentity((prev) => (isSameUserIdentity(prev, next) ? prev : next));
         });
+        return () => {
+            unsubscribe();
+            if (activeSessionIdRef.current === currentSessionId) {
+                activeSessionIdRef.current = 0;
+                tearDownForumFloatingState(currentSessionId);
+            }
+        };
     }, [userId]);
 
     useEffect(() => {
+        forumTileOpenSessionCounter += 1;
+        openSessionIdRef.current += 1;
+        const currentSessionId = openSessionIdRef.current;
+        activeSessionIdRef.current = currentSessionId;
+        lastActiveForumTileSessionId = currentSessionId;
         const next = pickForumTileProfilePaintState(
             userId,
             userMetadata,
@@ -36,7 +60,13 @@ export function useForumTileProfileQuarterIdentity(
             liveAvatar,
             seedDisplayName,
         );
+        if (activeSessionIdRef.current !== currentSessionId) return;
         setIdentity((prev) => (isSameUserIdentity(prev, next) ? prev : next));
+        return () => {
+            if (activeSessionIdRef.current === currentSessionId) {
+                activeSessionIdRef.current = 0;
+            }
+        };
     }, [userId, userMetadata, liveName, liveAvatar, seedDisplayName]);
 
     return identity;

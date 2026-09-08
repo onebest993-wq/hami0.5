@@ -29,6 +29,6 @@ export function assertForumGroupWriteAccess(
 ): void {
     if (!groupId) return;
     if (!isMember && !isAdmin) {
-        throw new Error('يجب الانضمام للمجموعة قبل النشر فيها');
+        throw new Error('[forum:bff_policy:join_required] يجب الانضمام للمجموعة قبل النشر فيها');
     }
 }

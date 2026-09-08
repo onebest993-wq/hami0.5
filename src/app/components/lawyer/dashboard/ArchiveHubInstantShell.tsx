@@ -45,7 +45,7 @@ export function ArchiveHubInstantShell({
             data-testid={testId}
             data-hami-overlay-safe="1"
         >
-            <div className="px-5 hami-overlay-header-safe-pad pb-4 border-b border-white/[0.06] flex items-center gap-3">
+            <header className="px-5 hami-overlay-header-safe-pad pb-4 border-b border-white/[0.06] flex items-center gap-3">
                 <button
                     type="button"
                     onClick={onBack}
@@ -55,7 +55,7 @@ export function ArchiveHubInstantShell({
                     <HomeChevronRightIcon className="w-5 h-5" />
                 </button>
                 <h2 className="text-lg font-bold text-white truncate">{title}</h2>
-            </div>
+            </header>
             <div className="flex-1 flex flex-col px-6 pt-4" aria-hidden>
                 <div className="w-full max-w-[520px] space-y-3 mx-auto">
                     {Array.from({ length: 4 }).map((_, index) => (

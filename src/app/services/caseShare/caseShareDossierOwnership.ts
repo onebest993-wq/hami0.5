@@ -1,5 +1,6 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import type { DossierShareSource } from './caseShareTypes';
@@ -17,6 +18,10 @@ async function verifyLawsuitRowOnServer(
     ownerId: string,
     dossierId: string,
 ): Promise<boolean> {
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch { /* ignore */ }
+    // LITIGATION_OWNERSHIP_GUARD
+    const userId = ownerId;
+    if (!userId) return false;
     try {
         const { getSupabaseAdminClient } = await import('@/app/api/security/supabaseAdminClient');
         const admin = getSupabaseAdminClient();

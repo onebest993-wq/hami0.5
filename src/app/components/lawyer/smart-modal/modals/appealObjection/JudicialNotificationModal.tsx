@@ -78,9 +78,11 @@ export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: Judici
                     <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className={T.field} />
                 </div>
 
-                <div
-                    className="flex items-center gap-2 border border-white/[0.08] p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm cursor-pointer hover:bg-white/[0.05] transition-colors"
+                <button
+                    type="button"
+                    className="flex items-center gap-2 border border-white/[0.08] p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm cursor-pointer hover:bg-white/[0.05] transition-colors w-full text-right"
                     onClick={() => setIsCompleted(!isCompleted)}
+                    style={{ appearance: 'none', color: 'inherit' }}
                 >
                     <div
                         className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isCompleted ? checkboxActive : 'border-white/30'}`}
@@ -90,7 +92,7 @@ export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: Judici
                     <span className={`text-sm select-none ${T.variant === 'personal-pearl' ? 'text-[#ECE8E2]/90' : 'text-white/80'}`}>
                         تم التبليغ بالفعل (إضافة للسجل مباشرة)
                     </span>
-                </div>
+                </button>
 
                 <button
                     type="button"

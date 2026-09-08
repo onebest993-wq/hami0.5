@@ -238,7 +238,7 @@ describe('calendar dock section surgical close honesty', () => {
         expect(openFlow).toMatch(
             /catch\(\(\) => undefined\);\s*if \(isScheduleShellSnappedOpen\(\)\)/,
         );
-        expect(openFlow).toContain('runScheduleOpenCommit(params)');
+        expect(openFlow).toMatch(/runScheduleOpenCommit\(\s*\{\s*\.\.\.params/);
     });
 
     it('ScheduleTabHost يستورد التبويب ثابتاً ويرسمه عند keepAlive للكشف اللحظي', () => {

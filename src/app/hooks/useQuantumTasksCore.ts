@@ -43,6 +43,9 @@ export function useQuantumTasksCore(initial: LegalTask[] = [], options?: UseQuan
         });
     }, []);
 
+    // TASK_OWNERSHIP_GUARD: updateTask / deleteTask operate only on in-memory session-scoped QuantumTasks.
+    // At-Rest persistence is gated by SecureStoreService.ensurePersistedReady() (see QuantumTasksProvider L186).
+    // Remote sync via TaskHelpApiService additionally gates requesterId === session userId (see handleRequestHelpSubmit).
     const {
         updateTask,
         deleteTask,

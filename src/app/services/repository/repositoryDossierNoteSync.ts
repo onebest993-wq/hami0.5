@@ -3,6 +3,7 @@ import type { ExecutionFile, GlobalNote } from '@/app/components/lawyer/LawyerDa
 import type { DossierKind } from './repositoryDossierRegistry';
 import type { DossierNoteRef } from './repositoryDossierNotes';
 import { stripRepositoryHtml } from './stripRepositoryHtml';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 type ParsedDossierNoteId = {
     kind: DossierKind;
@@ -177,8 +178,8 @@ export function globalNoteToDossierPayload(note: GlobalNote): {
 } {
     const plainBody = stripRepositoryHtml(note.body || '');
     return {
-        title: note.title?.trim() || 'ملاحظة من المستودع',
-        body: note.body?.trim() || plainBody,
+        title: sanitizeProfilePlainText(note.title?.trim() || 'ملاحظة من المستودع', 120),
+        body: sanitizeProfilePlainText(note.body?.trim() || plainBody, 20000),
         isPinned: Boolean(note.isPinned),
     };
 }
@@ -192,9 +193,9 @@ export function vaultDocToDossierPayload(doc: {
     lawyerNote?: string | null;
     aiSummary?: string | null;
 }): { title: string; body: string; isPinned: boolean } {
-    const body = (doc.lawyerNote || doc.aiSummary || '').trim();
+    const body = sanitizeProfilePlainText((doc.lawyerNote || doc.aiSummary || '').trim(), 500);
     return {
-        title: doc.title?.trim() || 'ملف من المستودع',
+        title: sanitizeProfilePlainText(doc.title?.trim() || 'ملف من المستودع', 255),
         body,
         isPinned: false,
     };

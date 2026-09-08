@@ -57,7 +57,7 @@ export const ForumFollowRepository = {
         prefs: Partial<ForumFollowPrefs> = {},
     ): Promise<ForumFollowRecord> {
         if (followerId === followingId) {
-            throw new Error('لا يمكنك متابعة نفسك');
+            throw new Error('[forumRepo:follow:opcode] لا يمكنك متابعة نفسك');
         }
         const merged: ForumFollowPrefs = { ...DEFAULT_PREFS, ...prefs };
         const admin = await loadForumSupabaseAdmin();
@@ -82,7 +82,7 @@ export const ForumFollowRepository = {
             },
             { onConflict: 'follower_id,following_id' },
         );
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:follow:opcode] ' + (error.message));
         return { followerId, followingId, createdAt, ...merged };
     },
 
@@ -100,7 +100,7 @@ export const ForumFollowRepository = {
             .delete()
             .eq('follower_id', followerId)
             .eq('following_id', followingId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:follow:opcode] ' + (error.message));
     },
 
     async isFollowing(followerId: string, followingId: string): Promise<boolean> {
@@ -157,7 +157,7 @@ export const ForumFollowRepository = {
     ): Promise<ForumFollowRecord> {
         const existing = await this.getFollowing(followerId);
         const row = existing.find((r) => r.followingId === followingId);
-        if (!row) throw new Error('لم تعد تتابع هذا المحامي');
+        if (!row) throw new Error('[forumRepo:follow:opcode] لم تعد تتابع هذا المحامي');
         const merged: ForumFollowPrefs = {
             notifyPosts: prefs.notifyPosts ?? row.notifyPosts,
             notifyComments: prefs.notifyComments ?? row.notifyComments,
@@ -181,7 +181,7 @@ export const ForumFollowRepository = {
             })
             .eq('follower_id', followerId)
             .eq('following_id', followingId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:follow:opcode] ' + (error.message));
         return { ...row, ...merged };
     },
 };

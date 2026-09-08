@@ -249,7 +249,7 @@ export function LawyerAuthOtpPanel({
     };
 
     return (
-        <div className={authGateCardClass} data-testid="lawyer-auth-otp-panel" aria-label={title}>
+        <section className={authGateCardClass} data-testid="lawyer-auth-otp-panel" aria-label={title}>
             <h1 className={authGateTitleClass}>{title}</h1>
             <p className={authGateHintClass}>{hint}</p>
 
@@ -306,6 +306,6 @@ export function LawyerAuthOtpPanel({
                     }}
                 />
             )}
-        </div>
+        </section>
     );
 }

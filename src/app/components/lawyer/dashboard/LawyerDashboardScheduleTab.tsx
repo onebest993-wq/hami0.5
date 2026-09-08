@@ -2,6 +2,7 @@ import React, { useCallback, useEffect } from 'react';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
 import type { FileData } from '../LawyerShared';
 import type { ExecutionFile } from '@/app/types/execution';
 import { subscribeCalendarOpenSource } from '@/app/services/calendar/calendarOpenSourceIntent';
@@ -93,6 +94,13 @@ export function LawyerDashboardScheduleTab({
     useEffect(() => subscribeCalendarOpenSource((detail) => {
         handleOpenSource(detail.sourceModule, detail.sourceEntityId, detail.sourceEventId);
     }), [handleOpenSource]);
+
+    useEffect(() => {
+        if (visible) return;
+        return () => {
+            try { tearDownCalendarFloatingState(); } catch { /* ignore */ }
+        };
+    }, [visible]);
 
     return (
         <div

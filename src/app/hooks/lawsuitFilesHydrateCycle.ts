@@ -47,8 +47,9 @@ async function awaitWithBudget<T>(promise: Promise<T>, ms: number): Promise<T | 
     }
 }
 
-function markArchiveInteractive(): void {
+function markArchiveInteractive(host: LawsuitFilesHydrateCycleHost): void {
     void import('@/app/services/alerts/lawsuitArchivePerfMetrics').then((m) => {
+        if (host.isStale()) return;
         m.markLawsuitArchivePerf('interactive');
         m.reportLawsuitArchivePerf();
     });
@@ -93,7 +94,7 @@ async function finishLawsuitArchiveHydrate(
 
     if (decision.declareHydrated) {
         host.setLawsuitStorageHydrated(true);
-        markArchiveInteractive();
+        markArchiveInteractive(host);
     }
 }
 

@@ -8,6 +8,7 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
@@ -122,8 +123,28 @@ async function uploadRowsWithBoundedConcurrency(
             const row = queue.shift();
             if (!row) return;
             if (bucket === 'execution') {
+                const execRow = row as Record<string, unknown>;
+                try {
+                    const scalarLimits: Record<string, number> = { directorate:160, classification:200, docNumber:200, fileNumber:40, fileYear:4, claimType:80, clientName:120, opponentName:120, property_number:80, district:200, property_type:200, full_address:200 };
+                    for (const [k, max] of Object.entries(scalarLimits)) {
+                        if (typeof execRow[k] === 'string') execRow[k] = sanitizeProfilePlainText(execRow[k] as string, max);
+                    }
+                    const partyArrays = ['creditors','debtors','parties'];
+                    for (const ak of partyArrays) {
+                        const arr = execRow[ak];
+                        if (Array.isArray(arr)) {
+                            for (const r of arr) {
+                                if (r && typeof r === 'object') {
+                                    const rr = r as Record<string, unknown>;
+                                    if (typeof rr.name === 'string') rr.name = sanitizeProfilePlainText(rr.name as string, 120);
+                                    if (typeof rr.fullName === 'string') rr.fullName = sanitizeProfilePlainText(rr.fullName as string, 120);
+                                }
+                            }
+                        }
+                    }
+                } catch { /* cloud sync outbound sanitize never throws at boundary */ }
                 await SupabaseService.saveExecutionFile(
-                    row as Parameters<typeof SupabaseService.saveExecutionFile>[0],
+                    execRow as Parameters<typeof SupabaseService.saveExecutionFile>[0],
                 );
             } else if (bucket === 'lawsuit') {
                 await SupabaseService.saveLawsuitFile(

@@ -13,6 +13,7 @@ import {
     peekPendingCalendarAlarmEventId,
     stashPendingCalendarAlarmEventId,
 } from '@/app/services/notifications/osTap/calendarAlarmPending';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
 
 function loadReminderEvents(userId: string): CalendarEvent[] {
     const cached = getCachedCalendarEvents(userId);
@@ -46,6 +47,7 @@ export function CalendarReminderHost({ userId, enabled = true }: CalendarReminde
     useEffect(() => {
         if (!enabled || !userId) {
             setEvents([]);
+            try { tearDownCalendarFloatingState(); } catch { /* ignore */ }
             return;
         }
 
@@ -55,7 +57,10 @@ export function CalendarReminderHost({ userId, enabled = true }: CalendarReminde
 
         sync();
         window.addEventListener(CALENDAR_UPDATED_EVENT, sync);
-        return () => window.removeEventListener(CALENDAR_UPDATED_EVENT, sync);
+        return () => {
+            window.removeEventListener(CALENDAR_UPDATED_EVENT, sync);
+            try { tearDownCalendarFloatingState(); } catch { /* ignore */ }
+        };
     }, [enabled, userId]);
 
     const { activeAlarm, dismissAlarm, snoozeAlarm, presentAlarmForEventId } = useCalendarEventReminders(

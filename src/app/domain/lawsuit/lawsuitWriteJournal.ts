@@ -10,6 +10,11 @@ import {
     writeSecureJsonValue,
 } from '@/app/services/storage/syncSecureJson';
 
+let lawsuitWriteJournalOpenCounter = 0;
+let lastActiveWriteJournalId = 0;
+const lawsuitWriteJournalSessionIdRef = { current: 0 };
+const activeLawsuitWriteJournalSessionIdRef = { current: 0 };
+
 /**
  * سجل كتابة append-only — مشفّر في SecureStore (نسخ FileData: أسماء وأرقام دعاوى).
  * ليس في قشرة الإقلاع ولا PROTECTED_WARM (الحمولة قد تكون ثقيلة).
@@ -58,8 +63,19 @@ function writeRaw(entries: LawsuitWriteJournalEntry[]): void {
     writeSecureJsonValue(LAWSUIT_WRITE_JOURNAL_KEY, entries);
 }
 
+function markLawsuitWriteJournalSessionBoot(): void {
+    lawsuitWriteJournalOpenCounter += 1;
+    lastActiveWriteJournalId = lawsuitWriteJournalOpenCounter;
+    lawsuitWriteJournalSessionIdRef.current = lawsuitWriteJournalOpenCounter;
+    activeLawsuitWriteJournalSessionIdRef.current = lawsuitWriteJournalOpenCounter;
+}
+
 export function clearLawsuitWriteJournalForTests(): void {
     clearSecureJsonValue(LAWSUIT_WRITE_JOURNAL_KEY);
+    lawsuitWriteJournalOpenCounter = 0;
+    lastActiveWriteJournalId = 0;
+    lawsuitWriteJournalSessionIdRef.current = 0;
+    activeLawsuitWriteJournalSessionIdRef.current = 0;
 }
 
 export async function settleLawsuitJournalPersist(): Promise<void> {
@@ -81,7 +97,9 @@ export function isLawsuitJournalStillOpen(fileId: string | number): boolean {
 
 /** تسجيل محاولة كتابة قبل active segment — WAL */
 export function stageLawsuitJournalRecords(files: readonly FileData[]): void {
+    markLawsuitWriteJournalSessionBoot();
     if (!files.length) return;
+    if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) return;
     const byId = new Map(readRaw().map((entry) => [entry.fileId, entry]));
     const ts = Date.now();
     for (const file of files) {
@@ -113,9 +131,11 @@ export function pruneLawsuitJournalForFileIds(fileIds: readonly (string | number
  * يُمسح السجل فقط بعد تحقق القرص.
  */
 export async function flushLawsuitJournalToActive(): Promise<number> {
+    markLawsuitWriteJournalSessionBoot();
     if (SecureStoreService.isUnreadSync(LAWSUIT_WRITE_JOURNAL_KEY)) {
         await SecureStoreService.getItem(LAWSUIT_WRITE_JOURNAL_KEY);
     }
+    if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) return 0;
     const entries = readRaw();
     if (entries.length === 0) return 0;
     if (SecureStoreService.isUnreadSync(LAWSUIT_FILES_ACTIVE_KEY)) return 0;
@@ -124,6 +144,7 @@ export async function flushLawsuitJournalToActive(): Promise<number> {
         loadLawsuitBootSegments,
         persistLawsuitFiles,
     } = await import('@/app/domain/lawsuit/lawsuitFilesRepository');
+    if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) return 0;
     const boot = loadLawsuitBootSegments().active;
     const merged = mergeLawsuitJournalInto(boot);
     persistLawsuitFiles(merged);
@@ -132,14 +153,27 @@ export async function flushLawsuitJournalToActive(): Promise<number> {
     const { tryFinalizeLawsuitJournalAfterProof } = await import(
         '@/app/domain/lawsuit/lawsuitDurabilityVerify'
     );
+    if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) return 0;
     let cleared = 0;
     for (const entry of entries) {
-        const commit = await awaitLawsuitWorkspaceCommit({
-            timeoutMs: 8_000,
-            requireActiveFileId: entry.fileId,
-        });
-        const didClear = await tryFinalizeLawsuitJournalAfterProof(entry.fileId, commit);
-        if (didClear) cleared += 1;
+        if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) continue;
+        try {
+            const commit = await awaitLawsuitWorkspaceCommit({
+                timeoutMs: 8_000,
+                requireActiveFileId: entry.fileId,
+            });
+            if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) continue;
+            const didClear = await tryFinalizeLawsuitJournalAfterProof(entry.fileId, commit);
+            if (didClear) cleared += 1;
+        } catch {
+            if (lawsuitWriteJournalSessionIdRef.current !== activeLawsuitWriteJournalSessionIdRef.current) continue;
+            void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+                m.tearDownLitigationFloatingState({
+                    targetSurface: 'litigation-shell',
+                    reason: 'commit-failed',
+                }),
+            );
+        }
     }
     return cleared;
 }

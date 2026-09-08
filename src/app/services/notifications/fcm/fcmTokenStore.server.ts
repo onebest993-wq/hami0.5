@@ -23,7 +23,7 @@ async function readRecord(userId: string): Promise<FcmTokenRecord> {
 
 async function writeRecord(userId: string, record: FcmTokenRecord): Promise<void> {
     const kv = await loadKvStoreAdmin();
-    if (!kv) throw new Error('KV admin unavailable');
+    if (!kv) throw new Error('[services_notifications:kvadminunavailable] KV admin unavailable');
     await kv.kvSet(kvKey(userId), record);
 }
 

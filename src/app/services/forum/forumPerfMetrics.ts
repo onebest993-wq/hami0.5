@@ -30,13 +30,25 @@ export function clearForumPerfMarks(): void {
     }
 }
 
-/** ms من open-request → interactive (null إذا لم تُسجَّل المرحلتان) */
+function latestPerfMark(name: string): PerformanceEntry | null {
+    const entries = performance.getEntriesByName(name, 'mark');
+    return entries.length > 0 ? entries[entries.length - 1] : null;
+}
+
+/** ms من open-request → interactive (null إذا لم تُسجَّل المرحلتان أو كان الوقت غير موجب) */
 export function getForumOpenToInteractiveMs(): number | null {
-    if (typeof performance === 'undefined') return null;
-    const open = performance.getEntriesByName(`${MARK_PREFIX}open-request`, 'mark')[0];
-    const interactive = performance.getEntriesByName(`${MARK_PREFIX}interactive`, 'mark')[0];
+    if (
+        typeof performance === 'undefined' ||
+        typeof performance.getEntriesByName !== 'function'
+    ) {
+        return null;
+    }
+    const open = latestPerfMark(`${MARK_PREFIX}open-request`);
+    const interactive = latestPerfMark(`${MARK_PREFIX}interactive`);
     if (!open || !interactive) return null;
-    return Math.round(interactive.startTime - open.startTime);
+    const delta = interactive.startTime - open.startTime;
+    if (!Number.isFinite(delta) || delta <= 0) return null;
+    return Math.round(delta);
 }
 
 /** DEV: log — PROD (مع DSN): Sentry breadcrumb + metric */

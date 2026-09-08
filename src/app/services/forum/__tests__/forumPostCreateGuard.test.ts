@@ -53,7 +53,7 @@ describe('sanitizeCommunityPostForCreate', () => {
 
     it('ينظّف وسوماً فيها أقواس HTML', () => {
         const safe = sanitizeCommunityPostForCreate(buildPost({ tags: ['<b>قانون</b>'] }), 'user-1');
-        expect(safe.tags).toEqual(['bقانون/b']);
+        expect(safe.tags).toEqual(['قانون']);
     });
 
     it('يرفض مرفقات javascript:', () => {

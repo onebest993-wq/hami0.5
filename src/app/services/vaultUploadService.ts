@@ -82,7 +82,7 @@ function scheduleVaultBlobPersist(
     fileLabel: string,
 ): Promise<void> {
     void persistTask.catch((err) => {
-        console.error('[Vault] background blob persist failed', err, fileLabel);
+        if (import.meta.env.DEV) console.error('[Vault] background blob persist failed', err, fileLabel);
     });
     return persistTask;
 }

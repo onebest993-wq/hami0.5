@@ -17,7 +17,7 @@ import {
 export function useQuantumTasksContext(): QuantumTasksContextValue {
     const ctx = useContext(QuantumTasksContext);
     if (!ctx) {
-        throw new Error('useQuantumTasksContext must be used within QuantumTasksProvider');
+        throw new Error('[quantum:ctx] useQuantumTasksContext must be used within QuantumTasksProvider');
     }
     return ctx;
 }
@@ -25,7 +25,7 @@ export function useQuantumTasksContext(): QuantumTasksContextValue {
 export function useQuantumTasksData(): QuantumTasksDataValue {
     const ctx = useContext(QuantumTasksDataContext);
     if (!ctx) {
-        throw new Error('useQuantumTasksData must be used within QuantumTasksProvider');
+        throw new Error('[quantum:ctx] useQuantumTasksData must be used within QuantumTasksProvider');
     }
     return ctx;
 }
@@ -33,7 +33,7 @@ export function useQuantumTasksData(): QuantumTasksDataValue {
 export function useQuantumTasksActions(): QuantumTasksActionsValue {
     const ctx = useContext(QuantumTasksActionsContext);
     if (!ctx) {
-        throw new Error('useQuantumTasksActions must be used within QuantumTasksProvider');
+        throw new Error('[quantum:ctx] useQuantumTasksActions must be used within QuantumTasksProvider');
     }
     return ctx;
 }

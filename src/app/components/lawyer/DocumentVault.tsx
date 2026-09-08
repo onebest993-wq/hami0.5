@@ -571,10 +571,12 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                         </div>
                     ) : (
                         visibleDocuments.map((doc) => (
-                            <div
+                            <button
                                 key={doc.id}
-                                className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[0.08] px-2.5 py-2"
+                                type="button"
+                                className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[0.08] px-2.5 py-2 w-full text-right"
                                 onClick={() => setPreviewDocId(doc.id)}
+                                style={{ appearance: 'none', background: 'transparent', borderStyle: 'solid', padding: '10px', margin: '0', font: 'inherit', color: 'inherit' }}
                             >
                                 <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10">
                                     {doc.type === 'image' && doc.dataUrl ? (
@@ -616,7 +618,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                         حذف
                                     </button>
                                 </div>
-                            </div>
+                            </button>
                         ))
                     )}
                 </div>

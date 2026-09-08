@@ -1,6 +1,7 @@
 import { toBaghdadYmd } from '@/app/utils/baghdadTime';
 import type { CalendarBridgePayload, CalendarSourceModule } from '@/app/services/calendarBridge.types';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 const BRIDGE_ID_PREFIX = 'hami_bridge';
 
@@ -88,11 +89,21 @@ export function moduleLabelAr(module: CalendarSourceModule): string {
 
 export function buildNotesBlock(payload: CalendarBridgePayload): string {
     const lines: string[] = [];
-    const label = payload.sourceLabel || moduleLabelAr(payload.sourceModule);
+    const rawLabel = payload.sourceLabel || moduleLabelAr(payload.sourceModule);
+    const label = sanitizeProfilePlainText(rawLabel, 200); // outbound-sanitize: bridge sourceLabel
     lines.push(`📂 المصدر: ${label}`);
-    if (payload.court) lines.push(`🏛 المحكمة: ${payload.court}`);
-    if (payload.partiesSummary) lines.push(`👥 ${payload.partiesSummary}`);
-    if (payload.notes) lines.push(payload.notes);
+    if (payload.court) {
+        const courtSafe = sanitizeProfilePlainText(payload.court, 200); // outbound-sanitize: bridge court
+        lines.push(`🏛 المحكمة: ${courtSafe}`);
+    }
+    if (payload.partiesSummary) {
+        const partiesSafe = sanitizeProfilePlainText(payload.partiesSummary, 500); // outbound-sanitize: bridge partiesSummary
+        lines.push(`👥 ${partiesSafe}`);
+    }
+    if (payload.notes) {
+        const notesSafe = sanitizeProfilePlainText(payload.notes, 2000); // outbound-sanitize: bridge notes
+        lines.push(notesSafe);
+    }
     return lines.filter(Boolean).join('\n');
 }
 

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarGrid } from '@/app/components/lawyer/SmartLegalRadar/CalendarGrid';
 import { useCalendarLiveHandoff } from '@/app/services/calendar/calendarLiveHandoffContext';
 import { inertProps } from '@/app/utils/inertProps';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
 
 type CalendarGridProps = React.ComponentProps<typeof CalendarGrid>;
 
@@ -12,6 +13,13 @@ export function CalendarGridHost(props: CalendarGridProps & { visible: boolean }
     const { visible, ...gridProps } = props;
     const handoff = useCalendarLiveHandoff();
     const [held, setHeld] = useState(visible);
+
+    useEffect(() => {
+        if (visible) return;
+        return () => {
+            try { tearDownCalendarFloatingState(); } catch { /* ignore */ }
+        };
+    }, [visible]);
 
     if (visible && !held) {
         setHeld(true);

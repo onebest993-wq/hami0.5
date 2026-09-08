@@ -385,7 +385,7 @@ export function HeadquartersPanel({
                 />
             </div>
 
-            <div className="hq-panel hq-dir-board" data-testid="hq-dir-filters">
+            <section className="hq-panel hq-dir-board" data-testid="hq-dir-filters">
                 <div className="hq-ops-cluster">
                     <p className="hq-ops-cluster-title">الوضع</p>
                     <HqChipRow>
@@ -474,7 +474,7 @@ export function HeadquartersPanel({
                             : ''}
                     </p>
                 </div>
-            </div>
+            </section>
 
             {renderCapped ? (
                 <p className="hq-ops-note" role="status">

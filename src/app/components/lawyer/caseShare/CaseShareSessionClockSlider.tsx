@@ -7,6 +7,12 @@ import {
     type CaseShareSessionMinutes,
 } from '@/app/services/caseShare/caseShareSession';
 
+/* Mobile Safe-Area tokens (read-only, ZVF no visual layout change) */
+const SAFE_AREA_INSET_TOP = 'env(safe-area-inset-top)';
+const SAFE_AREA_INSET_RIGHT = 'env(safe-area-inset-right)';
+const SAFE_AREA_INSET_BOTTOM = 'env(safe-area-inset-bottom)';
+const SAFE_AREA_INSET_LEFT = 'env(safe-area-inset-left)';
+
 type Props = {
     value: CaseShareSessionMinutes;
     onChange: (minutes: CaseShareSessionMinutes) => void;

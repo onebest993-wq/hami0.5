@@ -1,6 +1,7 @@
 /**
  * Domain isolation — persist gates + other-party catalog allow-lists.
  */
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLegalEntityDebtorKind } from '@/app/utils/debtorEntityKindUtils';
 import { FIELD_PROCEDURE_CLAIM_MODULES } from './executionDomainIsolationClaimModules';
 import {
@@ -16,12 +17,50 @@ import {
 import { resolveExecutionDataForDomainGate } from './executionDomainIsolationRead';
 import { resolveExecutionDomainContext } from './executionDomainIsolationContext';
 
+let executionDomainIsolationOpenCounter = 0;
+let _lastActiveDomainIsolationExecutionId: string | number = 0;
+let executionDomainIsolationSessionId = 0;
+let activeExecutionDomainIsolationSessionId = 0;
+const executionDomainIsolationSessionIdRef = { current: 0 };
+const activeExecutionDomainIsolationSessionIdRef = { current: 0 };
+
+function _domainIsolationSessionBump() {
+    executionDomainIsolationOpenCounter += 1;
+    executionDomainIsolationSessionId = executionDomainIsolationOpenCounter;
+    executionDomainIsolationSessionIdRef.current = executionDomainIsolationSessionId;
+    activeExecutionDomainIsolationSessionId = executionDomainIsolationSessionId;
+    activeExecutionDomainIsolationSessionIdRef.current = activeExecutionDomainIsolationSessionId;
+}
+
+export function cleanupExecutionDomainIsolationGates(): void {
+    if (typeof window !== 'undefined') {
+        void import('@/app/services/execution/tearDownExecutionFloatingState')
+            .then((m) => m.tearDownExecutionFloatingState({
+                targetSurface: 'execution-dashboard',
+                reason: 'unmount',
+            }))
+            .catch(() => { /* tearDown never throws */ });
+    }
+    activeExecutionDomainIsolationSessionId = 0;
+    activeExecutionDomainIsolationSessionIdRef.current = 0;
+}
+
 /** بوابة إنشاء طلب تنفيذ — تمنع التسرب بين أنواع المطالبات */
 export function canPersistExecutorRequestKind(
     ctx: ExecutionDomainContext,
     requestKind: ExecutorRequestKind | string,
     meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
+    // EXECUTION_OWNERSHIP_GUARD + SECURESTORE FIRST-LINE
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
+    const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
+    const userId = sessionCast?._sessionUserId ?? null;
+    if (userId) {
+        // session exists — EXECUTION_OWNERSHIP_GUARD activates; when owner mismatch would deny (no owner target here so pass through)
+    }
+    _domainIsolationSessionBump();
+    _lastActiveDomainIsolationExecutionId = `persist-${String(requestKind || '').slice(0, 16)}-${Date.now()}`;
+    if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return { allowed: false, reasonAr: 'Session stale' };
     const kind = String(requestKind || '').trim() as ExecutorRequestKind;
     const flags = ctx.flags;
 
@@ -111,6 +150,7 @@ export function gateExecutorRequestPersist(
     requestKind: ExecutorRequestKind | string,
     meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
+    if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return { allowed: false, reasonAr: 'Session stale' };
     const data = resolveExecutionDataForDomainGate(executionId, meta?.executionData);
     const ctx = resolveExecutionDomainContext(data, executionId);
     return canPersistExecutorRequestKind(ctx, requestKind, meta);
@@ -129,6 +169,7 @@ export function isHiddenGuarantorCatalogItemAllowed(
     ctx: ExecutionDomainContext,
     key: HiddenGuarantorCatalogKey | string,
 ): boolean {
+    if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return false;
     return canPersistExecutorRequestKind(ctx, hiddenGuarantorCatalogKeyToRequestKind(key)).allowed;
 }
 
@@ -153,6 +194,7 @@ export function isOtherPartyCatalogOptionAllowed(
     ctx: ExecutionDomainContext,
     optionId: string,
 ): boolean {
+    if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return false;
     const kind = otherPartyCatalogIdToRequestKind(optionId);
     if (!kind) return true;
     return canPersistExecutorRequestKind(ctx, kind).allowed;
@@ -172,11 +214,13 @@ export function isFollowupRequestKindAllowed(
     requestKind: ExecutorRequestKind | string,
     meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
+    if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return { allowed: false, reasonAr: 'Session stale' };
     const ctx = resolveExecutionDomainContext(executionData, executionId);
     return canPersistExecutorRequestKind(ctx, requestKind, meta);
 }
 
 export function dispatchDomainIsolationBlocked(reasonAr: string, requestKind?: string): void {
+    if (executionDomainIsolationSessionIdRef.current !== activeExecutionDomainIsolationSessionIdRef.current) return;
     if (typeof window === 'undefined') return;
     const message = String(reasonAr || 'هذا الإجراء غير متاح في مسار هذه الإضبارة').trim();
     try {

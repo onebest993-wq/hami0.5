@@ -2,6 +2,15 @@ import type { CommunityAttachment } from '@/app/services/cloud/lawyerCommunityTy
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 import { FORUM_IDB_PREFIX, parseForumIdbPath } from '@/app/services/forumBlobPath';
 
+let forumAttachmentResolveAbort: AbortController | undefined;
+
+export function abortForumAttachmentResolve(): void {
+    if (forumAttachmentResolveAbort) {
+        forumAttachmentResolveAbort.abort();
+        forumAttachmentResolveAbort = undefined;
+    }
+}
+
 function isCloudStoragePath(path: string | undefined | null): boolean {
     const trimmed = path?.trim() ?? '';
     return Boolean(trimmed && !trimmed.startsWith(FORUM_IDB_PREFIX));
@@ -26,7 +35,8 @@ async function blobUrlToFile(
     mimeType?: string,
 ): Promise<File | null> {
     try {
-        const res = await fetch(url);
+        forumAttachmentResolveAbort = new AbortController();
+        const res = await fetch(url, { signal: forumAttachmentResolveAbort.signal });
         if (!res.ok) return null;
         const blob = await res.blob();
         return new File([blob], fileName, {

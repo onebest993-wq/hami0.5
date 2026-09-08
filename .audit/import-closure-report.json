@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-09-06T14:56:28.756Z",
+  "generatedAt": "2026-09-07T09:17:19.207Z",
   "seeds": 35,
   "missingSeeds": [],
   "totals": {
-    "closureFiles": 5316,
+    "closureFiles": 5318,
     "inventoryFiles": 1890,
-    "gapsNotAudited": 4086,
-    "gapLines": 420022,
+    "gapsNotAudited": 4088,
+    "gapLines": 420146,
     "hotGaps": 991,
     "hotGapLines": 105226,
     "unreachableInInventory": 701,
@@ -5332,12 +5332,12 @@
       "lines": 58
     },
     {
-      "path": "src/app/components/lawyer/ArchivePortal/components/ArchivePortalTrashBulkBar.tsx",
+      "path": "src/app/api/security/contentSecurityPolicy.ts",
       "depth": 2,
-      "lines": 55
+      "lines": 58
     },
     {
-      "path": "src/app/api/security/contentSecurityPolicy.ts",
+      "path": "src/app/components/lawyer/ArchivePortal/components/ArchivePortalTrashBulkBar.tsx",
       "depth": 2,
       "lines": 55
     },
@@ -5413,6 +5413,11 @@
     },
     {
       "path": "src/app/components/lawyer/FinancialOperationsCenter/focPointerPrefetch.ts",
+      "depth": 2,
+      "lines": 17
+    },
+    {
+      "path": "src/app/runtime/eventConstants.ts",
       "depth": 2,
       "lines": 17
     },
@@ -5660,6 +5665,11 @@
       "path": "src/app/api/security/wifeAuthResponses.ts",
       "depth": 3,
       "lines": 98
+    },
+    {
+      "path": "src/app/constants/appEventNames.ts",
+      "depth": 3,
+      "lines": 97
     },
     {
       "path": "src/app/components/lawyer/ArchivePortal/archivePortalAmountUtils.ts",
@@ -6222,12 +6232,12 @@
       "lines": 79
     },
     {
-      "path": "src/app/runtime/forumOpenIntent.ts",
+      "path": "src/app/runtime/forumInstantPaint.ts",
       "depth": 4,
-      "lines": 78
+      "lines": 77
     },
     {
-      "path": "src/app/runtime/forumInstantPaint.ts",
+      "path": "src/app/runtime/forumOpenIntent.ts",
       "depth": 4,
       "lines": 77
     },
@@ -6519,7 +6529,7 @@
     {
       "path": "src/app/runtime/appStateEvents.ts",
       "depth": 4,
-      "lines": 12
+      "lines": 14
     },
     {
       "path": "src/app/components/lawyer/CommunityScreen/CommunityScreenHost.tsx",
@@ -6869,7 +6879,7 @@
     {
       "path": "src/app/runtime/nativeBootSplash.ts",
       "depth": 5,
-      "lines": 135
+      "lines": 134
     },
     {
       "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealWaiveCassation.ts",
@@ -10472,6 +10482,11 @@
       "lines": 112
     },
     {
+      "path": "src/app/components/lawyer/smart-modal/modals/appealObjection/JudicialNotificationModal.tsx",
+      "depth": 7,
+      "lines": 109
+    },
+    {
       "path": "src/app/components/lawyer/LawyerHomeHubCard/components/HomeHubAlertsPanel.tsx",
       "depth": 7,
       "lines": 109
@@ -10495,11 +10510,6 @@
       "path": "src/app/components/lawyer/criminal-system/partyContextFilter.ts",
       "depth": 7,
       "lines": 108
-    },
-    {
-      "path": "src/app/components/lawyer/smart-modal/modals/appealObjection/JudicialNotificationModal.tsx",
-      "depth": 7,
-      "lines": 107
     },
     {
       "path": "src/app/components/lawyer/criminal-system/detentionEngine.ts",
@@ -15562,6 +15572,11 @@
       "lines": 81
     },
     {
+      "path": "src/app/components/lawyer/CommunityScreen/components/RepositoryCardBody.tsx",
+      "depth": 9,
+      "lines": 81
+    },
+    {
       "path": "src/app/components/lawyer/smart-modal/smartFile/cloudSavePayload.ts",
       "depth": 9,
       "lines": 80
@@ -15613,11 +15628,6 @@
     },
     {
       "path": "src/app/components/lawyer/CommunityScreen/components/ForumFollowersList.tsx",
-      "depth": 9,
-      "lines": 76
-    },
-    {
-      "path": "src/app/components/lawyer/CommunityScreen/components/RepositoryCardBody.tsx",
       "depth": 9,
       "lines": 76
     },

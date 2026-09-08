@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { inertProps } from '@/app/utils/inertProps';
 import { FORUM_LAYER } from '@/app/components/lawyer/CommunityScreen/forumPlumTheme';
@@ -7,6 +7,7 @@ import { CommunityScreenHost } from '@/app/components/lawyer/CommunityScreen/Com
 import { getForumOverlayPortalRoot } from '@/app/components/lawyer/CommunityScreen/forumOverlayPortal';
 import { isForumShellPaintedOpen } from '@/app/runtime/forumInstantPaint';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
 /**
@@ -34,6 +35,12 @@ export function LawyerDashboardCommunityOverlayEntry({
     const [portalRoot] = useState(() =>
         typeof document === 'undefined' ? null : getForumOverlayPortalRoot(),
     );
+
+    useEffect(() => {
+        return () => {
+            tearDownForumFloatingState();
+        };
+    }, []);
 
     if (!shouldMount || !forumUserId) return null;
 

@@ -30,7 +30,7 @@ async function headCount(
         count: number | null;
         error: unknown;
     }>);
-    if (error) throw new Error('forum stats count failed');
+    if (error) throw new Error('[services_forum:forumstatscountfai] forum stats count failed');
     return typeof count === 'number' ? count : 0;
 }
 

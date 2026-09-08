@@ -46,6 +46,11 @@ export function pruneRedundantDecisionsStorageAliases(
     canonicalId: string | undefined,
     executionData?: Record<string, unknown> | null,
 ): { prunedDossierIds: string[] } {
+    // EXECUTION_OWNERSHIP_GUARD + SECURESTORE FIRST-LINE
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
+    const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
+    const userId = sessionCast?._sessionUserId ?? null;
+    if (!userId) return { prunedDossierIds: [] };
     const canonical = normalizeExecutionStorageId(canonicalId);
     if (!canonical || canonical === 'default') {
         return { prunedDossierIds: [] };

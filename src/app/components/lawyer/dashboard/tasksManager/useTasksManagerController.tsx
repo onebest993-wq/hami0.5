@@ -20,6 +20,9 @@ import { consumeTasksHelpInboxIntent, HAMI_OPEN_TASKS_HELP_INBOX_EVENT } from '@
 import { consumeFocusTaskBrief } from './focusTaskBriefOnce';
 import { useTasksManagerDialogActions } from './useTasksManagerDialogActions';
 
+let tasksManagerControllerSessionCounter = 0;
+let lastActiveTasksManagerControllerFlowId: number | null = null;
+
 export type UseTasksManagerControllerOptions = {
     focusTaskId?: string;
     lawsuitFiles?: unknown[];
@@ -31,6 +34,13 @@ export function useTasksManagerController({
     lawsuitFiles = [],
     executionFiles = [],
 }: UseTasksManagerControllerOptions) {
+    const sessionIdRef = useRef<number>(++tasksManagerControllerSessionCounter);
+    const activeSessionIdRef = useRef<number>(sessionIdRef.current);
+    lastActiveTasksManagerControllerFlowId = sessionIdRef.current;
+    const isActiveFlow = () =>
+        sessionIdRef.current === activeSessionIdRef.current &&
+        lastActiveTasksManagerControllerFlowId === sessionIdRef.current;
+
     const { tasks, pendingTasks } = useQuantumTasksData();
     const {
         addTask,
@@ -96,6 +106,7 @@ export function useTasksManagerController({
     const appliedFocusTaskIdRef = useRef<string | null>(null);
 
     useEffect(() => {
+        if (!isActiveFlow()) return;
         if (!focusTaskId) {
             consumeFocusTaskBrief(undefined, appliedFocusTaskIdRef, false);
             return;
@@ -107,7 +118,9 @@ export function useTasksManagerController({
     }, [focusTaskId, tasks, setDetailPanel]);
 
     useEffect(() => {
+        if (!isActiveFlow()) return;
         const openInbox = () => {
+            if (!isActiveFlow()) return;
             consumeTasksHelpInboxIntent();
             setHelpInboxOpen(true);
         };
@@ -115,7 +128,12 @@ export function useTasksManagerController({
             setHelpInboxOpen(true);
         }
         window.addEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, openInbox);
-        return () => window.removeEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, openInbox);
+        return () => {
+            window.removeEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, openInbox);
+            if (activeSessionIdRef.current === sessionIdRef.current) {
+                activeSessionIdRef.current = 0;
+            }
+        };
     }, []);
 
     const { weeklyDayBlocks, distantTasks, fatalTasks } = useMemo(
@@ -135,6 +153,7 @@ export function useTasksManagerController({
 
     const openWeekAdd = useCallback(
         (dayKey: (typeof WORK_WEEK)[number]['key'], opts?: { withPlan?: boolean }) => {
+            if (!isActiveFlow()) return;
             const weekStart = getSaturdayOfWeekContaining(now);
             const d = WORK_WEEK.find((x) => x.key === dayKey);
             if (d) {
@@ -172,6 +191,7 @@ export function useTasksManagerController({
 
     const saveWeekBundle = useCallback(
         (dayKey: (typeof WORK_WEEK)[number]['key']) => {
+            if (!isActiveFlow()) return;
             if (!weekAdd || weekAdd.dayKey !== dayKey) return;
             const details = weekAdd.detailsOpen ? weekAdd.details.trim() : '';
             const location = weekAdd.locationOpen ? weekAdd.location.trim() : '';
@@ -195,6 +215,7 @@ export function useTasksManagerController({
 
     const saveSnoozedTask = useCallback(
         (title: string, ymd: string) => {
+            if (!isActiveFlow()) return;
             const trimmed = title.trim();
             const when = dateFromYmdInput(ymd);
             if (!trimmed || !when) return;
@@ -228,6 +249,7 @@ export function useTasksManagerController({
     }, []);
 
     const saveEdit = useCallback(() => {
+        if (!isActiveFlow()) return;
         if (!editTaskId) return;
         const details = editTitle.trim();
         const loc = editLocation.trim();
@@ -260,6 +282,7 @@ export function useTasksManagerController({
     }, [editTaskId, editTitle, editLocation, editSubTasks, tasks, updateTask]);
 
     const confirmDelete = useCallback(() => {
+        if (!isActiveFlow()) return;
         let removedId: string | null = null;
         setDeleteConfirmId((currentId) => {
             if (currentId === null) return null;
@@ -319,6 +342,7 @@ export function useTasksManagerController({
 
     const reopenArchivedTask = useCallback(
         (task: LegalTask) => {
+            if (!isActiveFlow()) return;
             reopenTask(task.id);
             setShowCompletedArchive(false);
         },
@@ -345,6 +369,7 @@ export function useTasksManagerController({
     }, []);
 
     const confirmPostpone = useCallback(() => {
+        if (!isActiveFlow()) return;
         if (!postponeTaskId) return;
         const when = dateFromYmdInput(postponeDateYmd);
         if (!when) {
@@ -421,6 +446,7 @@ export function useTasksManagerController({
     const weekStartLive = getSaturdayOfWeekContaining(new Date());
 
     const onFatalOpenChange = useCallback((open: boolean) => {
+        if (!isActiveFlow()) return;
         if (!open) cancelFatalComplete();
     }, [cancelFatalComplete]);
 

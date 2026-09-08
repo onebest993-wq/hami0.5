@@ -138,7 +138,7 @@ export function ExecutionArchiveChrome({
     const layer = (
         <div className={shellClass}>
             {!hideHeader && (
-                <div className="px-3 sm:px-4 hami-overlay-header-safe-pad pb-2 border-b border-white/[0.06] flex justify-between items-center gap-3 bg-[#0B1021] shrink-0">
+                <header className="px-3 sm:px-4 hami-overlay-header-safe-pad pb-2 border-b border-white/[0.06] flex justify-between items-center gap-3 bg-[#0B1021] shrink-0">
                     <div className="min-w-0 flex-1">
                         <h2 className="text-[13px] sm:text-sm font-bold text-white truncate">{getTitle()}</h2>
                         <p className="text-white/40 text-[11px] mt-0.5 leading-snug">
@@ -176,7 +176,7 @@ export function ExecutionArchiveChrome({
                     >
                         <ExecutionArchiveXMark size={18} />
                     </button>
-                </div>
+                </header>
             )}
 
             <ExecutionArchiveLifecycleBars

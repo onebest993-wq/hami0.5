@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
     persistMock: vi.fn(),
     dismissMock: vi.fn(),
     markPerfMock: vi.fn(),
+    clearPerfMock: vi.fn(),
     snapOpenMock: vi.fn(() => false),
 }));
 
@@ -40,6 +41,7 @@ vi.mock('@/app/services/settings/settingsShellSnap', () => ({
 
 vi.mock('@/app/services/settings/settingsPerfMetrics', () => ({
     markSettingsPerfPhase: mocks.markPerfMock,
+    clearSettingsPerfMarks: mocks.clearPerfMock,
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
@@ -140,5 +142,61 @@ describe('settingsShellOpenFlow', () => {
 
         expect(showSettingsRef.current).toBe(true);
         expect(setShowSettings).toHaveBeenCalledWith(true);
+    });
+
+    it('clearSettingsPerfMarks تستدعى أول شيء قبل first-paint — ترتيب صحيح', async () => {
+        const callOrder: string[] = [];
+        mocks.clearPerfMock.mockImplementation(() => callOrder.push('clear'));
+        mocks.markPerfMock.mockImplementation((phase: string) => callOrder.push(`mark:${phase}`));
+        mocks.paintMock.mockImplementation(() => {
+            callOrder.push('paint');
+            return false;
+        });
+
+        const { commitSettingsShellOpen } = await import(
+            '@/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow'
+        );
+
+        commitSettingsShellOpen({
+            showSettingsRef: { current: false },
+            ensureSettingsHostMounted: vi.fn(),
+            setShowSettings: vi.fn(),
+        });
+
+        expect(callOrder[0]).toBe('clear');
+        const firstPaintIdx = callOrder.indexOf('mark:first-paint');
+        const clearIdx = callOrder.indexOf('clear');
+        expect(clearIdx).toBeGreaterThan(-1);
+        expect(firstPaintIdx).toBeGreaterThan(clearIdx);
+    });
+
+    it('Reopen سريع يلغي flow السابق — persist القديم لا يُستدعى', async () => {
+        const firstRef = { current: false };
+        const firstPersistCalls: boolean[] = [];
+        mocks.persistMock.mockImplementation((v) => firstPersistCalls.push(v));
+
+        const { commitSettingsShellOpen } = await import(
+            '@/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow'
+        );
+
+        commitSettingsShellOpen({
+            showSettingsRef: firstRef,
+            ensureSettingsHostMounted: vi.fn(),
+            setShowSettings: vi.fn(),
+        });
+
+        firstRef.current = false;
+
+        commitSettingsShellOpen({
+            showSettingsRef: { current: false },
+            ensureSettingsHostMounted: vi.fn(),
+            setShowSettings: vi.fn(),
+        });
+
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(firstRef.current).toBe(false);
+        expect(mocks.persistMock).toHaveBeenLastCalledWith(true);
     });
 });

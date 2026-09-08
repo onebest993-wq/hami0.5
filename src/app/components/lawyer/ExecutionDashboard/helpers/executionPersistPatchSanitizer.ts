@@ -1,6 +1,7 @@
 /** Defense-in-depth: sanitize persist patches before merge/storage */
 import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
 import { validateDossierMetaDraft } from './dossierMetaValidation';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
 function stripUnsafeNoteHtml(raw: string): string {
     return String(raw ?? '')
@@ -49,10 +50,10 @@ function sanitizePartyRow(row: unknown): Record<string, unknown> | null {
 
     return {
         ...row,
-        name,
-        ...(name ? { fullName: name } : {}),
+        name: sanitizeProfilePlainText(name, MAX_PARTY_NAME),
+        ...(name ? { fullName: sanitizeProfilePlainText(name, MAX_PARTY_NAME) } : {}),
         phone,
-        address,
+        address: sanitizeProfilePlainText(address, MAX_PARTY_ADDRESS),
     };
 }
 
@@ -83,10 +84,12 @@ function sanitizeDossierMetaFields(patch: Record<string, unknown>): ExecutionPer
     };
     for (const [key, max] of Object.entries(limits)) {
         if (!(key in patch)) continue;
-        const value = String(patch[key] ?? '').trim();
+        const raw = String(patch[key] ?? '').trim();
+        const value = sanitizeProfilePlainText(raw, max);
         if (value.length > max) {
             return { ok: false, reason: `${key} طويل جداً` };
         }
+        patch[key] = value;
     }
     if ('fileYear' in patch) {
         const year = String(patch.fileYear ?? '').trim();
@@ -129,13 +132,13 @@ function sanitizeNoteLogRows(value: unknown): unknown[] | null {
     const next: Record<string, unknown>[] = [];
     for (const row of value) {
         if (!isPlainObject(row)) return null;
-        const title = String(row.title ?? '').trim();
-        const body = stripUnsafeNoteHtml(String(row.body ?? row.bodyHtml ?? '').trim());
-        if (title.length > MAX_NOTE_TITLE || body.length > MAX_NOTE_BODY) return null;
+        const titleRaw = String(row.title ?? '').trim();
+        const bodyRaw = stripUnsafeNoteHtml(String(row.body ?? row.bodyHtml ?? '').trim());
+        if (titleRaw.length > MAX_NOTE_TITLE || bodyRaw.length > MAX_NOTE_BODY) return null;
         next.push({
             ...row,
-            title,
-            body,
+            title: sanitizeProfilePlainText(titleRaw, MAX_NOTE_TITLE),
+            body: sanitizeProfilePlainText(bodyRaw, MAX_NOTE_BODY),
         });
     }
     return next;
@@ -147,13 +150,13 @@ function sanitizeTaskRows(value: unknown): unknown[] | null {
     const next: Record<string, unknown>[] = [];
     for (const row of value) {
         if (!isPlainObject(row)) return null;
-        const title = String(row.title ?? '').trim();
-        const body = String(row.body ?? '').trim();
-        if (title.length > MAX_NOTE_TITLE || body.length > MAX_NOTE_BODY) return null;
+        const titleRaw = String(row.title ?? '').trim();
+        const bodyRaw = String(row.body ?? '').trim();
+        if (titleRaw.length > MAX_NOTE_TITLE || bodyRaw.length > MAX_NOTE_BODY) return null;
         next.push({
             ...row,
-            title,
-            body,
+            title: sanitizeProfilePlainText(titleRaw, MAX_NOTE_TITLE),
+            body: sanitizeProfilePlainText(bodyRaw, MAX_NOTE_BODY),
         });
     }
     return next;
@@ -233,16 +236,16 @@ function sanitizeMoneyFields(patch: Record<string, unknown>): ExecutionPersistPa
 function sanitizeNotesPatch(patch: Record<string, unknown>): ExecutionPersistPatchSanitizeResult {
     let next = patch;
     if ('noteTitle' in next || 'noteBody' in next || 'noteText' in next) {
-        const title = String(next.noteTitle ?? '').trim();
-        const body = stripUnsafeNoteHtml(String(next.noteBody ?? next.noteText ?? '').trim());
-        if (title.length > MAX_NOTE_TITLE || body.length > MAX_NOTE_BODY) {
+        const titleRaw = String(next.noteTitle ?? '').trim();
+        const bodyRaw = stripUnsafeNoteHtml(String(next.noteBody ?? next.noteText ?? '').trim());
+        if (titleRaw.length > MAX_NOTE_TITLE || bodyRaw.length > MAX_NOTE_BODY) {
             return { ok: false, reason: 'محتوى الملاحظة يتجاوز الحد المسموح' };
         }
         next = {
             ...next,
-            ...('noteTitle' in next ? { noteTitle: title } : {}),
-            ...('noteBody' in next ? { noteBody: body } : {}),
-            ...('noteText' in next ? { noteText: body } : {}),
+            ...('noteTitle' in next ? { noteTitle: sanitizeProfilePlainText(titleRaw, MAX_NOTE_TITLE) } : {}),
+            ...('noteBody' in next ? { noteBody: sanitizeProfilePlainText(bodyRaw, MAX_NOTE_BODY) } : {}),
+            ...('noteText' in next ? { noteText: sanitizeProfilePlainText(bodyRaw, MAX_NOTE_BODY) } : {}),
         };
     }
     if ('caseNotesLog' in next) {
@@ -256,11 +259,11 @@ function sanitizeNotesPatch(patch: Record<string, unknown>): ExecutionPersistPat
         next = { ...next, caseTasksPending: rows };
     }
     if ('pauseReason' in next) {
-        const reason = String(next.pauseReason ?? '').trim();
-        if (reason.length > 500) {
+        const reasonRaw = String(next.pauseReason ?? '').trim();
+        if (reasonRaw.length > 500) {
             return { ok: false, reason: 'سبب الإيقاف طويل جداً' };
         }
-        next = { ...next, pauseReason: reason };
+        next = { ...next, pauseReason: sanitizeProfilePlainText(reasonRaw, 500) };
     }
     return { ok: true, patch: next };
 }
@@ -311,15 +314,17 @@ export function sanitizeExecutionPersistPatch(
         next = { ...next, parties };
     }
     if ('clientName' in next) {
-        const clientName = resolvePartyStoredName(next.clientName) || String(next.clientName ?? '').trim();
+        const clientNameRaw = resolvePartyStoredName(next.clientName) || String(next.clientName ?? '').trim();
+        const clientName = sanitizeProfilePlainText(clientNameRaw, MAX_PARTY_NAME);
         if (clientName.length > MAX_PARTY_NAME) {
             return { ok: false, reason: 'اسم الدائن طويل جداً' };
         }
         next = { ...next, clientName };
     }
     if ('opponentName' in next) {
-        const opponentName =
+        const opponentNameRaw =
             resolvePartyStoredName(next.opponentName) || String(next.opponentName ?? '').trim();
+        const opponentName = sanitizeProfilePlainText(opponentNameRaw, MAX_PARTY_NAME);
         if (opponentName.length > MAX_PARTY_NAME) {
             return { ok: false, reason: 'اسم المدين طويل جداً' };
         }

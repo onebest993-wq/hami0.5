@@ -8,15 +8,17 @@ import {
     loadNotificationIntentWarm,
     loadNotificationPerfMetrics,
 } from '@/app/hooks/lawyerDashboard/notifications/notificationDashboardLazyImports';
+import { clearNotificationPerfMarks } from '@/app/services/notifications/notificationPerfMetrics';
 import { isNotificationReopenSuppressed } from '@/app/services/notifications/notificationReopenGuard';
 import { shouldKeepNotificationHostWarm } from '@/app/services/notifications/notificationHostKeepAlive';
 
+let openFlowSessionIdCounter = 0;
+let openFlowActiveSessionIdRef = 0;
+
 export function clearNotificationOpenPerfMarks(): void {
     try {
-        if (typeof performance === 'undefined') return;
-        for (const phase of ['open-request', 'chunk-ready', 'first-paint', 'interactive'] as const) {
-            performance.clearMarks(`hami:notifications:${phase}`);
-        }
+        clearNotificationPerfMarks();
+        if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
         performance.mark('hami:notifications:open-request');
     } catch {
         /* ignore */
@@ -35,20 +37,34 @@ type BeginNotificationShellOpenParams = CommitNotificationShellOpenParams & {
 };
 
 function schedulePostOpenWork(
+    flowId: number,
     showNotificationsRef: MutableRefObject<boolean>,
     userId: string | null,
 ): void {
     const run = () => {
+        if (openFlowActiveSessionIdRef !== flowId) return;
         if (!showNotificationsRef.current) return;
         void loadNotificationIntentWarm()
-            .then((m) => m.warmNotificationsOnOpen(userId))
+            .then((m) => {
+                if (openFlowActiveSessionIdRef !== flowId) return;
+                if (!showNotificationsRef.current) return;
+                return m.warmNotificationsOnOpen(userId);
+            })
             .catch(() => undefined);
         void loadNotificationBootHydrator()
-            .then((m) => m.hydrateNotificationShellForInstantOpen(true))
+            .then((m) => {
+                if (openFlowActiveSessionIdRef !== flowId) return;
+                if (!showNotificationsRef.current) return;
+                return m.hydrateNotificationShellForInstantOpen(true);
+            })
             .catch(() => undefined)
-            .then(() =>
-                loadNotificationPerfMetrics().then((m) => m.markNotificationPerfPhase('chunk-ready')),
-            );
+            .then(() => {
+                if (openFlowActiveSessionIdRef !== flowId) return;
+                if (!showNotificationsRef.current) return;
+                return loadNotificationPerfMetrics().then((m) =>
+                    m.markNotificationPerfPhase('chunk-ready'),
+                );
+            });
     };
     queueMicrotask(run);
 }
@@ -63,6 +79,10 @@ export function commitNotificationShellOpen({
     setNotificationHostMounted,
     setShowNotifications,
 }: CommitNotificationShellOpenParams): void {
+    openFlowSessionIdCounter += 1;
+    const flowId = openFlowSessionIdCounter;
+    openFlowActiveSessionIdRef = flowId;
+
     clearNotificationOpenPerfMarks();
     showNotificationsRef.current = true;
 
@@ -73,6 +93,8 @@ export function commitNotificationShellOpen({
     if (uid) {
         void import('@/app/stores/notificationStore')
             .then((m) => {
+                if (openFlowActiveSessionIdRef !== flowId) return;
+                if (!showNotificationsRef.current) return;
                 m.useNotificationStore.getState().hydrateFromLocalPeek(uid);
             })
             .catch(() => undefined);
@@ -80,8 +102,12 @@ export function commitNotificationShellOpen({
 
     setNotificationHostMounted(true);
     setShowNotifications(true);
-    queueMicrotask(() => persistNotificationsSessionOpen(true));
-    schedulePostOpenWork(showNotificationsRef, userId);
+    queueMicrotask(() => {
+        if (openFlowActiveSessionIdRef !== flowId) return;
+        if (!showNotificationsRef.current) return;
+        persistNotificationsSessionOpen(true);
+    });
+    schedulePostOpenWork(flowId, showNotificationsRef, userId);
 }
 
 /**
@@ -95,12 +121,18 @@ export function beginNotificationShellOpen({
     if (openInFlightRef.current) return;
     openInFlightRef.current = true;
 
+    openFlowSessionIdCounter += 1;
+    const flowId = openFlowSessionIdCounter;
+    openFlowActiveSessionIdRef = flowId;
+
     const commit = () => commitNotificationShellOpen(commitParams);
 
     if (import.meta.env.VITE_NATIVE_NOTIFICATION_SHEET === 'true') {
         void import('@/app/runtime/nativeNotificationSheetBridge')
             .then((m) => m.tryPresentNativeNotificationSheet(commitParams.userId))
             .then((presented) => {
+                if (openFlowActiveSessionIdRef !== flowId) return;
+                if (!commitParams.showNotificationsRef.current) return;
                 if (presented) {
                     if (!shouldKeepNotificationHostWarm()) {
                         commitParams.setNotificationHostMounted(false);
@@ -110,6 +142,8 @@ export function beginNotificationShellOpen({
                 commit();
             })
             .catch(() => {
+                if (openFlowActiveSessionIdRef !== flowId) return;
+                if (!commitParams.showNotificationsRef.current) return;
                 commit();
             })
             .finally(() => {

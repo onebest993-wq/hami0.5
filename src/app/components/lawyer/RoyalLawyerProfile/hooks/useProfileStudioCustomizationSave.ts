@@ -86,7 +86,7 @@ export function useProfileStudioCustomizationSave({
                 const result = await enqueueProfileSave(async () => {
                     const latest = profileRef.current;
                     if (!latest) {
-                        throw new Error('profile-missing');
+                        throw new Error('[profile:save:missing_profile] profile-missing');
                     }
                     const payload: LawyerProfileData = {
                         ...latest,

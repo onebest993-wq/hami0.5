@@ -49,19 +49,19 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
     const { user, authorName, documentsRef, applyDocuments, actionInflightRef, editingDoc, data } = args;
     if (!user) {
         SmartToast.warning('سجّل الدخول أولاً');
-        throw new Error('auth');
+        throw new Error('[community:upload:opcode] auth');
     }
 
     const title = sanitizeRepositoryUploadTitle(data.title);
     const description = sanitizeRepositoryUploadDescription(data.description);
     if (!title || !description) {
         SmartToast.warning('يرجى ملء جميع الحقول المطلوبة');
-        throw new Error('invalid-fields');
+        throw new Error('[community:upload:opcode] invalid-fields');
     }
 
     if (!editingDoc && !data.file) {
         SmartToast.warning('يرجى اختيار ملف أو صورة للرفع');
-        throw new Error('no-file');
+        throw new Error('[community:upload:opcode] no-file');
     }
 
     if (data.file) {
@@ -72,7 +72,7 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
         const fileError = validateRepositoryUploadFile(data.file, kind);
         if (fileError) {
             SmartToast.warning(fileError);
-            throw new Error('invalid-file');
+            throw new Error('[community:upload:opcode] invalid-file');
         }
     }
 
@@ -91,7 +91,7 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
             const magicError = await validateRepositoryUploadFileContents(data.file, kind);
             if (magicError) {
                 SmartToast.warning(magicError);
-                throw new Error('invalid-file');
+                throw new Error('[community:upload:opcode] invalid-file');
             }
         }
 
@@ -114,13 +114,13 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
                 releaseRepositoryBlobUrl(reservedPath);
                 reservedPath = null;
                 SmartToast.error('تعذّر حفظ نسخة الملف محلياً');
-                throw new Error('persist-failed');
+                throw new Error('[community:upload:opcode] persist-failed');
             }
         }
 
         if (!storagePath) {
             SmartToast.error('فشل رفع الملف — لم يُحفظ مسار التخزين');
-            throw new Error('no-storage');
+            throw new Error('[community:upload:opcode] no-storage');
         }
 
         let savedDoc = buildRepositoryDocumentFromUpload({
@@ -158,7 +158,7 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
                     throw err;
                 }
                 SmartToast.error('تعذّر رفع الملف إلى السحابة — لم يُنشر للآخرين');
-                throw new Error('cloud-failed');
+                throw new Error('[community:upload:opcode] cloud-failed');
             }
         }
 
@@ -194,7 +194,7 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
                 reservedPath = null;
             }
             SmartToast.error('فشل حفظ المستند محلياً');
-            throw new Error('save-failed');
+            throw new Error('[community:upload:opcode] save-failed');
         }
 
         flushSync(() => {

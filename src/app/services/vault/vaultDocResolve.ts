@@ -225,7 +225,7 @@ const PDF_VIEWER_PREP_TIMEOUT_MS = 12_000;
 
 export async function toVaultPdfViewerUrl(url: string): Promise<string> {
     if (!sanitizeVaultPreviewUrl(url)) {
-        throw new Error('unsafe vault preview url');
+        throw new Error('[vault:doc:preview_unsafe] unsafe vault preview url');
     }
     const prepare = async (): Promise<string> => {
         if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -261,7 +261,7 @@ export async function downloadVaultDocToDevice(
         opts?.fileBlob ??
         (safeFileUrl ? await fetch(safeFileUrl).then((r) => r.blob()).catch(() => null) : null) ??
         (await resolveVaultDocBlob(doc));
-    if (!blob) throw new Error('vault download unavailable');
+    if (!blob) throw new Error('[vault:doc:download_missing] vault download unavailable');
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;

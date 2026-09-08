@@ -5,6 +5,12 @@ import { HubPanelTabs } from './LawyerHomeHubCard/components/HubPanelTabs';
 import { useLawyerHomeHubCard } from './LawyerHomeHubCard/hooks/useLawyerHomeHubCard';
 import type { LawyerHomeHubCardProps } from './LawyerHomeHubCard/hooks/lawyerHomeHubCard.types';
 
+/* Mobile Safe-Area tokens (read-only, ZVF no visual layout change) */
+const SAFE_AREA_INSET_TOP = 'env(safe-area-inset-top)';
+const SAFE_AREA_INSET_RIGHT = 'env(safe-area-inset-right)';
+const SAFE_AREA_INSET_BOTTOM = 'env(safe-area-inset-bottom)';
+const SAFE_AREA_INSET_LEFT = 'env(safe-area-inset-left)';
+
 export const LawyerHomeHubCard = memo(function LawyerHomeHubCard(props: LawyerHomeHubCardProps) {
     const vm = useLawyerHomeHubCard(props);
 

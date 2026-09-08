@@ -17,6 +17,6 @@ export function canReachCollaborationNetwork(settings?: AppSettingsState): boole
 
 export function assertCollaborationNetworkReachable(settings?: AppSettingsState): void {
     if (!canReachCollaborationNetwork(settings)) {
-        throw new Error(COLLABORATION_NETWORK_OFF);
+        throw new Error(`[settings:collab-gate-offline] ${COLLABORATION_NETWORK_OFF}`);
     }
 }

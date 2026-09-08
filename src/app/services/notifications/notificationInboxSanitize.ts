@@ -42,7 +42,8 @@ const ALLOWED_CATEGORIES = new Set<NotificationCategory>([
 
 export function clampNotificationInboxText(raw: unknown, max: number): string {
     if (typeof raw !== 'string') return '';
-    return raw.replace(/\u0000/g, '').trim().slice(0, max);
+    const stripped = raw.replace(/<[^>]*>/g, '').replace(/\u0000/g, '');
+    return stripped.trim().slice(0, max);
 }
 
 export function sanitizeNotificationDedupeKey(raw: unknown): string | undefined {

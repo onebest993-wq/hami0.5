@@ -151,8 +151,10 @@ export function ExecutionDashboardPortal({
                     } catch {
                         /* ignore */
                     }
-                    console.error('[ExecutionDossier] crash:', error);
-                    console.error('[ExecutionDossier] stack:', errorInfo.componentStack);
+                    if (import.meta.env.DEV) {
+                        console.error('[ExecutionDossier] crash:', error);
+                        console.error('[ExecutionDossier] stack:', errorInfo.componentStack);
+                    }
                 }}
             >
                 <Suspense

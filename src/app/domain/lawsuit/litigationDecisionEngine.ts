@@ -330,6 +330,6 @@ export function resolveCivilLitigationMatrixDecision(input: MatrixInput): Matrix
 /** مساعد اختبارات / مستهلكين: جلب قرار طرف بالمعرّف */
 export function getPartyDecision(decision: MatrixDecision, id: string): PartyDecision {
     const row = decision.parties.find((p) => p.id === id);
-    if (!row) throw new Error(`missing party ${id}`);
+    if (!row) throw new Error(`[litigation:decision_engine:party_missing] missing party ${id}`);
     return row;
 }

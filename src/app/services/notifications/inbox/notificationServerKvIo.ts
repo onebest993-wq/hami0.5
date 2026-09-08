@@ -19,25 +19,25 @@ export async function kvGet(key: string): Promise<unknown> {
 
 export async function kvSet(key: string, value: unknown): Promise<void> {
     const kv = await loadKvStoreAdmin();
-    if (!kv) throw new Error('KV admin unavailable');
+    if (!kv) throw new Error('[services_notifications:kvadminunavailable] KV admin unavailable');
     await kv.kvSet(key, value);
 }
 
 export async function kvDel(key: string): Promise<void> {
     const kv = await loadKvStoreAdmin();
-    if (!kv) throw new Error('KV admin unavailable');
+    if (!kv) throw new Error('[services_notifications:kvadminunavailable] KV admin unavailable');
     await kv.kvDel(key);
 }
 
 export async function kvGetByPrefix(prefix: string): Promise<unknown[]> {
     const kv = await loadKvStoreAdmin();
-    if (!kv) throw new Error('KV admin unavailable');
+    if (!kv) throw new Error('[services_notifications:kvadminunavailable] KV admin unavailable');
     return kv.kvGetByPrefix(prefix);
 }
 
 export async function kvDelByPrefix(prefix: string): Promise<number> {
     const kv = await loadKvStoreAdmin();
-    if (!kv) throw new Error('KV admin unavailable');
+    if (!kv) throw new Error('[services_notifications:kvadminunavailable] KV admin unavailable');
     return kv.kvDelByPrefix(prefix);
 }
 

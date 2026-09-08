@@ -1,0 +1,12 @@
+
+DIV FULL INTEGRITY FINAL AUDIT (T8)
+==================================
+UI files scanned (TSX prod): 1577
+Total <div> openings: 5948
+Total <button> openings: 2059
+Nested <button-in-<button> violations: 33
+
+Baseline reconciliation:
+  Actual <div> now: 5948 · Baseline inventory: 5548 · Delta: 400 DRIFT (3 conversions expected)
+
+Violations details -> nested-button-violations.csv.

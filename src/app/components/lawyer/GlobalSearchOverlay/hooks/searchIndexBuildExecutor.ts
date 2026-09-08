@@ -27,12 +27,20 @@ export async function resolveFuseForKey(
     cacheKey: string,
     input: BuildGlobalSearchIndexInput,
     priority: 'interactive' | 'idle',
+    signal?: AbortSignal,
 ): Promise<Fuse<GlobalSearchEntry>> {
     const cachedFuse = getCachedGlobalSearchFuse(cacheKey);
     if (cachedFuse) return cachedFuse;
 
+    if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+    }
+
     const cachedIndex = getCachedGlobalSearchIndex(cacheKey);
-    const index = cachedIndex ?? (await resolveGlobalSearchIndex(input, priority));
+    const index = cachedIndex ?? (await resolveGlobalSearchIndex(input, priority, signal));
+    if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+    }
     return getOrCreateGlobalSearchFuse(cacheKey, index);
 }
 
@@ -52,8 +60,15 @@ type SearchIndexBuildCallbacks = {
         key: string,
         input: BuildGlobalSearchIndexInput,
         priority: 'interactive' | 'idle',
+        signal?: AbortSignal,
     ) => Promise<Fuse<GlobalSearchEntry>>;
+    signal?: AbortSignal;
 };
+
+function isCancelledOrAborted(callbacks: SearchIndexBuildCallbacks): boolean {
+    if (callbacks.signal?.aborted) return true;
+    return callbacks.isCancelled();
+}
 
 async function executeSearchIndexStep(
     step: SearchIndexBuildStep,
@@ -62,21 +77,25 @@ async function executeSearchIndexStep(
     priority: 'interactive' | 'idle',
     callbacks: SearchIndexBuildCallbacks,
 ): Promise<boolean> {
-    const { applyFuse, resolveFuse, isCancelled } = callbacks;
+    const { applyFuse, resolveFuse, signal } = callbacks;
+
+    if (isCancelledOrAborted(callbacks)) return false;
 
     if (step.type === 'apply-cached') {
         const hit = getCachedGlobalSearchFuse(step.cacheKey);
-        if (hit && !isCancelled()) {
+        if (hit && !isCancelledOrAborted(callbacks)) {
             applyFuse(hit, step.cacheKey);
         }
         return true;
     }
 
     try {
-        const instance = await resolveFuse(cacheKey, preparedInput, priority);
-        if (!isCancelled()) applyFuse(instance, cacheKey);
+        if (isCancelledOrAborted(callbacks)) return false;
+        const instance = await resolveFuse(cacheKey, preparedInput, priority, signal);
+        if (!isCancelledOrAborted(callbacks)) applyFuse(instance, cacheKey);
         return true;
-    } catch {
+    } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return false;
         return false;
     }
 }
@@ -88,7 +107,12 @@ export async function runSearchIndexBuild(
     priority: 'interactive' | 'idle',
     callbacks: SearchIndexBuildCallbacks,
 ): Promise<void> {
-    const { clearFuse, setBuilding, isCancelled } = callbacks;
+    const { clearFuse, setBuilding } = callbacks;
+    if (isCancelledOrAborted(callbacks)) {
+        setBuilding(false);
+        return;
+    }
+
     const plan = planSearchIndexBuild({
         overlayOpen: snapshot.overlayOpen,
         cacheKey: snapshot.cacheKey,
@@ -97,14 +121,14 @@ export async function runSearchIndexBuild(
     });
 
     if (!plan.steps.length) {
-        setBuilding(false);
+        if (!isCancelledOrAborted(callbacks)) setBuilding(false);
         return;
     }
 
-    setBuilding(plan.showsBuildingIndicator);
+    if (!isCancelledOrAborted(callbacks)) setBuilding(plan.showsBuildingIndicator);
 
     for (const step of plan.steps) {
-        if (isCancelled()) return;
+        if (isCancelledOrAborted(callbacks)) return;
 
         const ok = await executeSearchIndexStep(
             step,
@@ -115,9 +139,9 @@ export async function runSearchIndexBuild(
         );
 
         if (step.type === 'build' && !ok && !snapshot.hasFuseInState) {
-            if (!isCancelled()) clearFuse();
+            if (!isCancelledOrAborted(callbacks)) clearFuse();
         }
     }
 
-    if (!isCancelled()) setBuilding(false);
+    if (!isCancelledOrAborted(callbacks)) setBuilding(false);
 }

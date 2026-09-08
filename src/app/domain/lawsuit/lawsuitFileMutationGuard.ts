@@ -30,6 +30,6 @@ export function assertLawsuitFileMutable(
     file: FileData | LawsuitFileMutationTarget | null | undefined,
 ): FileData | LawsuitFileMutationTarget {
     const msg = rejectLawsuitFileMutation(file);
-    if (msg) throw new Error(msg);
+    if (msg) throw new Error(`[litigation:file_mutation:guard_violation] ${msg}`);
     return file as FileData;
 }

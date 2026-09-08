@@ -22,14 +22,14 @@ export async function syncRepositoryDocumentToCloud({
 }: PersistRepositoryDocumentToCloudParams): Promise<RepositoryDocument> {
     const localPath = savedDoc.storagePath;
     if (!isStillPresent(savedDoc.id)) {
-        throw new Error('cloud-aborted');
+        throw new Error('[community:cloud:opcode] cloud-aborted');
     }
     const uploadResult = await LawyerStorage.uploadSmartFile(ownerId, file, 'repository');
     if (!uploadResult?.path) {
-        throw new Error('cloud-failed');
+        throw new Error('[community:cloud:opcode] cloud-failed');
     }
     if (!isStillPresent(savedDoc.id)) {
-        throw new Error('cloud-aborted');
+        throw new Error('[community:cloud:opcode] cloud-aborted');
     }
     const signedUrl = await withForumAsyncTimeout(
         LawyerStorage.getSignedUrl(uploadResult.path),
@@ -37,10 +37,10 @@ export async function syncRepositoryDocumentToCloud({
         null,
     );
     if (!signedUrl) {
-        throw new Error('cloud-failed');
+        throw new Error('[community:cloud:opcode] cloud-failed');
     }
     if (!isStillPresent(savedDoc.id)) {
-        throw new Error('cloud-aborted');
+        throw new Error('[community:cloud:opcode] cloud-aborted');
     }
     const cloudDoc: RepositoryDocument = {
         ...savedDoc,

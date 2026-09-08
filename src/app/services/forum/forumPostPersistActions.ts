@@ -3,9 +3,19 @@ import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import { readCommunityAttachmentFile, resolveCommunityAttachmentUrl } from '@/app/services/forumAttachmentService';
 import { saveFileToVault } from '@/app/services/vaultUploadService';
 
+let forumPostPersistAbort: AbortController | undefined;
+
+export function abortForumPostPersistActions(): void {
+    if (forumPostPersistAbort) {
+        forumPostPersistAbort.abort();
+        forumPostPersistAbort = undefined;
+    }
+}
+
 async function urlToFile(url: string, fileName: string, mimeType: string): Promise<File | null> {
     try {
-        const res = await fetch(url);
+        forumPostPersistAbort = new AbortController();
+        const res = await fetch(url, { signal: forumPostPersistAbort.signal });
         if (!res.ok) return null;
         const blob = await res.blob();
         return new File([blob], fileName, { type: mimeType || blob.type || 'application/octet-stream' });
@@ -21,7 +31,7 @@ export async function saveForumAttachmentToVault(
     authorName: string,
 ): Promise<SmartVaultDoc> {
     if (!post.attachment) {
-        throw new Error('no-attachment');
+        throw new Error('[services_forum:noattachment] no-attachment');
     }
 
     const fileName = post.attachment.name?.trim() || `forum-${post.id}`;
@@ -38,7 +48,7 @@ export async function saveForumAttachmentToVault(
         (await readCommunityAttachmentFile(post.attachment)) ??
         (resolvedUrl ? await urlToFile(resolvedUrl, fileName, mimeType) : null);
     if (!file) {
-        throw new Error('fetch-failed');
+        throw new Error('[services_forum:fetchfailed] fetch-failed');
     }
 
     const titleBase = post.content.trim().slice(0, 60) || fileName;

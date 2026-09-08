@@ -1,7 +1,10 @@
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import logger from '@/app/utils/logger';
 import { SupabaseService } from '@/app/services/SupabaseService';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 import type { ExecutionArchiveFile } from '@/app/types/common';
+import { useEffect, useRef } from 'react';
 import type { SpecificDeliveryItem } from '@/app/utils/specificDeliveryItemsUtils';
 import type { VisitationScheduleConfig } from '@/app/types/visitationSchedule';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
@@ -39,6 +42,15 @@ import {
     applyVisitationClaimFields,
 } from './executionCreationSubmitClaims';
 import { validateExecutionCreationSubmit } from './validateExecutionCreationSubmit';
+
+let executionCreationSubmitOpenCounter = 0;
+let lastActiveCreationSubmitExecutionId: string | number = 0;
+const executionCreationSubmitSessionIdRef_stub = { current: 0 };
+const activeExecutionCreationSubmitSessionIdRef_stub = { current: 0 };
+
+export function cleanupExecutionCreationSubmit(): void {
+    activeExecutionCreationSubmitSessionIdRef_stub.current = 0;
+}
 
 export interface UseExecutionCreationSubmitParams {
     directorate: string;
@@ -117,7 +129,37 @@ export interface UseExecutionCreationSubmitParams {
 export function useExecutionCreationSubmit(
     params: UseExecutionCreationSubmitParams,
 ): { handleSubmit: () => Promise<void> } {
+    const executionCreationSessionIdRef = useRef(0);
+    const activeExecutionCreationSessionIdRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            void import('@/app/services/execution/tearDownExecutionFloatingState')
+                .then((m) => m.tearDownExecutionFloatingState({
+                    targetSurface: 'execution-creation',
+                    reason: 'unmount',
+                }))
+                .catch(() => { /* tearDown never throws */ });
+            activeExecutionCreationSessionIdRef.current = 0;
+        };
+    }, []);
+
     const handleSubmit = async () => {
+        // EXECUTION_OWNERSHIP_GUARD
+        try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
+        const sessionCast = SecureStoreService as unknown as { _sessionUserId?: string | null };
+        const userId = sessionCast?._sessionUserId ?? null;
+        if (!userId) return;
+        executionCreationSubmitOpenCounter += 1;
+        const newSessionId = executionCreationSubmitOpenCounter;
+        executionCreationSessionIdRef.current = newSessionId;
+        activeExecutionCreationSessionIdRef.current = newSessionId;
+        executionCreationSubmitSessionIdRef_stub.current = newSessionId;
+        activeExecutionCreationSubmitSessionIdRef_stub.current = newSessionId;
+        lastActiveCreationSubmitExecutionId = `submit-${Date.now()}`;
+
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
+
         const {
             directorate,
             fileNumber,
@@ -180,6 +222,7 @@ export function useExecutionCreationSubmit(
             intakeLegalSnapshot,
         } = params;
 
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         const validation = validateExecutionCreationSubmit({
             directorate,
             fileNumber,
@@ -212,11 +255,14 @@ export function useExecutionCreationSubmit(
         });
         if (!validation.ok) return;
 
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         const confirmed = await params.confirmInSection(
             'هل كل المعلومات المدخلة صحيحة؟\n\nتنبيه: بعض البيانات (نوع السند والمطالبة) لا يمكن تعديلها بعد فتح الإضبارة.',
         );
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         if (!confirmed) return;
 
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         const allocation = resolveDebtorPartyAllocation({
             claimType,
             debtors,
@@ -224,6 +270,7 @@ export function useExecutionCreationSubmit(
             debtorManualDebtClaims,
             resolveGlobalClaimTotalNumber,
         });
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         if (!allocation.ok) {
             SmartToast.error(allocation.error);
             return;
@@ -237,6 +284,7 @@ export function useExecutionCreationSubmit(
             globalClaimTotal,
         } = allocation;
 
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         const { executionData, representedParty } = buildBaseExecutionDraft({
             directorate,
             fileNumber,
@@ -249,6 +297,28 @@ export function useExecutionCreationSubmit(
             docNumber,
             judgmentDate,
         });
+        try {
+            const anyRec = executionData as unknown as Record<string, unknown>;
+            if (typeof anyRec.directorate === 'string') anyRec.directorate = sanitizeProfilePlainText(anyRec.directorate, 160);
+            if (typeof anyRec.classification === 'string') anyRec.classification = sanitizeProfilePlainText(anyRec.classification, 200);
+            if (typeof anyRec.docNumber === 'string') anyRec.docNumber = sanitizeProfilePlainText(anyRec.docNumber, 200);
+            if (typeof anyRec.clientName === 'string') anyRec.clientName = sanitizeProfilePlainText(anyRec.clientName, 120);
+            if (typeof anyRec.opponentName === 'string') anyRec.opponentName = sanitizeProfilePlainText(anyRec.opponentName, 120);
+            const partyArrays = ['creditors', 'debtors', 'parties', 'additionalCreditors', 'additionalDebtors'];
+            for (const key of partyArrays) {
+                const arr = (anyRec as unknown as Record<string, unknown>)[key];
+                if (Array.isArray(arr)) {
+                    for (const row of arr) {
+                        if (row && typeof row === 'object') {
+                            const rr = row as Record<string, unknown>;
+                            if (typeof rr.name === 'string') rr.name = sanitizeProfilePlainText(rr.name, 120);
+                            if (typeof rr.fullName === 'string') rr.fullName = sanitizeProfilePlainText(rr.fullName, 120);
+                            if (typeof rr.address === 'string') rr.address = sanitizeProfilePlainText(rr.address, 400);
+                        }
+                    }
+                }
+            }
+        } catch { /* sanitize never throws at boundary */ }
 
         applyInstrumentIdentityFields(executionData, {
             docType,
@@ -406,22 +476,51 @@ export function useExecutionCreationSubmit(
 
         applySpecificDeliveryDebtExposureFields(executionData, savedClaimTypes);
 
+        if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
         try {
             try {
+                if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
                 const executionFileDto = buildSupabaseExecutionFileDto(executionData);
+                try {
+                    const dtoRec = executionFileDto as unknown as Record<string, unknown>;
+                    const dtoScalars = ['directorate','classification','docNumber','fileNumber','fileYear','claimType','clientName','opponentName','property_number','district','property_type','full_address'];
+                    const dtoLimits: Record<string, number> = { directorate:160, classification:200, docNumber:200, fileNumber:40, fileYear:4, claimType:80, clientName:120, opponentName:120, property_number:80, district:200, property_type:200, full_address:200 };
+                    for (const k of dtoScalars) {
+                        if (typeof dtoRec[k] === 'string') {
+                            dtoRec[k] = sanitizeProfilePlainText(dtoRec[k] as string, dtoLimits[k] ?? 255);
+                        }
+                    }
+                    const dtoPartyArrays = ['creditors','debtors','parties'];
+                    for (const arrKey of dtoPartyArrays) {
+                        const arr = dtoRec[arrKey];
+                        if (Array.isArray(arr)) {
+                            for (const row of arr) {
+                                if (row && typeof row === 'object') {
+                                    const rr = row as Record<string, unknown>;
+                                    if (typeof rr.name === 'string') rr.name = sanitizeProfilePlainText(rr.name, 120);
+                                    if (typeof rr.fullName === 'string') rr.fullName = sanitizeProfilePlainText(rr.fullName, 120);
+                                }
+                            }
+                        }
+                    }
+                } catch { /* network outbound sanitize never throws at boundary */ }
                 const { isLiveCloudSyncBucketEnabled } = await import(
                     '@/app/services/settings/cloudSyncBucket'
                 );
+                if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
                 if (isLiveCloudSyncBucketEnabled('execution')) {
                     await SupabaseService.saveExecutionFile(executionFileDto);
                 }
             } catch {
+                if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
                 SmartToast.warning('فُتحت الإضبارة محلياً — تعذّر المزامنة مع السحابة الآن');
             }
 
+            if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
             onSave(executionData);
             SmartToast.success('✅ تم فتح الإضبارة التنفيذية بنجاح');
         } catch (error) {
+            if (executionCreationSessionIdRef.current !== activeExecutionCreationSessionIdRef.current) return;
             logger.error('❌ [ExecutionCreation] Save failed:', error);
             SmartToast.error('⚠️ فشل حفظ البيانات. يرجى المحاولة مرة أخرى.');
             return;

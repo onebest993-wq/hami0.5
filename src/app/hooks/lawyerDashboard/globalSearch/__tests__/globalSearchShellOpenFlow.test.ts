@@ -100,4 +100,59 @@ describe('globalSearchShellOpenFlow', () => {
 
         expect(mocks.takeDraftMock).toHaveBeenCalled();
     });
+
+    it('reopen سريع قبل انتهاء load القديم — فقط الجلسة الأخيرة تضع chunk-ready والقديمة مرفوضة', async () => {
+        mocks.loadOverlayMock.mockImplementation(
+            () => new Promise<object>((resolve) => setTimeout(() => resolve({}), 10)),
+        );
+        const { commitGlobalSearchShellOpen } = await import(
+            '@/app/hooks/lawyerDashboard/globalSearch/globalSearchShellOpenFlow'
+        );
+
+        const refA = { current: true };
+        const refB = { current: true };
+
+        commitGlobalSearchShellOpen({
+            showGlobalSearchRef: refA,
+            setSearchHostMounted: vi.fn(),
+            setGlobalSearchInitialQuery: vi.fn(),
+            setShowGlobalSearch: vi.fn(),
+        });
+
+        commitGlobalSearchShellOpen({
+            showGlobalSearchRef: refB,
+            setSearchHostMounted: vi.fn(),
+            setGlobalSearchInitialQuery: vi.fn(),
+            setShowGlobalSearch: vi.fn(),
+        });
+
+        await new Promise<void>((r) => setTimeout(r, 50));
+
+        const chunkReadyCalls = mocks.markPerfMock.mock.calls.filter(
+            (c: unknown[]) => c[0] === 'chunk-ready',
+        );
+        expect(chunkReadyCalls.length).toBe(1);
+    });
+
+    it('close مباشر بعد الفتح قبل queueMicrotask — لا warm ولا prefetch بعد الإغلاق', async () => {
+        const { commitGlobalSearchShellOpen } = await import(
+            '@/app/hooks/lawyerDashboard/globalSearch/globalSearchShellOpenFlow'
+        );
+        const ref = { current: true };
+        mocks.warmOnOpenMock.mockClear();
+        mocks.prefetchEngineMock.mockClear();
+
+        commitGlobalSearchShellOpen({
+            showGlobalSearchRef: ref,
+            setSearchHostMounted: vi.fn(),
+            setGlobalSearchInitialQuery: vi.fn(),
+            setShowGlobalSearch: vi.fn(),
+        });
+
+        ref.current = false;
+
+        await new Promise<void>((resolve) => queueMicrotask(resolve));
+        expect(mocks.warmOnOpenMock).not.toHaveBeenCalled();
+        expect(mocks.prefetchEngineMock).not.toHaveBeenCalled();
+    });
 });

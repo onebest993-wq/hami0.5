@@ -3,6 +3,12 @@ import type { ShareScope, TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { TaskHelpRepository } from './taskHelpRepository';
 import { assertRecipientInNetwork } from '@/app/services/caseShare/caseShareNetworkGuard';
 import { canReachCollaborationNetwork } from '@/app/services/settings/collaborationNetworkGate';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
+import { redactPiiText } from '@/app/services/tasks/taskSanitizer';
+
+// WIFE_BFF_GUARD: direct Supabase client access blocked for tasks/taskHelp paths.
+// Route all remote task/taskHelp operations via SecureAPIClient BFF endpoints only.
+// Client-side code paths (tasksManager, fieldTasks curtain, task help UI) MUST NEVER issue DB access calls directly; go through taskHelpApiService cloud layer instead.
 
 type ApiOk<T> = { ok: true } & T;
 
@@ -65,28 +71,50 @@ export class TaskHelpApiService {
         forumPostId?: string | null;
         note?: string;
     }): Promise<TaskHelpRequest> {
+        /** L4 central boundary: sanitize ALL outbound strings before any network/storage call */
+        const publicLen = params.shareScope === 'PUBLIC_FORUM' ? 1800 : 2000;
+        const safeParams = {
+            ...params,
+            title: redactPiiText(sanitizeProfilePlainText(params.title, 400)) || 'طلب مساعدة',
+            location:
+                params.location == null
+                    ? null
+                    : redactPiiText(sanitizeProfilePlainText(params.location, 200)) || null,
+            instructions: params.instructions
+                ? redactPiiText(sanitizeProfilePlainText(params.instructions, publicLen))
+                : undefined,
+            requesterName: params.requesterName
+                ? sanitizeProfilePlainText(params.requesterName, 120)
+                : undefined,
+            targetColleagueName: params.targetColleagueName
+                ? sanitizeProfilePlainText(params.targetColleagueName, 120)
+                : undefined,
+            note: params.note
+                ? redactPiiText(sanitizeProfilePlainText(params.note, publicLen))
+                : undefined,
+        };
         if (
             canReachTaskHelpNetwork() &&
-            params.shareScope === 'PRIVATE_DIRECT' &&
-            params.targetColleagueId
+            safeParams.shareScope === 'PRIVATE_DIRECT' &&
+            safeParams.targetColleagueId
         ) {
             const inNetwork = await assertRecipientInNetwork(
-                params.requesterId,
-                params.targetColleagueId,
+                safeParams.requesterId,
+                safeParams.targetColleagueId,
             );
-            if (!inNetwork) throw new Error('RECIPIENT_NOT_IN_NETWORK');
+            if (!inNetwork) throw new Error('[taskHelp:api] RECIPIENT_NOT_IN_NETWORK');
         }
         if (canReachTaskHelpNetwork()) {
             try {
                 const res = await postJson<ApiOk<{ request: TaskHelpRequest }>>('/api/task-help/create', {
-                    ...params,
+                    ...safeParams,
                 });
                 if (res.request) return res.request;
             } catch (err) {
                 rethrowAuthoritativeApiError(err);
             }
         }
-        return TaskHelpRepository.create(params);
+        return TaskHelpRepository.create(safeParams);
     }
 
     static async accept(
@@ -101,7 +129,7 @@ export class TaskHelpApiService {
                     colleagueName,
                 });
                 if (res.request) return res.request;
-                throw new Error('ACCEPT_FAILED');
+                throw new Error('[taskHelp:api] ACCEPT_FAILED');
             } catch (err) {
                 rethrowAuthoritativeApiError(err);
             }
@@ -133,7 +161,7 @@ export class TaskHelpApiService {
             }
         }
         const updated = await TaskHelpRepository.addNote(helpRequestId, authorId, text, authorName);
-        if (!updated) throw new Error('NOTE_FAILED');
+        if (!updated) throw new Error('[taskHelp:api] NOTE_FAILED');
         return updated;
     }
 

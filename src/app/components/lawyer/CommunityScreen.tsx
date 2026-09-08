@@ -6,6 +6,7 @@ import {
     CommunityScreenContent,
     type CommunityScreenContentProps,
 } from './CommunityScreen/CommunityScreenContent';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
 
 export type CommunityScreenProps = CommunityScreenControllerProps & {
     /** Host keepAlive — المحتوى مركّب مخفياً قبل أول نقرة */
@@ -30,6 +31,12 @@ export function CommunityScreen(props: CommunityScreenProps) {
             m.prefetchPersistedCommunitySectionChunk();
         });
     }, [isOpen]);
+
+    useEffect(() => {
+        return () => {
+            tearDownForumFloatingState();
+        };
+    }, []);
 
     if (!isOpen && !keepAlive) {
         return null;

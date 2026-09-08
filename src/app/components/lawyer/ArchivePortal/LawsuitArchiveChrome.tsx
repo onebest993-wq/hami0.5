@@ -13,6 +13,12 @@ import { ARCHIVE_ROYAL_GLASS_FAB } from './archiveToolbarStyles';
 import { LawsuitArchiveFileGrid } from './components/LawsuitArchiveFileGrid';
 import type { LawsuitArchivePortalViewModel } from './hooks/useLawsuitArchivePortalController';
 
+/* Mobile Safe-Area tokens (read-only, ZVF no visual layout change) */
+const SAFE_AREA_INSET_TOP = 'env(safe-area-inset-top)';
+const SAFE_AREA_INSET_RIGHT = 'env(safe-area-inset-right)';
+const SAFE_AREA_INSET_BOTTOM = 'env(safe-area-inset-bottom)';
+const SAFE_AREA_INSET_LEFT = 'env(safe-area-inset-left)';
+
 const LazyLawsuitArchiveTrashDialogs = lazy(() =>
     import('./components/LawsuitArchiveTrashDialogs').then((m) => ({
         default: m.LawsuitArchiveTrashDialogs,
@@ -76,6 +82,17 @@ export function LawsuitArchiveChrome({
     } = portal;
 
     useBodyScrollLock(!embedded && !gridOnly);
+
+    useEffect(() => {
+        return () => {
+            void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+                m.tearDownLitigationFloatingState({
+                    targetSurface: 'archive-portal',
+                    reason: 'unmount',
+                }),
+            );
+        };
+    }, []);
 
     useEffect(() => {
         if (embedded || gridOnly) return;
@@ -212,7 +229,7 @@ export function LawsuitArchiveChrome({
     const layer = (
         <div className={shellClass}>
             {!hideHeader && (
-                <div className="px-4 sm:px-5 hami-overlay-header-safe-pad pb-2.5 border-b border-white/[0.06] flex justify-between items-center gap-2.5 bg-[#0A0F1C]/92 shrink-0">
+                <header className="px-4 sm:px-5 hami-overlay-header-safe-pad pb-2.5 border-b border-white/[0.06] flex justify-between items-center gap-2.5 bg-[#0A0F1C]/92 shrink-0">
                     <div className="min-w-0 flex-1">
                         <h2 className="text-lg sm:text-xl font-bold text-white truncate">{getTitle()}</h2>
                         <p className="text-white/40 text-xs mt-0.5 leading-relaxed">
@@ -228,7 +245,7 @@ export function LawsuitArchiveChrome({
                     >
                         <X size={20} />
                     </button>
-                </div>
+                </header>
             )}
 
             <LawsuitArchiveLifecycleBars

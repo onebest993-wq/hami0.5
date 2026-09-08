@@ -69,4 +69,44 @@ describe('profilePerfMetrics', () => {
     it('markProfilePerfPhase لا يرمي', () => {
         expect(() => markProfilePerfPhase('open-request')).not.toThrow();
     });
+
+    it('ينتج null إن كانت علامة open-request غير موجودة', () => {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:profile:interactive') {
+                return [{ startTime: 900 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+        expect(getProfileOpenToInteractiveMs()).toBeNull();
+    });
+
+    it('ينتج null إن كانت علامة interactive غير موجودة', () => {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:profile:open-request') {
+                return [{ startTime: 200 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+        expect(getProfileOpenToInteractiveMs()).toBeNull();
+    });
+
+    it('ينتج null إن انعكس الزمن: interactive قبل open-request', () => {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:profile:open-request') {
+                return [{ startTime: 800 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:profile:interactive') {
+                return [{ startTime: 500 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+        expect(getProfileOpenToInteractiveMs()).toBeNull();
+    });
+
+    it('reportProfilePerf لا يستدعي Sentry إن لم يكن openToInteractive موجوداً', () => {
+        vi.mocked(reportProfileOpenToSentry).mockClear();
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation(() => [] as PerformanceEntryList);
+        reportProfilePerf({ userId: 'u-null' });
+        expect(reportProfileOpenToSentry).not.toHaveBeenCalled();
+    });
 });

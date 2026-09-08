@@ -74,6 +74,12 @@ export function startLawsuitFilesEagerHydrate(): void {
         })
         .catch(() => {
             if (generation !== hydrateGeneration) return lastResult ?? [];
+            void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+                m.tearDownLitigationFloatingState({
+                    targetSurface: 'global',
+                    reason: 'reduced-motion',
+                }),
+            );
             const syncFallback = loadInitialLawsuitFiles();
             const adopted = adoptResult(syncFallback, true);
             inFlight = null;

@@ -242,6 +242,13 @@ export function concealRepositoryWarmShell(): void {
     hideRepositoryOverlayLayer();
     removeRepositoryInstantChrome();
     applyOverlayThemeChrome(REPOSITORY_THEME, false);
+    try {
+        void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
+            tearDownRepoFloatingState({ targetSurface: 'repository-hub', reason: 'tearDown' });
+        });
+    } catch {
+        /* never throw during chrome snap */
+    }
 }
 
 /** يخفي طبقة keep-alive دون نزع ستارة html/القشرة أثناء فتح جارٍ */

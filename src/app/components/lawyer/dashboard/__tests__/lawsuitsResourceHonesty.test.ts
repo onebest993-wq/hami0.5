@@ -170,6 +170,6 @@ describe('lawsuits resource honesty', () => {
         );
         expect(provider).toContain('stemLiveRef.current');
         expect(provider).toContain("commitViaStem('trash'");
-        expect(provider).toMatch(/if \(stemLiveRef\.current\) return commitViaStem\('trash'/);
+        expect(provider).toMatch(/if \(isStemCommitLive\(\)\) \{[\s\S]*?commitViaStem\('trash'/);
     });
 });

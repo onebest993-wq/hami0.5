@@ -77,7 +77,7 @@ const postRepository = {
         const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const existing = await getCommunityPostById(post.id);
-            if (existing) throw new Error('معرّف المنشور مستخدم مسبقاً');
+            if (existing) throw new Error('[forumRepo:postgres:opcode] معرّف المنشور مستخدم مسبقاً');
             await CommunityDB.savePost(post);
             return post;
         }
@@ -85,8 +85,8 @@ const postRepository = {
         const row = communityPostToInsertRow(post);
         const { error } = await admin.from('forum_posts').insert(row);
         if (error) {
-            if (error.code === '23505') throw new Error('معرّف المنشور مستخدم مسبقاً');
-            throw new Error(error.message);
+            if (error.code === '23505') throw new Error('[forumRepo:postgres:opcode] معرّف المنشور مستخدم مسبقاً');
+            throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
         }
 
         const saved = await postRepository.getPostById(post.id);
@@ -103,7 +103,7 @@ const postRepository = {
 
         const row = communityPostToInsertRow(post);
         const { error } = await admin.from('forum_posts').upsert(row, { onConflict: 'id' });
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
 
         const saved = await postRepository.getPostById(post.id);
         return saved ?? post;
@@ -116,7 +116,7 @@ const postRepository = {
             return;
         }
         const { error } = await admin.from('forum_posts').delete().eq('id', postId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
     },
 
     async updatePostContent(
@@ -126,9 +126,9 @@ const postRepository = {
         requesterIsAdmin = false,
     ): Promise<CommunityPost> {
         const post = await postRepository.getPostById(postId);
-        if (!post) throw new Error('المنشور غير موجود');
+        if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
         if (post.authorId !== requesterId && !requesterIsAdmin) {
-            throw new Error('ليس لديك صلاحية لتعديل هذا المنشور');
+            throw new Error('[forumRepo:postgres:opcode] ليس لديك صلاحية لتعديل هذا المنشور');
         }
         const updated: CommunityPost = {
             ...post,
@@ -139,7 +139,7 @@ const postRepository = {
 
     async togglePin(postId: string, pinned: boolean): Promise<CommunityPost> {
         const post = await postRepository.getPostById(postId);
-        if (!post) throw new Error('المنشور غير موجود');
+        if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
         const updated: CommunityPost = {
             ...post,
             isPinned: pinned || undefined,
@@ -154,9 +154,9 @@ const postRepository = {
         isAdmin: boolean,
     ): Promise<void> {
         const post = await postRepository.getPostById(postId);
-        if (!post) throw new Error('المنشور غير موجود');
+        if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
         if (!isAdmin && post.authorId !== requesterId) {
-            throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
+            throw new Error('[forumRepo:postgres:opcode] ليس لديك صلاحية لحذف هذا المنشور');
         }
         await postRepository.deletePost(postId);
     },
@@ -168,9 +168,9 @@ const postRepository = {
         requesterIsAdmin: boolean,
     ): Promise<CommunityPost> {
         const post = await postRepository.getPostById(postId);
-        if (!post) throw new Error('المنشور غير موجود');
+        if (!post) throw new Error('[forumRepo:postgres:opcode] المنشور غير موجود');
         if (!requesterIsAdmin && post.authorId !== requesterId) {
-            throw new Error('ليس لديك صلاحية لقفل النقاش');
+            throw new Error('[forumRepo:postgres:opcode] ليس لديك صلاحية لقفل النقاش');
         }
         const admin = await loadForumSupabaseAdmin();
         if (!admin) {
@@ -186,7 +186,7 @@ const postRepository = {
             .from('forum_posts')
             .update({ is_locked: locked, updated_at: new Date().toISOString() })
             .eq('id', postId);
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:postgres:opcode] ' + (error.message));
         const refreshed = await postRepository.getPostById(postId);
         return refreshed ?? { ...post, isLocked: locked || undefined };
     },

@@ -22,7 +22,7 @@ export function ExecutionDashboardChunkScopeProvider({
 export function useExecutionDashboardChunkScopeRef(): ExecutionDashboardChunkScopeRef {
     const ref = useContext(ExecutionDashboardChunkScopeContext);
     if (!ref) {
-        throw new Error('useExecutionDashboardChunkScopeRef outside ExecutionDashboardChunkScopeProvider');
+        throw new Error('[execution:dashboard_chunk:scope_provider_missing] useExecutionDashboardChunkScopeRef outside ExecutionDashboardChunkScopeProvider');
     }
     return ref;
 }

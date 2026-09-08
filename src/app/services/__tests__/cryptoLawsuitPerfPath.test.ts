@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     CryptoService,
     WRAP_KDF_ITERATIONS,
@@ -66,5 +66,26 @@ describe('lawsuitArchivePerfMetrics', () => {
         const snap = getLawsuitArchivePerfSnapshot();
         expect(snap.openToKeysReadyMs).not.toBeNull();
         expect(snap.openToKeysReadyMs!).toBeGreaterThanOrEqual(0);
+    });
+
+    it('يستخدم آخر marks عند تعدد الفتحات داخل الجلسة نفسها', () => {
+        const spy = vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:lawsuit-archive:open-request') {
+                return [{ startTime: 1000 }, { startTime: 3000 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:lawsuit-archive:keys-ready') {
+                return [{ startTime: 1200 }, { startTime: 3275 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:lawsuit-archive:interactive') {
+                return [{ startTime: 1400 }, { startTime: 3490 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+
+        const snap = getLawsuitArchivePerfSnapshot();
+        expect(snap.openToKeysReadyMs).toBe(275);
+        expect(snap.openToInteractiveMs).toBe(490);
+
+        spy.mockRestore();
     });
 });

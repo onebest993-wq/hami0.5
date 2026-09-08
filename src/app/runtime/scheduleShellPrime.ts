@@ -8,12 +8,30 @@
  */
 import { prefetchScheduleHubModule } from '@/app/runtime/scheduleHubLoader';
 import { runScheduleWarmCore } from '@/app/runtime/scheduleWarmCore';
+import { tearDownCalendarFloatingState } from '@/app/components/lawyer/SmartLegalRadar/tearDownCalendarFloatingState';
+
+let calendarIdleReleaseTimer: number | null = null;
 
 export function primeScheduleForBoot(): void {
+    if (calendarIdleReleaseTimer !== null) {
+        try { window.clearTimeout(calendarIdleReleaseTimer); } catch { /* ignore */ }
+        calendarIdleReleaseTimer = null;
+    }
     prefetchScheduleHubModule();
 }
 
 /** تسخين بيانات عند arm/فتح — بلا إعادة سحب إعدادات التسخين */
 export function primeScheduleForWarm(userId?: string | null): void {
     runScheduleWarmCore({ userId, prefetchCloud: 'when-user' });
+    if (calendarIdleReleaseTimer !== null) {
+        try { window.clearTimeout(calendarIdleReleaseTimer); } catch { /* ignore */ }
+    }
+    calendarIdleReleaseTimer = window.setTimeout(() => {
+        try {
+            tearDownCalendarFloatingState();
+        } catch {
+            /* idle release never throws */
+        }
+        calendarIdleReleaseTimer = null;
+    }, 12000);
 }

@@ -1,6 +1,9 @@
 import { clearOverlayEnterSettle } from '@/app/runtime/overlayEnterSettle';
 import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 import { isProfileStudioChromeVisible } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
+import { blurFocusWithin } from '@/app/utils/inertProps';
+
+export const PROFILE_TEARDOWN_EVENT = 'hami:profile-teardown-requested';
 
 const CLOSING_ATTR = 'data-hami-profile-closing';
 const OPEN_ATTR = 'data-hami-profile-open';
@@ -9,6 +12,65 @@ const ROOT_SELECTOR = '[data-lawyer-profile-root]';
 
 export const PROFILE_SURFACE_EXIT_MS = 170;
 export const PROFILE_SURFACE_EXIT_PAD_MS = 16;
+
+export function tearDownProfileFloatingState(): void {
+    try {
+        try {
+            const surface =
+                typeof document !== 'undefined'
+                    ? document.querySelector(SURFACE_SELECTOR)
+                    : null;
+            if (surface instanceof HTMLElement) {
+                blurFocusWithin(surface);
+            }
+        } catch {
+            /* ignore */
+        }
+
+        try {
+            if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        } catch {
+            /* ignore */
+        }
+
+        try {
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent(PROFILE_TEARDOWN_EVENT, { cancelable: false }));
+            }
+        } catch {
+            /* ignore */
+        }
+
+        try {
+            const keysToDelete: string[] = [];
+            if (typeof window !== 'undefined') {
+                const w = window as unknown as Record<string, unknown>;
+                for (const key of Object.keys(w)) {
+                    if (
+                        key.startsWith('__hamiProfileDraft') ||
+                        key.startsWith('__hamiProfileSave') ||
+                        key.startsWith('__hamiProfileDrag')
+                    ) {
+                        keysToDelete.push(key);
+                    }
+                }
+                for (const key of keysToDelete) {
+                    try {
+                        delete (window as unknown as Record<string, unknown>)[key];
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+    } catch {
+        /* ignore */
+    }
+}
 
 function shouldSkipProfileMotion(): boolean {
     if (typeof document === 'undefined') return true;
@@ -58,15 +120,17 @@ function isStudioChromeMounted(): boolean {
 
 /**
  * يُبقي السطح للخروج ثم onDone — لا flushSync للرئيسية قبل التلاشي.
- * لا تُغلق الملف فوق استوديو مفتوح/يُحمَّل — أغلِق الاستوديو أولاً (رجوع/Escape).
+ * لا تُغلق الملف فوق استوديو مفتوح/يُحمَّل — أغلِق الاستوديو أولاً (رجوع/Escape).
  */
 export function beginProfileShellExit(onDone: () => void): void {
     if (isStudioChromeMounted()) {
+        tearDownProfileFloatingState();
         recordE2eProfileClose(true);
         return;
     }
     recordE2eProfileClose(false);
     if (typeof document === 'undefined' || shouldSkipProfileMotion()) {
+        tearDownProfileFloatingState();
         clearOverlayEnterSettle('data-hami-profile-enter');
         onDone();
         return;
@@ -74,6 +138,7 @@ export function beginProfileShellExit(onDone: () => void): void {
 
     const surface = document.querySelector(SURFACE_SELECTOR);
     if (!(surface instanceof HTMLElement)) {
+        tearDownProfileFloatingState();
         onDone();
         return;
     }
@@ -94,6 +159,7 @@ export function beginProfileShellExit(onDone: () => void): void {
         window.clearTimeout(fallbackTimer);
         motionEl.removeEventListener('transitionend', onTransitionEnd);
         try {
+            tearDownProfileFloatingState();
             onDone();
         } finally {
             if (document.documentElement.getAttribute(OPEN_ATTR) !== '1') {

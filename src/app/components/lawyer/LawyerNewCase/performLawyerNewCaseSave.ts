@@ -5,6 +5,43 @@ import { hasLawyerClientMark } from './clientRepresentation';
 import type { CaseType, MainCategory, Party, ThirdParty } from './types';
 import type { LawyerNewCaseDetails } from './spawnInit';
 import { validateForm } from './validation';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
+
+const LEGAL_XSS_WHITELIST = /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s\,\.\-\(\)\u060C\u061B\u061F\u200C-\u200F]/g;
+function whitelistPlain(raw: string): string {
+    return String(raw ?? '').replace(LEGAL_XSS_WHITELIST, '');
+}
+function safeInboundPartyField(raw: unknown, maxLen: number): string {
+    return whitelistPlain(sanitizeProfilePlainText(raw, maxLen));
+}
+function sanitizePartyForStorage(p: Party): Party {
+    if (!p || typeof p !== 'object') return p;
+    return {
+        ...p,
+        name: safeInboundPartyField(p.name, 200),
+        role: safeInboundPartyField(p.role, 120),
+        phone: safeInboundPartyField(p.phone, 40),
+        address: safeInboundPartyField(p.address, 300),
+        email: safeInboundPartyField(p.email, 160),
+        nationalId: safeInboundPartyField(p.nationalId, 60),
+        representative: p.representative ? { ...p.representative, name: safeInboundPartyField(p.representative.name, 200) } : p.representative,
+    };
+}
+function sanitizeThirdPartyForStorage(tp: ThirdParty): ThirdParty {
+    if (!tp || typeof tp !== 'object') return tp;
+    return {
+        ...tp,
+        name: safeInboundPartyField(tp.name, 200),
+        role: safeInboundPartyField(tp.role, 120),
+    };
+}
+function sanitizeAllPartyArrays(p1: Party[], p2: Party[], tp: ThirdParty[]): { parties1: Party[]; parties2: Party[]; thirdParties: ThirdParty[] } {
+    return {
+        parties1: Array.isArray(p1) ? p1.map(sanitizePartyForStorage) : p1,
+        parties2: Array.isArray(p2) ? p2.map(sanitizePartyForStorage) : p2,
+        thirdParties: Array.isArray(tp) ? tp.map(sanitizeThirdPartyForStorage) : tp,
+    };
+}
 import {
     validatePersonalStatusForm,
     collectPersonalPartyNameErrors,
@@ -48,6 +85,17 @@ export type LawyerNewCaseSaveArgs = {
 
 /** @returns true إذا استُدعي onSave بنجاح بعد اجتياز التحقق */
 export async function performLawyerNewCaseSave(args: LawyerNewCaseSaveArgs): Promise<boolean> {
+    try {
+        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+        if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady();
+    } catch { /* ignore */ }
+    // LITIGATION_OWNERSHIP_GUARD
+    let userId: string | null = null;
+    try {
+        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+        userId = (SecureStoreService as unknown as {_sessionUserId?: string | null})._sessionUserId ?? null;
+    } catch {}
+    if (!userId) return false;
     const {
         isPersonalCase,
         errorMap,
@@ -114,17 +162,18 @@ export async function performLawyerNewCaseSave(args: LawyerNewCaseSaveArgs): Pro
              * مهلة قصوى — إن علّق مسار الحفظ سابقاً على Crypto/IDB بقي الزر «جارٍ الحفظ…».
              * المسار الجديد متزامن؛ المهلة شبكة أمان فقط.
              */
+            const { parties1: s1_p1, parties2: s1_p2, thirdParties: s1_tp } = sanitizeAllPartyArrays(parties1, parties2, thirdParties);
             let timedOut = false;
             const saveResult = await Promise.race([
                 Promise.resolve(
                     onSave({
                         mainCategory: mainCategory || 'lawsuit',
                         selectedType: 'personal',
-                        parties1,
-                        parties2,
-                        thirdParties,
-                        applicableLaw,
-                        details: { ...caseDetails, applicableLaw },
+                        parties1: s1_p1,
+                        parties2: s1_p2,
+                        thirdParties: s1_tp,
+                        applicableLaw: safeInboundPartyField(applicableLaw, 200),
+                        details: { ...caseDetails, applicableLaw: safeInboundPartyField(applicableLaw, 200) },
                     }),
                 ),
                 new Promise<false>((resolve) => {
@@ -212,22 +261,23 @@ export async function performLawyerNewCaseSave(args: LawyerNewCaseSaveArgs): Pro
     );
 
     try {
+        const { parties1: s2_p1, parties2: s2_p2, thirdParties: s2_tp } = sanitizeAllPartyArrays(parties1, parties2, thirdParties);
         const saveResult = await Promise.resolve(
             onSave({
                 mainCategory: mainCategory || 'lawsuit',
                 selectedType: selectedType || 'civil',
-                parties1,
-                parties2,
-                thirdParties,
+                parties1: s2_p1,
+                parties2: s2_p2,
+                thirdParties: s2_tp,
                 isUndeterminedValue,
                 isFixedFee,
                 details: { ...caseDetails },
                 incidentalSpawnMeta: effectiveSpawnContext
                     ? {
                           filingPartyId: incidentalFilingPartyId ?? undefined,
-                          filingPartyName: filingCandidate?.name,
+                          filingPartyName: filingCandidate?.name ? safeInboundPartyField(filingCandidate.name, 200) : undefined,
                           opposingPartyId: incidentalOpposingPartyId ?? undefined,
-                          opposingPartyName: opposingCandidate?.name,
+                          opposingPartyName: opposingCandidate?.name ? safeInboundPartyField(opposingCandidate.name, 200) : undefined,
                       }
                     : undefined,
             }),
@@ -239,3 +289,4 @@ export async function performLawyerNewCaseSave(args: LawyerNewCaseSaveArgs): Pro
         return false;
     }
 }
+// language-server-cache-refresh-2

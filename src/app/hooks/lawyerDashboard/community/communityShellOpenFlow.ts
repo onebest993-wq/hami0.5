@@ -29,6 +29,7 @@ import {
     loadForumIntentWarm,
     loadForumPostsWarmCache,
 } from '@/app/hooks/lawyerDashboard/community/communityLazyImports';
+import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
 
 export type CommitCommunityOpenParams = {
     userId: string | null;
@@ -45,7 +46,10 @@ export type CommitCommunityCloseParams = {
     setCommunityHostMounted: (mounted: boolean) => void;
 };
 
+let communityShellOpenSessionCounter = 0;
+let lastActiveCommunityShellId = 0;
 let forumOpenLoadSeq = 0;
+let activeCommunityShellSeq = 0;
 let forumOpenInFlight = false;
 const FORUM_OVERLAY_ENTRY_FAILSAFE_MS = 3_000;
 
@@ -56,6 +60,8 @@ export function isCommunityOpenInFlight(): boolean {
 export function resetCommunityOpenFlow(): void {
     forumOpenInFlight = false;
     forumOpenLoadSeq += 1;
+    activeCommunityShellSeq = 0;
+    tearDownForumFloatingState();
 }
 
 /** للاختبارات — يصفّر حارس الفتح الجاري بعد إلغاء معلّق */
@@ -63,7 +69,7 @@ export function resetCommunityOpenFlowForTests(): void {
     resetCommunityOpenFlow();
 }
 
-function armForumOpenPendingDismiss(cancelled: { current: boolean }): () => void {
+function armForumOpenPendingDismiss(cancelled: { current: boolean }, expectedSeq: number): () => void {
     if (typeof window === 'undefined') {
         return () => undefined;
     }
@@ -78,6 +84,7 @@ function armForumOpenPendingDismiss(cancelled: { current: boolean }): () => void
 
     const finish = () => {
         cancelled.current = true;
+        if (activeCommunityShellSeq !== expectedSeq) return;
         forumOpenInFlight = false;
         clearForumOpenIntent();
         concealForumWarmShell();
@@ -121,6 +128,11 @@ export function commitCommunityOpen({
         return;
     }
 
+    communityShellOpenSessionCounter += 1;
+    const seq = ++forumOpenLoadSeq;
+    activeCommunityShellSeq = seq;
+    lastActiveCommunityShellId = seq;
+
     clearForumPerfMarks();
     markForumPerfPhase('open-request');
     applyForumOpaqueChrome();
@@ -128,6 +140,7 @@ export function commitCommunityOpen({
     prefetchCommunityOverlayEntry();
 
     const reveal = () => {
+        if (activeCommunityShellSeq !== seq) return;
         forumOpenInFlight = false;
 
         flushSync(() => {
@@ -139,13 +152,22 @@ export function commitCommunityOpen({
         clearForumOpenIntent();
 
         markForumPerfPhase('chunk-ready');
-        queueMicrotask(() => dismissTransientOverlays('forum'));
+        queueMicrotask(() => {
+            if (activeCommunityShellSeq !== seq) return;
+            dismissTransientOverlays('forum');
+        });
         void ensureDeferredFeatureStylesLoaded();
-        void loadForumIntentWarm().then((m) => m.warmForumOnOpen(userId));
+        void loadForumIntentWarm().then((m) => {
+            if (activeCommunityShellSeq !== seq) return;
+            return m.warmForumOnOpen(userId);
+        });
         void ensureCommunityScreenContentLoaded().catch(() => undefined);
         void loadCommunityScreenModule().catch(() => undefined);
         void loadForumPostsWarmCache()
-            .then((m) => m.readForumPostsCache())
+            .then((m) => {
+                if (activeCommunityShellSeq !== seq) return;
+                return m.readForumPostsCache();
+            })
             .catch(() => undefined);
     };
 
@@ -159,9 +181,8 @@ export function commitCommunityOpen({
     }
 
     forumOpenInFlight = true;
-    const seq = ++forumOpenLoadSeq;
     const cancelled = { current: false };
-    const disarmPending = armForumOpenPendingDismiss(cancelled);
+    const disarmPending = armForumOpenPendingDismiss(cancelled, seq);
     let failSafeId = 0;
     let settled = false;
     const finishPending = (next: () => void) => {
@@ -174,20 +195,24 @@ export function commitCommunityOpen({
     };
     const revealOnce = () => {
         if (settled || cancelled.current || seq !== forumOpenLoadSeq) return;
+        if (activeCommunityShellSeq !== seq) return;
         settled = true;
         reveal();
     };
 
     failSafeId = window.setTimeout(() => {
+        if (activeCommunityShellSeq !== seq) return;
         failSafeId = 0;
         finishPending(revealOnce);
     }, FORUM_OVERLAY_ENTRY_FAILSAFE_MS);
 
     void loadCommunityOverlayEntry()
         .then(() => {
+            if (activeCommunityShellSeq !== seq) return;
             finishPending(revealOnce);
         })
         .catch(() => {
+            if (activeCommunityShellSeq !== seq) return;
             /* المقطع لم يصل — أبقِ الستارة واكشف Host بدل طرد المستخدم للرئيسية */
             finishPending(revealOnce);
         });
@@ -198,8 +223,10 @@ export function commitCommunityClose({
     setCommunityDeepLink,
     setCommunityHostMounted,
 }: CommitCommunityCloseParams): void {
+    tearDownForumFloatingState();
     forumOpenInFlight = false;
     forumOpenLoadSeq += 1;
+    activeCommunityShellSeq = 0;
     clearForumOpenIntent();
     beginHubLayerExit(FORUM_HUB_LAYER, () => {
         executeForumOverlayClose({

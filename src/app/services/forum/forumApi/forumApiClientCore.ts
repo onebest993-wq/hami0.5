@@ -160,7 +160,7 @@ export async function withForumMutationFallback<T>(
         try {
             return await fallback();
         } catch {
-            throw new Error(parseForumApiError(err));
+            throw new Error('[forumApi:clientcore:opcode] ' + (parseForumApiError(err)));
         }
     }
 }

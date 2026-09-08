@@ -281,7 +281,7 @@ export const ProfileDB = {
             return { cloudSynced: true, localPersisted, profile: cleaned };
         } catch {
             if (!localPersisted) {
-                throw new Error('profile-persist-failed');
+                throw new Error('[services_cloud:profilepersistfail] profile-persist-failed');
             }
             return { cloudSynced: false, localPersisted, profile: cleaned };
         }

@@ -10,6 +10,7 @@ import {
     type RepositoryRoomFilter,
 } from './repositoryRooms';
 import { stripRepositoryHtml } from './stripRepositoryHtml';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
 import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
@@ -29,8 +30,27 @@ const FILTER_LABELS: Record<RepositoryFeedFilter, string> = {
 
 const REPOSITORY_FEED_FILTERS: RepositoryFeedFilter[] = ['all', 'media', 'drafts', 'dossier'];
 
+const MAX_NOTE_BODY = 20000;
+const MIN_NOTE_BODY = 0;
+const MAX_ROOM_TITLE = 120;
+const MIN_ROOM_TITLE = 1;
+const MAX_VAULT_DOC_FILENAME = 255;
+const MIN_VAULT_DOC_FILENAME = 1;
+const MAX_LAW_ARTICLE_LABEL = 120;
+const MIN_LAW_ARTICLE_LABEL = 0;
+const MAX_PRESENTATION_DESC = 500;
+const MIN_PRESENTATION_DESC = 0;
+const MAX_SYNC_FINGERPRINT_NONCE = 64;
+const MIN_SYNC_FINGERPRINT_NONCE = 0;
+
 export function repositoryFeedFilterLabel(filter: RepositoryFeedFilter): string {
     return FILTER_LABELS[filter];
+}
+
+function clampField(value: string, min: number, max: number): string {
+    if (typeof value !== 'string') return '';
+    const clamped = Math.min(Math.max(value.length, min), max);
+    return value.slice(0, clamped);
 }
 
 function parseSortKey(raw?: string): number {
@@ -63,6 +83,8 @@ export function buildRepositoryFeed(input: {
     executionFiles: ExecutionFile[];
     vaultDocs: SmartVaultDoc[];
 }): RepositoryFeedItem[] {
+    for (const n of input.globalNotes) { n.body = clampField(sanitizeProfilePlainText(stripRepositoryHtml(n.body ?? ''), MAX_NOTE_BODY), MIN_NOTE_BODY, MAX_NOTE_BODY); n.title = clampField(n.title ?? '', MIN_ROOM_TITLE, MAX_ROOM_TITLE); }
+    for (const d of input.vaultDocs) { d.fileName = clampField(d.fileName ?? '', MIN_VAULT_DOC_FILENAME, MAX_VAULT_DOC_FILENAME); if (d.customCategory) d.customCategory = clampField(d.customCategory, MIN_LAW_ARTICLE_LABEL, MAX_LAW_ARTICLE_LABEL); if (d.lawyerNote) d.lawyerNote = clampField(d.lawyerNote, MIN_PRESENTATION_DESC, MAX_PRESENTATION_DESC); if (d.aiSummary) d.aiSummary = clampField(d.aiSummary, MIN_PRESENTATION_DESC, MAX_PRESENTATION_DESC); if (d.roomId) d.roomId = clampField(d.roomId, MIN_SYNC_FINGERPRINT_NONCE, MAX_SYNC_FINGERPRINT_NONCE); }
     const items: RepositoryFeedItem[] = [];
 
     for (const note of input.globalNotes) {

@@ -38,7 +38,7 @@ export const forumRepositoryModeration = {
         });
         if (error) {
             if (error.code === '23505') return { ok: false, duplicate: true };
-            throw new Error(error.message);
+            throw new Error('[forumRepo:moderation:opcode] ' + (error.message));
         }
         return { ok: true };
     },
@@ -183,7 +183,7 @@ export const forumRepositoryModeration = {
         const { error } = await admin
             .from('forum_bookmarks')
             .insert({ user_id: userId, post_id: postId });
-        if (error) throw new Error(error.message);
+        if (error) throw new Error('[forumRepo:moderation:opcode] ' + (error.message));
         return { bookmarked: true };
     },
 
@@ -232,7 +232,7 @@ export const forumRepositoryModeration = {
             const { error } = await admin
                 .from('forum_comment_upvotes')
                 .insert({ user_id: userId, comment_id: commentId });
-            if (error) throw new Error(error.message);
+            if (error) throw new Error('[forumRepo:moderation:opcode] ' + (error.message));
         }
         const map = await loadCommentUpvotes([commentId]);
         const upvoterIds = map.get(commentId) ?? [];
@@ -265,7 +265,7 @@ export const forumRepositoryModeration = {
         });
         if (error) {
             if (error.code === '23505') return { ok: false, duplicate: true };
-            throw new Error(error.message);
+            throw new Error('[forumRepo:moderation:opcode] ' + (error.message));
         }
         return { ok: true };
     },

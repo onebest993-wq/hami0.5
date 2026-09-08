@@ -31,6 +31,11 @@ import {
 import { stagePendingLawsuitCreate } from '@/app/domain/lawsuit/lawsuitPendingCreateStore';
 import { mergeRicherLawsuitActive } from '@/app/domain/lawsuit/lawsuitActiveDurability';
 
+let lawsuitNewCaseSaveOpenCounter = 0;
+let lastActiveNewCaseSaveId = 0;
+const lawsuitNewCaseSaveSessionIdRef = { current: 0 };
+const activeLawsuitNewCaseSaveSessionIdRef = { current: 0 };
+
 type ActiveFile = FileData | ExecutionFile | null;
 
 /** أغنى قائمة: React ∪ boot ∪ معلّقات إنشاء */
@@ -70,34 +75,58 @@ function commitCreateToMemorySync(nextActive: FileData[], created: FileData): Fi
     }
 }
 
+function markLawsuitNewCaseSaveSessionBoot(): void {
+    lawsuitNewCaseSaveOpenCounter += 1;
+    lastActiveNewCaseSaveId = lawsuitNewCaseSaveOpenCounter;
+    lawsuitNewCaseSaveSessionIdRef.current = lawsuitNewCaseSaveOpenCounter;
+    activeLawsuitNewCaseSaveSessionIdRef.current = lawsuitNewCaseSaveOpenCounter;
+}
+
+export function resetLawsuitNewCaseSaveSessionForTests(): void {
+    lawsuitNewCaseSaveOpenCounter = 0;
+    lastActiveNewCaseSaveId = 0;
+    lawsuitNewCaseSaveSessionIdRef.current = 0;
+    activeLawsuitNewCaseSaveSessionIdRef.current = 0;
+}
+
 /** خلفية فقط — تسخين محدود ثم دمج المعلّق وتثبيت القرص */
 function scheduleCreatedFileDiskCommit(fileId: string | number): void {
+    markLawsuitNewCaseSaveSessionBoot();
     void (async () => {
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
         try {
             await Promise.race([
                 SecureStoreService.ensureLawsuitKeysReady(),
                 new Promise<void>((resolve) => {
-                    setTimeout(resolve, 2_500);
+                    setTimeout(() => {
+                        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
+                        resolve();
+                    }, 2_500);
                 }),
             ]);
         } catch {
             /* ignore */
         }
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
 
         try {
             await flushLawsuitDurabilityOverlaysToActive();
         } catch {
             /* ignore */
         }
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
 
         const commit = await awaitLawsuitWorkspaceCommit({
             timeoutMs: 8_000,
             requireActiveFileId: fileId,
         });
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
         const finalized = await finalizeLawsuitDurabilityAfterCommit(commit, [fileId]);
         if (finalized > 0) return;
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
 
         SmartToast.warning('الإضبارة مفتوحة — التثبيت على القرص قيد الإكمال، لا تغلق الصفحة');
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return;
         void flushLawsuitWorkspacePersist(8_000);
     })();
 }
@@ -148,6 +177,7 @@ export type LawsuitNewCaseSaveArgs = {
  * أي انتظار سابق هنا كان يعلّق زر «حفظ» على «جارٍ الحفظ…» إلى ما لا نهاية.
  */
 export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): Promise<boolean> {
+    markLawsuitNewCaseSaveSessionBoot();
     const {
         data,
         files,
@@ -166,6 +196,7 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
     } = args;
 
     try {
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
         const newFile = buildFileDataFromNewCaseSave(data);
         if (!newFile) {
             SmartToast.error('تعذّر إنشاء الملف — تحقق من البيانات المدخلة');
@@ -210,6 +241,7 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
         }
 
         if (consolidationSpawnContext) {
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const ctx = consolidationSpawnContext;
             const primary =
                 findLawsuitFileById(richestFiles, ctx.primaryFileId) || subFileBase;
@@ -219,6 +251,7 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
             }
             const { alignSecondaryFileLitigationStage, mergeLawsuitFilesForConsolidation } =
                 await loadCaseLinkingRuntime();
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const alignedCreated = alignSecondaryFileLitigationStage(created, primary);
             const mergeResult = mergeLawsuitFilesForConsolidation(primary, alignedCreated, {
                 consolidationDate: ctx.consolidationDate,
@@ -228,12 +261,15 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
                 SmartToast.error(mergeResult.error);
                 return false;
             }
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const { mergedPrimary, archivedSecondary } = mergeResult;
             setLawsuitSegments((prev) =>
                 applyLawsuitConsolidationSegments(prev, mergedPrimary, archivedSecondary),
             );
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             persistConsolidatedFiles(mergedPrimary, archivedSecondary);
             stagePendingLawsuitCreate(mergedPrimary);
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             openCreatedDossier({
                 file: mergedPrimary,
                 setIsNewCaseModalOpen,
@@ -248,7 +284,9 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
         }
 
         if (incidentalSpawnContext) {
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const { patchIncidentalLinkedFile } = await loadCaseLinkingRuntime();
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const parentId = normalizeFileId(incidentalSpawnContext.parentFileId);
             const createPartyName =
                 incidentalPartyLabel || spawnMeta?.filingPartyName || undefined;
@@ -269,12 +307,14 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
                     },
                 );
             });
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const saved = commitCreateToMemorySync(nextActive, created);
             flushSync(() => {
                 setFiles(() => saved);
             });
             for (const patched of saved) {
                 if (normalizeFileId(patched.id) !== parentId) continue;
+                if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) continue;
                 if (userId) {
                     saveCaseDeferred(userId, patched as unknown as Record<string, unknown>);
                 }
@@ -284,6 +324,7 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
                 );
             }
         } else {
+            if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
             const nextActive = [
                 created,
                 ...richestFiles.filter((f) => String(f.id) !== String(created.id)),
@@ -294,11 +335,13 @@ export async function performLawsuitNewCaseSave(args: LawsuitNewCaseSaveArgs): P
             });
         }
 
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
         if (userId) {
             saveCaseDeferred(userId, created as unknown as Record<string, unknown>);
         }
         syncLawsuitFileToCalendarDeferred(created as unknown as Record<string, unknown>, userId);
 
+        if (lawsuitNewCaseSaveSessionIdRef.current !== activeLawsuitNewCaseSaveSessionIdRef.current) return false;
         openCreatedDossier({
             file: created,
             setIsNewCaseModalOpen,

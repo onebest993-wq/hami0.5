@@ -8,13 +8,13 @@ type ApiOk = { ok: true; dossierId?: string };
  */
 export async function registerCriminalCaseOwnershipOnServer(dossierId: string): Promise<void> {
     const id = String(dossierId ?? '').trim();
-    if (!id) throw new Error('DOSSIER_ID_REQUIRED');
+    if (!id) throw new Error('[caseshare:criminal_ownership:dossier_id_required] DOSSIER_ID_REQUIRED');
     const res = await SecureAPIClient.fetchSecure<ApiOk>('/api/case-share/criminal-ownership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'register', dossierId: id }),
     });
-    if (!res?.ok) throw new Error('CRIMINAL_OWNERSHIP_REGISTER_FAILED');
+    if (!res?.ok) throw new Error('[caseshare:criminal_ownership:register_failed] CRIMINAL_OWNERSHIP_REGISTER_FAILED');
 }
 
 /** إلغاء إثبات الملكية بعد حذف الإضبارة — best-effort */

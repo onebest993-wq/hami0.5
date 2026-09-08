@@ -6,7 +6,12 @@ import {
 
 const MARK_PREFIX = 'hami:repository:';
 
-type RepositoryPerfPhase = 'open-request' | 'first-paint' | 'interactive';
+type RepositoryPerfPhase =
+    | 'open-request'
+    | 'first-paint'
+    | 'interactive'
+    | 'zone-request'
+    | 'zone-switched';
 
 export function markRepositoryPerfPhase(phase: RepositoryPerfPhase): void {
     if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
@@ -20,7 +25,13 @@ export function markRepositoryPerfPhase(phase: RepositoryPerfPhase): void {
 export function clearRepositoryPerfMarks(): void {
     if (typeof performance === 'undefined' || typeof performance.clearMarks !== 'function') return;
     try {
-        for (const phase of ['open-request', 'first-paint', 'interactive'] as const) {
+        for (const phase of [
+            'open-request',
+            'first-paint',
+            'interactive',
+            'zone-request',
+            'zone-switched',
+        ] as const) {
             performance.clearMarks(`${MARK_PREFIX}${phase}`);
         }
     } catch {
@@ -28,13 +39,31 @@ export function clearRepositoryPerfMarks(): void {
     }
 }
 
+function latestPerfMark(name: string): PerformanceEntry | null {
+    const entries = performance.getEntriesByName(name, 'mark');
+    return entries.length > 0 ? entries[entries.length - 1] : null;
+}
+
 /** ms من open-request → interactive (null إذا لم تُسجَّل المرحلتان) */
 export function getRepositoryOpenToInteractiveMs(): number | null {
     if (typeof performance === 'undefined') return null;
-    const open = performance.getEntriesByName(`${MARK_PREFIX}open-request`, 'mark')[0];
-    const interactive = performance.getEntriesByName(`${MARK_PREFIX}interactive`, 'mark')[0];
+    const open = latestPerfMark(`${MARK_PREFIX}open-request`);
+    const interactive = latestPerfMark(`${MARK_PREFIX}interactive`);
     if (!open || !interactive) return null;
+    if (interactive.startTime < open.startTime) return null;
     return Math.round(interactive.startTime - open.startTime);
+}
+
+/** CR-7 ms zone-request → zone-switched (reopen-stale-report, CP-08/CP-09) */
+export function getRepositoryZoneSwitchDeltaMs(): number | null {
+    if (typeof performance === 'undefined') return null;
+    const reqEntries = performance.getEntriesByName(`${MARK_PREFIX}zone-request`, 'mark');
+    const doneEntries = performance.getEntriesByName(`${MARK_PREFIX}zone-switched`, 'mark');
+    const zoneReq = reqEntries.length > 0 ? reqEntries[reqEntries.length - 1] : null;
+    const zoneDone = doneEntries.length > 0 ? doneEntries[doneEntries.length - 1] : null;
+    if (!zoneReq || !zoneDone) return null;
+    if (zoneDone.startTime < zoneReq.startTime) return null;
+    return Math.round(zoneDone.startTime - zoneReq.startTime);
 }
 
 /** DEV: log — PROD (مع DSN): Sentry breadcrumb + metric */

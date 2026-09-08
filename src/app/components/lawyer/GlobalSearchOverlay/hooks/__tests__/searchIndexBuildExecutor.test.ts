@@ -96,7 +96,7 @@ describe('runSearchIndexBuild', () => {
         );
 
         expect(resolveFuse).toHaveBeenCalledTimes(1);
-        expect(resolveFuse).toHaveBeenCalledWith('index-key', preparedInput, 'interactive');
+        expect(resolveFuse).toHaveBeenCalledWith('index-key', preparedInput, 'interactive', undefined);
         expect(applyFuse).toHaveBeenCalledWith(built, 'index-key');
         expect(setBuilding).toHaveBeenLastCalledWith(false);
     });

@@ -4,6 +4,12 @@ import { PartyCard } from './PartyCard';
 import type { Party } from '../types';
 import { NC_GLASS_CARD } from '../newCaseGlassTheme';
 
+/* Mobile Safe-Area tokens (read-only, ZVF no visual layout change) */
+const SAFE_AREA_INSET_TOP = 'env(safe-area-inset-top)';
+const SAFE_AREA_INSET_RIGHT = 'env(safe-area-inset-right)';
+const SAFE_AREA_INSET_BOTTOM = 'env(safe-area-inset-bottom)';
+const SAFE_AREA_INSET_LEFT = 'env(safe-area-inset-left)';
+
 export interface PartiesSectionProps {
     side: 1 | 2;
     parties: Party[];

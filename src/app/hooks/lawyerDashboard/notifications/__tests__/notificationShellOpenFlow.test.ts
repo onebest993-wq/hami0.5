@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
     paintMock: vi.fn(() => true),
     prefetchAlertMock: vi.fn(),
     peekHydrateMock: vi.fn(),
-    tryPresentNative: vi.fn(() => Promise.resolve(false)),
+    tryPresentNative: vi.fn<(...args: unknown[]) => Promise<boolean>>(() => Promise.resolve(false)),
     reopenSuppressed: false,
 }));
 
@@ -47,6 +47,10 @@ vi.mock('@/app/runtime/nativeNotificationSheetBridge', () => ({
     tryPresentNativeNotificationSheet: (...args: unknown[]) => mocks.tryPresentNative(...args),
 }));
 
+vi.mock('@/app/services/notifications/notificationPerfMetrics', () => ({
+    clearNotificationPerfMarks: vi.fn(),
+}));
+
 vi.mock('@/app/services/notifications/notificationReopenGuard', () => ({
     isNotificationReopenSuppressed: () => mocks.reopenSuppressed,
 }));
@@ -62,11 +66,16 @@ describe('notificationShellOpenFlow', () => {
         vi.unstubAllEnvs();
     });
 
-    it('clearNotificationOpenPerfMarks لا يرمي عند غياب performance', async () => {
+    it('clearNotificationOpenPerfMarks يوحّد reset عبر notificationPerfMetrics', async () => {
         const { clearNotificationOpenPerfMarks } = await import(
             '@/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow'
         );
+        const { clearNotificationPerfMarks } = await import(
+            '@/app/services/notifications/notificationPerfMetrics'
+        );
+
         expect(() => clearNotificationOpenPerfMarks()).not.toThrow();
+        expect(vi.mocked(clearNotificationPerfMarks)).toHaveBeenCalledTimes(1);
     });
 
     it('commitNotificationShellOpen يطلي ثم يلتزم React بلا flushSync', async () => {
@@ -162,5 +171,104 @@ describe('notificationShellOpenFlow', () => {
 
         expect(mocks.paintMock).not.toHaveBeenCalled();
         expect(openInFlightRef.current).toBe(false);
+    });
+
+    it('إغلاق سريع ثم فتح جديد قبل استقرار chunks الأولى — الجلسة الثانية فقط تنفذ warm', async () => {
+        let warmResolve1: (() => void) | null = null;
+        let warmResolve2: (() => void) | null = null;
+        const warmCalls: Array<string | null> = [];
+        mocks.warmOnOpenMock.mockImplementation((uid: unknown) => {
+            warmCalls.push(uid as string | null);
+        });
+
+        const { commitNotificationShellOpen } = await import(
+            '@/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow'
+        );
+
+        const ref1 = { current: true };
+        const setMounted1 = vi.fn();
+        const setShow1 = vi.fn((v: boolean) => {
+            ref1.current = v;
+        });
+        commitNotificationShellOpen({
+            userId: 'lawyer-A',
+            showNotificationsRef: ref1,
+            setNotificationHostMounted: setMounted1,
+            setShowNotifications: setShow1,
+        });
+        ref1.current = false;
+        setShow1(false);
+
+        const ref2 = { current: true };
+        const setMounted2 = vi.fn();
+        const setShow2 = vi.fn((v: boolean) => {
+            ref2.current = v;
+        });
+        commitNotificationShellOpen({
+            userId: 'lawyer-B',
+            showNotificationsRef: ref2,
+            setNotificationHostMounted: setMounted2,
+            setShowNotifications: setShow2,
+        });
+
+        await vi.waitFor(() => {
+            expect(mocks.warmOnOpenMock).toHaveBeenCalled();
+        });
+
+        const lawyerBCalls = warmCalls.filter((u) => u === 'lawyer-B');
+        const lawyerACalls = warmCalls.filter((u) => u === 'lawyer-A');
+        expect(lawyerACalls.length).toBe(0);
+        expect(lawyerBCalls.length).toBeGreaterThanOrEqual(1);
+        void warmResolve1;
+        void warmResolve2;
+    });
+
+    it('3 مرات فتح متتالية سريعة — warmNotificationsOnOpen مرة واحدة للجلسة الأخيرة فقط', async () => {
+        const warmUids: Array<string | null> = [];
+        mocks.warmOnOpenMock.mockImplementation((uid: unknown) => {
+            warmUids.push(uid as string | null);
+        });
+        const markChunkReadyCalls: Array<string> = [];
+        mocks.markPerfMock.mockImplementation((phase: unknown) => {
+            if (phase === 'chunk-ready') markChunkReadyCalls.push(String(phase));
+        });
+
+        const { commitNotificationShellOpen } = await import(
+            '@/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow'
+        );
+
+        const ref = { current: true };
+        const setMounted = vi.fn();
+        const setShow = vi.fn((v: boolean) => {
+            ref.current = v;
+        });
+
+        commitNotificationShellOpen({
+            userId: 'u1',
+            showNotificationsRef: ref,
+            setNotificationHostMounted: setMounted,
+            setShowNotifications: setShow,
+        });
+        commitNotificationShellOpen({
+            userId: 'u2',
+            showNotificationsRef: ref,
+            setNotificationHostMounted: setMounted,
+            setShowNotifications: setShow,
+        });
+        commitNotificationShellOpen({
+            userId: 'u3',
+            showNotificationsRef: ref,
+            setNotificationHostMounted: setMounted,
+            setShowNotifications: setShow,
+        });
+
+        await vi.waitFor(() => {
+            expect(mocks.warmOnOpenMock).toHaveBeenCalled();
+            expect(mocks.markPerfMock).toHaveBeenCalledWith('chunk-ready');
+        });
+
+        const onlyU3 = warmUids.every((u) => u === 'u3');
+        expect(onlyU3).toBe(true);
+        expect(markChunkReadyCalls.length).toBeGreaterThanOrEqual(1);
     });
 });

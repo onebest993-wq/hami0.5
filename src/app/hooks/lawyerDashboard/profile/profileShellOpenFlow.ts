@@ -24,6 +24,9 @@ import {
 } from '@/app/hooks/lawyerDashboard/profile/profileLazyImports';
 import { markProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 
+let profileOpenFlowSessionCounter = 0;
+let lastActiveProfileOpenFlowId = 0;
+
 export type CommitProfileOpenParams = {
     userId: string | null;
     openInFlightRef: MutableRefObject<boolean>;
@@ -41,11 +44,14 @@ function applyProfileOpenReactState(params: CommitProfileOpenParams): void {
     setProfileOpenEpoch((epoch) => epoch + 1);
 }
 
-function runProfileOpenSideEffects(userId: string | null): void {
+function runProfileOpenSideEffects(userId: string | null, flowId: number): void {
     prefetchProfileShellChunks();
     primeProfileForOpen(userId);
     void loadProfileWarmCache()
-        .then((m) => m.ensureProfilePaintReady(userId))
+        .then((m) => {
+            if (flowId !== lastActiveProfileOpenFlowId) return;
+            return m.ensureProfilePaintReady(userId);
+        })
         .catch(() => undefined);
 }
 
@@ -65,6 +71,9 @@ export function commitProfileOpen(params: CommitProfileOpenParams): void {
     const { openInFlightRef } = params;
 
     if (openInFlightRef.current) return;
+    profileOpenFlowSessionCounter += 1;
+    const thisFlowId = profileOpenFlowSessionCounter;
+    lastActiveProfileOpenFlowId = thisFlowId;
     openInFlightRef.current = true;
 
     try {
@@ -97,11 +106,16 @@ export function commitProfileOpen(params: CommitProfileOpenParams): void {
         }
 
         queueMicrotask(() => {
-            runProfileOpenSideEffects(params.userId);
+            if (thisFlowId !== lastActiveProfileOpenFlowId) return;
+            runProfileOpenSideEffects(params.userId, thisFlowId);
             dismissTransientOverlays('profile');
-            openInFlightRef.current = false;
+            if (thisFlowId === lastActiveProfileOpenFlowId) {
+                openInFlightRef.current = false;
+            }
         });
     } catch {
-        openInFlightRef.current = false;
+        if (thisFlowId === lastActiveProfileOpenFlowId) {
+            openInFlightRef.current = false;
+        }
     }
 }

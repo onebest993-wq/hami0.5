@@ -8,7 +8,7 @@ export async function deleteForumRepositoryDocOnServer(
     isAdmin: boolean,
 ): Promise<void> {
     const admin = await loadForumSupabaseAdmin();
-    if (!admin) throw new Error('تعذّر حذف المستند من الفهرس');
+    if (!admin) throw new Error('[forumRepo:postgres:opcode] تعذّر حذف المستند من الفهرس');
 
     const { data: existing, error: fetchError } = await admin
         .from('forum_repository_docs')
@@ -16,17 +16,17 @@ export async function deleteForumRepositoryDocOnServer(
         .eq('id', docId)
         .maybeSingle();
     if (fetchError && !isMissingTableError(fetchError.message)) {
-        throw new Error('تعذّر حذف المستند من الفهرس');
+        throw new Error('[forumRepo:postgres:opcode] تعذّر حذف المستند من الفهرس');
     }
-    if (!existing) throw new Error('المستند غير موجود أو لا يخصّك');
+    if (!existing) throw new Error('[forumRepo:postgres:opcode] المستند غير موجود أو لا يخصّك');
     const row = existing as { id: string; author_id: string; storage_path: string };
     if (!isAdmin && row.author_id !== requesterId) {
-        throw new Error('المستند غير موجود أو لا يخصّك');
+        throw new Error('[forumRepo:postgres:opcode] المستند غير موجود أو لا يخصّك');
     }
 
     const { error } = await admin.from('forum_repository_docs').delete().eq('id', docId);
     if (error && !isMissingTableError(error.message)) {
-        throw new Error('تعذّر حذف المستند من الفهرس');
+        throw new Error('[forumRepo:postgres:opcode] تعذّر حذف المستند من الفهرس');
     }
 
     const storagePath = row.storage_path?.trim();

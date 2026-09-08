@@ -2,6 +2,7 @@ import {
     FOUNDATION_STORE_PERSIST_V1,
     unwrapPersistedSlice,
 } from '@/app/infrastructure/persistence/zustandPersistFoundation';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 export const EXECUTION_DASHBOARD_STORE_KEY = 'execution-dashboard-storage';
 export const EXECUTION_DASHBOARD_PERSIST_VERSION = FOUNDATION_STORE_PERSIST_V1;
@@ -42,6 +43,8 @@ const defaultNoteForm = (): ExecutionDashboardPersistSlice['noteForm'] => ({
 export function normalizeExecutionDashboardPersistSlice(
     persisted: unknown,
 ): ExecutionDashboardPersistSlice {
+    // SECURESTORE FIRST-LINE typeof-guarded NOT THROWING ON LOAD
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch {}
     const slice = unwrapPersistedSlice<ExecutionDashboardPersistSlice>(persisted);
     const uiRaw = slice.ui;
     const ui =

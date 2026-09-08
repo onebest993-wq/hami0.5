@@ -29,6 +29,7 @@ import { listFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
 import { FIELD_TASKS_CURTAIN_PEEK_READY_EVENT } from '@/app/utils/quantumTasksCurtainPeek';
 import { isFieldTasksShellSnappedOpen } from '@/app/services/fieldTasks/fieldTasksShellSnap';
 import { FieldTasksSheetOpenBody } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetChrome';
+import { tearDownTasksFloatingState } from '@/app/components/lawyer/dashboard/tasksManager/tearDownTasksFloatingState';
 
 const FieldTasksFatalDialog = lazy(() =>
     import('@/app/components/lawyer/dashboard/fieldTasks/FieldTasksFatalDialog').then((m) => ({
@@ -149,6 +150,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
     useBodyScrollLock(open);
 
     const handleClose = useCallback(() => {
+        tearDownTasksFloatingState();
         onClose();
     }, [onClose]);
 
@@ -158,6 +160,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
             event.stopPropagation();
             /** نقرة الشبح من الدوك تصيب الخلفية فقط — الإغلاق والأزرار فورية */
             if (!closeArmedRef.current || isFieldTasksCloseSuppressed()) return;
+            tearDownTasksFloatingState();
             onClose();
         },
         [onClose],

@@ -65,7 +65,7 @@ async function consumeStream(onPayload: StreamHandler, signal: AbortSignal): Pro
     });
 
     if (!response.ok || !response.body) {
-        throw new Error(`stream ${response.status}`);
+        throw new Error(`[forum:stream:http:opcode] stream ${response.status}`);
     }
 
     const reader = response.body.getReader();

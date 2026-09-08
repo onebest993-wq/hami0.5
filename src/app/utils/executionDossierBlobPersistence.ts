@@ -1,4 +1,5 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 import {
     clearLegacyPlaintextMirror,
     readSecureOrDrainLegacySync,
@@ -301,7 +302,48 @@ export function persistExecutionDossierBlob(
     if (isExecutionDossierTombstoned(id)) return false;
 
     const key = executionStorageKey(id);
-    const stamped = { ...data, id, updatedAt: data.updatedAt ?? new Date().toISOString() };
+    const stampData = { ...data, id, updatedAt: data.updatedAt ?? new Date().toISOString() };
+    try {
+        const anyRec = stampData as unknown as Record<string, unknown>;
+        const textScalars = ['directorate','classification','docNumber','fileNumber','fileYear','claimType','clientName','opponentName','property_number','district','property_type','full_address','pauseReason'];
+        const limits: Record<string, number> = { directorate:160, classification:200, docNumber:200, fileNumber:40, fileYear:4, claimType:80, clientName:120, opponentName:120, property_number:80, district:200, property_type:200, full_address:200, pauseReason:500 };
+        for (const k of textScalars) {
+            if (typeof anyRec[k] === 'string') {
+                anyRec[k] = sanitizeProfilePlainText(anyRec[k] as string, limits[k] ?? 255);
+            }
+        }
+        const partyArrays = ['creditors','debtors','parties'];
+        for (const arrKey of partyArrays) {
+            const arr = anyRec[arrKey];
+            if (Array.isArray(arr)) {
+                for (const row of arr) {
+                    if (row && typeof row === 'object') {
+                        const rr = row as Record<string, unknown>;
+                        if (typeof rr.name === 'string') rr.name = sanitizeProfilePlainText(rr.name, 120);
+                        if (typeof rr.fullName === 'string') rr.fullName = sanitizeProfilePlainText(rr.fullName, 120);
+                        if (typeof rr.address === 'string') rr.address = sanitizeProfilePlainText(rr.address, 400);
+                    }
+                }
+            }
+        }
+        const noteArrays = ['caseNotesLog','caseTasksPending'];
+        for (const nk of noteArrays) {
+            const arr = anyRec[nk];
+            if (Array.isArray(arr)) {
+                for (const row of arr) {
+                    if (row && typeof row === 'object') {
+                        const rr = row as Record<string, unknown>;
+                        if (typeof rr.title === 'string') rr.title = sanitizeProfilePlainText(rr.title, 160);
+                        if (typeof rr.body === 'string') rr.body = sanitizeProfilePlainText(rr.body, 8000);
+                    }
+                }
+            }
+        }
+        if (typeof anyRec.noteTitle === 'string') anyRec.noteTitle = sanitizeProfilePlainText(anyRec.noteTitle, 160);
+        if (typeof anyRec.noteBody === 'string') anyRec.noteBody = sanitizeProfilePlainText(anyRec.noteBody, 8000);
+        if (typeof anyRec.noteText === 'string') anyRec.noteText = sanitizeProfilePlainText(anyRec.noteText, 8000);
+    } catch { /* at-rest outbound sanitize never throws at boundary */ }
+    const stamped = stampData;
     if (!writeExecutionBlobRaw(key, stamped)) return false;
     if (options?.syncIndex !== false) {
         syncExecutionFileInIndex(stamped);

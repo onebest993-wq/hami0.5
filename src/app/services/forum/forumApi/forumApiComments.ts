@@ -31,9 +31,9 @@ export async function addForumComment(postId: string, comment: CommunityComment)
         postId,
         comment,
     }).catch((err: unknown) => {
-        throw new Error(parseForumApiError(err) || 'تعذّر نشر التعليق');
+        throw new Error('[forumApi:comments:opcode] ' + (parseForumApiError(err)) || 'تعذّر نشر التعليق');
     });
-    if (!res.post) throw new Error('استجابة غير صالحة');
+    if (!res.post) throw new Error('[forumApi:comments:opcode] استجابة غير صالحة');
     await persistForumPostLocally(res.post);
 
     try {
@@ -54,7 +54,7 @@ export async function deleteForumComment(
     _isAdmin: boolean,
 ): Promise<CommunityPost> {
     const userId = await getForumSessionUserId();
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:comments:opcode] يجب تسجيل الدخول');
 
     return withForumMutationFallback(
         async () => {
@@ -63,7 +63,7 @@ export async function deleteForumComment(
                 postId,
                 commentId,
             });
-            if (!res.post) throw new Error('استجابة غير صالحة');
+            if (!res.post) throw new Error('[forumApi:comments:opcode] استجابة غير صالحة');
             await persistForumPostLocally(res.post);
             return res.post;
         },
@@ -78,7 +78,7 @@ export async function editForumComment(
     content: string,
 ): Promise<CommunityPost> {
     const userId = await getForumSessionUserId();
-    if (!userId) throw new Error('يجب تسجيل الدخول');
+    if (!userId) throw new Error('[forumApi:comments:opcode] يجب تسجيل الدخول');
 
     return withForumMutationFallback(
         async () => {
@@ -88,7 +88,7 @@ export async function editForumComment(
                 commentId,
                 content,
             });
-            if (!res.post) throw new Error('استجابة غير صالحة');
+            if (!res.post) throw new Error('[forumApi:comments:opcode] استجابة غير صالحة');
             await persistForumPostLocally(res.post);
             return res.post;
         },

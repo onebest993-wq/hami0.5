@@ -24,9 +24,9 @@ export async function createForumRepositoryDocument(
         action: 'create',
         document,
     }).catch((err: unknown) => {
-        throw new Error(parseForumApiError(err) || 'تعذّر فهرسة المستند');
+        throw new Error('[forumApi:repository:opcode] ' + (parseForumApiError(err)) || 'تعذّر فهرسة المستند');
     });
-    if (!res.document) throw new Error('استجابة غير صالحة');
+    if (!res.document) throw new Error('[forumApi:repository:opcode] استجابة غير صالحة');
     return res.document;
 }
 
@@ -39,9 +39,9 @@ export async function updateForumRepositoryDocument(
         docId,
         document,
     }).catch((err: unknown) => {
-        throw new Error(parseForumApiError(err) || 'تعذّر تحديث فهرس المستند');
+        throw new Error('[forumApi:repository:opcode] ' + (parseForumApiError(err)) || 'تعذّر تحديث فهرس المستند');
     });
-    if (!res.document) throw new Error('استجابة غير صالحة');
+    if (!res.document) throw new Error('[forumApi:repository:opcode] استجابة غير صالحة');
     return res.document;
 }
 
@@ -63,6 +63,6 @@ export async function deleteForumRepositoryDocument(docId: string): Promise<void
         action: 'delete',
         docId,
     }).catch((err: unknown) => {
-        throw new Error(parseForumApiError(err) || 'تعذّر حذف المستند من الفهرس');
+        throw new Error('[forumApi:repository:opcode] ' + (parseForumApiError(err)) || 'تعذّر حذف المستند من الفهرس');
     });
 }

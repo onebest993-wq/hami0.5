@@ -13,6 +13,10 @@ export interface Party {
     lawyerName?: string;
     lawyerPhone?: string;
     isMyOffice?: boolean;
+    role?: string;
+    email?: string;
+    nationalId?: string;
+    representative?: { name: string; [key: string]: unknown };
 }
 
 export interface ThirdParty {
@@ -32,6 +36,7 @@ export interface ThirdParty {
     lawyerName: string;
     lawyerPhone: string;
     isMyOffice: boolean;
+    role?: string;
 }
 
 export interface ThirdPartyModalProps {

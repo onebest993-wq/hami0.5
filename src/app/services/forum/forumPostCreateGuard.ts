@@ -18,7 +18,7 @@ export function isCloudForumStoragePath(path: string | undefined | null): boolea
 export function assertPublishableForumAttachment(attachment: CommunityAttachment | null): void {
     if (!attachment) return;
     if (!isCloudForumStoragePath(attachment.storagePath)) {
-        throw new Error('يجب رفع المرفق إلى الخادم قبل النشر');
+        throw new Error('[forum:guard:attachment_not_cloud] يجب رفع المرفق إلى الخادم قبل النشر');
     }
 }
 

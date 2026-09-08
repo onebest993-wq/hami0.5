@@ -26,10 +26,10 @@ async function derivePasswordKey(password: string, salt: Uint8Array<ArrayBuffer>
 
 export async function encryptBusinessBackupText(plainText: string, password: string) {
     const passwordCheck = validateBackupPassword(password);
-    if (!passwordCheck.ok) throw new Error(`invalid backup password:${passwordCheck.reason}`);
+    if (!passwordCheck.ok) throw new Error(`[settings:backup-crypto-invalid-password] invalid backup password:${passwordCheck.reason}`);
     const plainBytes = new TextEncoder().encode(plainText);
     if (plainBytes.byteLength > MAX_BACKUP_PLAINTEXT_BYTES) {
-        throw new Error('backup plaintext exceeds mobile-safe limit');
+        throw new Error('[settings:backup-crypto-plaintext-oversized] backup plaintext exceeds mobile-safe limit');
     }
     const saltBuf = new ArrayBuffer(16);
     const salt = new Uint8Array(saltBuf);
@@ -67,41 +67,41 @@ export async function decryptBusinessBackupText(
     password: string,
 ) {
     if (encrypted.kind !== 'hami-business-backup-encrypted' || encrypted.version !== 1) {
-        throw new Error('invalid encrypted backup envelope');
+        throw new Error('[settings:backup-crypto-invalid-envelope] invalid encrypted backup envelope');
     }
     const saltB64 = typeof encrypted.salt === 'string' ? encrypted.salt : '';
     const ivB64 = typeof encrypted.iv === 'string' ? encrypted.iv : '';
     const cipherB64 = typeof encrypted.ciphertext === 'string' ? encrypted.ciphertext : '';
     const kdf = encrypted.kdf as { iterations?: unknown } | undefined;
     const iterations = typeof kdf?.iterations === 'number' ? kdf.iterations : Number.NaN;
-    if (!saltB64 || !ivB64 || !cipherB64) throw new Error('invalid encrypted backup');
+    if (!saltB64 || !ivB64 || !cipherB64) throw new Error('[settings:backup-crypto-missing-fields] invalid encrypted backup');
     if (
         !Number.isSafeInteger(iterations) ||
         iterations < BACKUP_KDF_MIN_ITERATIONS ||
         iterations > BACKUP_KDF_MAX_ITERATIONS
     ) {
-        throw new Error('invalid backup KDF iterations');
+        throw new Error('[settings:backup-crypto-kdf-iterations-range] invalid backup KDF iterations');
     }
     if (
         !kdf ||
         (kdf as { name?: unknown }).name !== 'PBKDF2' ||
         (kdf as { hash?: unknown }).hash !== 'SHA-256'
     ) {
-        throw new Error('unsupported backup KDF');
+        throw new Error('[settings:backup-crypto-kdf-unsupported] unsupported backup KDF');
     }
     if (cipherB64.length > Math.ceil(MAX_BACKUP_PLAINTEXT_BYTES / 3) * 4 + 64) {
-        throw new Error('encrypted backup exceeds size limit');
+        throw new Error('[settings:backup-crypto-ciphertext-oversized] encrypted backup exceeds size limit');
     }
     const salt = new Uint8Array(fromBase64(saltB64, 'salt'));
     const iv = new Uint8Array(fromBase64(ivB64, 'iv'));
     const cipher = fromBase64(cipherB64, 'ciphertext');
     if (salt.byteLength !== 16 || iv.byteLength !== 12 || cipher.byteLength < 16) {
-        throw new Error('invalid encrypted backup parameters');
+        throw new Error('[settings:backup-crypto-params-invalid] invalid encrypted backup parameters');
     }
     const key = await derivePasswordKey(password, salt, iterations);
     const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
     if (plainBuf.byteLength > MAX_BACKUP_PLAINTEXT_BYTES) {
-        throw new Error('decrypted backup exceeds size limit');
+        throw new Error('[settings:backup-crypto-decrypted-oversized] decrypted backup exceeds size limit');
     }
     return new TextDecoder().decode(plainBuf);
 }

@@ -450,7 +450,7 @@ export class CryptoService {
     const bits = await crypto.subtle.exportKey('raw', extractable);
     const adopted = await this.adoptMasterKeyFromBits(bits);
     if (!adopted || !this.masterKey) {
-      throw new Error('CryptoService failed to adopt master key');
+      throw new Error('[services_cryptoservice_t:cryptoservicefaile] CryptoService failed to adopt master key');
     }
     return this.masterKey;
   }
@@ -862,7 +862,7 @@ export class CryptoService {
   static async encryptData(plainText: string): Promise<string> {
     const key = this.activeMasterKey();
     if (!key) {
-      throw new Error('CryptoService not initialized. Call initialize() first.');
+      throw new Error('[services_cryptoservice_t:cryptoservicenotin] CryptoService not initialized. Call initialize() first.');
     }
     const encoder = new TextEncoder();
     const data = encoder.encode(plainText);
@@ -876,7 +876,7 @@ export class CryptoService {
 
   static async decryptData(encryptedData: string): Promise<string> {
     if (!this.activeMasterKey()) {
-      throw new Error('CryptoService not initialized. Call initialize() first.');
+      throw new Error('[services_cryptoservice_t:cryptoservicenotin] CryptoService not initialized. Call initialize() first.');
     }
     const trimmed = encryptedData.trim();
     if (!trimmed) return '';
@@ -907,7 +907,7 @@ export class CryptoService {
   private static async decryptDataOnce(trimmed: string): Promise<string> {
     const key = this.activeMasterKey();
     if (!key) {
-      throw new Error('CryptoService not initialized. Call initialize() first.');
+      throw new Error('[services_cryptoservice_t:cryptoservicenotin] CryptoService not initialized. Call initialize() first.');
     }
 
     if (trimmed.includes(':')) {

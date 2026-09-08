@@ -38,6 +38,14 @@ export function prefetchExecutionArchiveOpen(): void {
 }
 
 export function resetExecutionArchiveOpenSession(): void {
+    if (typeof window !== 'undefined') {
+        void import('@/app/services/execution/tearDownExecutionFloatingState')
+            .then((m) => m.tearDownExecutionFloatingState({
+                targetSurface: 'execution-archive',
+                reason: 'navigate-away',
+            }))
+            .catch(() => { /* tearDown never throws */ });
+    }
     openEpoch += 1;
     openPromise = null;
 }

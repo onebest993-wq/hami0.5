@@ -8,6 +8,12 @@ export function findLawsuitFileById(files: FileData[], fileId: number): FileData
 }
 
 export async function loadCaseLinkingRuntime() {
+    void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
+        m.tearDownLitigationFloatingState({
+            targetSurface: 'smartfile-modal',
+            reason: 'linking-runtime-load',
+        }),
+    );
     const [incidental, consolidation, linking] = await Promise.all([
         import('@/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking'),
         import('@/app/components/lawyer/smart-modal/smartFile/caseConsolidationLinking'),
@@ -23,3 +29,4 @@ export async function loadCaseLinkingRuntime() {
         rejectCaseLinkPair: linking.rejectCaseLinkPair,
     };
 }
+// language-server-cache-refresh

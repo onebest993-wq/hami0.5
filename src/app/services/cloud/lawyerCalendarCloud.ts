@@ -148,7 +148,7 @@ export const CalendarDB = {
     },
 
     async saveEvent(event: CalendarEvent): Promise<void> {
-        if (!event.userId) throw new Error('userId مطلوب لحفظ الموعد');
+        if (!event.userId) throw new Error('[calendar:cloud:save_missing_userid] userId مطلوب لحفظ الموعد');
         const mirrored = readCalendarEventsFromMirrors();
         let local: CalendarEvent[];
         if (mirrored !== null) {
@@ -179,7 +179,7 @@ export const CalendarDB = {
     },
 
     async deleteEvent(eventId: string, userId: string): Promise<void> {
-        if (!eventId || !userId) throw new Error('معرف الموعد والمستخدم مطلوب');
+        if (!eventId || !userId) throw new Error('[calendar:cloud:delete_missing_ids] معرف الموعد والمستخدم مطلوب');
 
         try {
             const tomb = await import('@/app/services/calendarTombstones');

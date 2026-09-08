@@ -1,0 +1,4 @@
+file,line,raw_snippet_240chars
+"src/app/components/lawyer/dashboard/commandHub/ForumTile.tsx",81,"<button {...openButton} data-hami-block=""forum"" data-hami-block-border={chrome.containerBorderOn ? '1' : '0'} data-testid=""home-dock-forum"" aria-label={ariaLabel} data-hami-layout-span={layoutSpan} className={chrome.shellClass} style={c"
+"src/app/components/lawyer/dashboard/commandHub/ForumTile.tsx",115,"<button {...openButton} data-testid=""home-dock-forum"" data-hami-layout-span=""1"" className={`hami-forum-tile-main relative z-[1] min-h-[44px] ${HUB_TILE_BUTTON_A11Y}`} aria-label={ariaLabel} >"
+"src/app/components/lawyer/HamiSettings/appearance/AppearancePressButton.tsx",19,"<button {...rest} type={type} onPointerDown={(event) => { onPointerDown?.(event); if (event.defaultPrevented) return; if (event.button !== 0) return; event.stopPropagation(); commitRef.current = true; onPress(); }} onPointerCancel={(event) "

@@ -30,10 +30,11 @@ import {
 /** DEV: مقطع واحد ما زال فوق حدّ التشفير رغم التقسيم active/archived/trash */
 export function warnIfLawsuitSegmentExceedsEncryptLimit(key: string, serialized: string): void {
     if (serialized.length <= ENCRYPT_MAX_BYTES) return;
-    if (!import.meta.env.DEV) return;
-    console.warn(
-        `[lawsuitSegment] segment exceeds ENCRYPT_MAX_BYTES: key=${key} len=${serialized.length} limit=${ENCRYPT_MAX_BYTES} overBy=${serialized.length - ENCRYPT_MAX_BYTES}`,
-    );
+    if (import.meta.env.DEV) {
+        console.warn(
+            `[lawsuitSegment] segment exceeds ENCRYPT_MAX_BYTES: key=${key} len=${serialized.length} limit=${ENCRYPT_MAX_BYTES} overBy=${serialized.length - ENCRYPT_MAX_BYTES}`,
+        );
+    }
 }
 
 export function readLawsuitJsonArray(key: string): unknown[] | null {
@@ -60,6 +61,7 @@ function writeJsonArray(
     payload: unknown[],
     options?: { allowVerifiedEmpty?: boolean; allowShrink?: boolean },
 ): boolean {
+    try { if (typeof SecureStoreService?.ensurePersistedReady === 'function') void SecureStoreService.ensurePersistedReady(); } catch { /* ignore */ }
     /*
      * متانة المقطع: لا تستبدل قائمة أغنى بقائمة أفقر إلا بتصريح (أرشفة/سلة/نقل).
      */

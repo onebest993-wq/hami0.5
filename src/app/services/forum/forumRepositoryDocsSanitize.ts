@@ -22,10 +22,10 @@ export type ForumRepositoryDocPatch = {
 
 export function assertPublishableRepositoryStoragePath(storagePath: string, authorId: string): void {
     if (!isCloudForumStoragePath(storagePath)) {
-        throw new Error('يجب رفع الملف إلى الخادم قبل النشر');
+        throw new Error('[forumRepo:sanitize:opcode] يجب رفع الملف إلى الخادم قبل النشر');
     }
     if (!isStoragePathOwnedByUser(storagePath, authorId)) {
-        throw new Error('مسار الملف لا يخص الناشر');
+        throw new Error('[forumRepo:sanitize:opcode] مسار الملف لا يخص الناشر');
     }
 }
 
@@ -48,14 +48,14 @@ function requireTitleAndDescription(raw: Partial<RepositoryDocument>): {
     const title = clampForumText(String(raw.title ?? '').trim(), 200);
     const description = clampForumText(String(raw.description ?? '').trim(), 4000);
     if (!title || title.length < 2 || !description || description.length < 2) {
-        throw new Error('العنوان والوصف مطلوبان');
+        throw new Error('[forumRepo:sanitize:opcode] العنوان والوصف مطلوبان');
     }
     return { title, description };
 }
 
 function requireDocType(raw: Partial<RepositoryDocument>): RepositoryDocument['type'] {
     if (!raw.type || !DOC_TYPES.has(raw.type)) {
-        throw new Error('نوع المستند غير صالح');
+        throw new Error('[forumRepo:sanitize:opcode] نوع المستند غير صالح');
     }
     return raw.type;
 }
@@ -68,7 +68,7 @@ export function sanitizeForumRepositoryDocument(
     const { title, description } = requireTitleAndDescription(raw);
     const type = requireDocType(raw);
     const fileName = clampForumText(String(raw.fileName ?? '').trim(), 200);
-    if (!fileName) throw new Error('اسم الملف مطلوب');
+    if (!fileName) throw new Error('[forumRepo:sanitize:opcode] اسم الملف مطلوب');
 
     const storagePath = typeof raw.storagePath === 'string' ? raw.storagePath.trim() : '';
     assertPublishableRepositoryStoragePath(storagePath, authorId);

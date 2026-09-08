@@ -8,6 +8,15 @@ import type { InlineActionGateKey } from '@/app/components/lawyer/ExecutionDashb
 import { useFollowupSpecialRequestInit } from './useFollowupSpecialRequestInit';
 import type { FollowupUnifiedModalTab } from '../followupModalTabTypes';
 
+let executionFollowupControllerOpenCounter = 0;
+let lastActiveFollowupControllerExecutionId: string | number = 0;
+const executionFollowupControllerSessionIdRef_stub = { current: 0 };
+const activeExecutionFollowupControllerSessionIdRef_stub = { current: 0 };
+
+export function cleanupExecutionFollowupController(): void {
+    activeExecutionFollowupControllerSessionIdRef_stub.current = 0;
+}
+
 export type UseExecutionFollowupControllerParams = {
     showUnifiedExecutionModal: boolean;
     executionData: ExecutionFile | null | undefined;
@@ -20,6 +29,41 @@ export function useExecutionFollowupController({
     executionData,
     setExecutionModal,
 }: UseExecutionFollowupControllerParams) {
+    const executionFollowupSessionIdRef = useRef(0);
+    const activeExecutionFollowupSessionIdRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            void import('@/app/services/execution/tearDownExecutionFloatingState')
+                .then((m) => m.tearDownExecutionFloatingState({
+                    targetSurface: 'execution-followup',
+                    reason: 'unmount',
+                }))
+                .catch(() => { /* tearDown never throws */ });
+            activeExecutionFollowupSessionIdRef.current = 0;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        executionFollowupControllerOpenCounter += 1;
+        const newId = executionFollowupControllerOpenCounter;
+        executionFollowupSessionIdRef.current = newId;
+        activeExecutionFollowupSessionIdRef.current = newId;
+        executionFollowupControllerSessionIdRef_stub.current = newId;
+        activeExecutionFollowupControllerSessionIdRef_stub.current = newId;
+        lastActiveFollowupControllerExecutionId = `followup-${Date.now()}`;
+        return () => {
+            if (showUnifiedExecutionModalRef.current) return;
+            void import('@/app/services/execution/tearDownExecutionFloatingState')
+                .then((m) => m.tearDownExecutionFloatingState({
+                    targetSurface: 'execution-followup',
+                    reason: 'tearDown',
+                }))
+                .catch(() => { /* tearDown never throws */ });
+        };
+    }, [showUnifiedExecutionModal]);
+
     const showUnifiedExecutionModalRef = useRef(showUnifiedExecutionModal);
     showUnifiedExecutionModalRef.current = showUnifiedExecutionModal;
 
@@ -139,11 +183,14 @@ export function useExecutionFollowupController({
     });
 
     useEffect(() => {
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         if (!showUnifiedExecutionModal) setFollowupSolidaryDebtorIndex(0);
     }, [showUnifiedExecutionModal]);
 
     useEffect(() => {
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         if (!executionData?.id) return;
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         setEvictionVacateDeadlineLocal(executionData.eviction_vacate_deadline ?? null);
         setEvictionAssetsTabUnlocked(!!executionData.eviction_assets_tab_unlocked);
         setEvictionCaseExpenses(
@@ -154,6 +201,7 @@ export function useExecutionFollowupController({
                 ? executionData.encroachment_case_expenses
                 : [],
         );
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         setSpecificDeliveryCaseExpenses(
             Array.isArray(
                 (executionData as { specific_delivery_case_expenses?: unknown }).specific_delivery_case_expenses,
@@ -162,16 +210,19 @@ export function useExecutionFollowupController({
                       .specific_delivery_case_expenses as import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow[])
                 : [],
         );
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         const grant = executionData.eviction_executor_vacate_grant_approved;
         setEvictionExecutorVacateGrantApproved(grant === true);
         const vd = executionData.eviction_vacate_deadline;
         setEvictionVacateDraft(typeof vd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(vd) ? vd : '');
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         const gs = executionData.eviction_residential_grace_period_start;
         setEvictionResidentialGracePeriodStart(
             typeof gs === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(gs) ? gs : null,
         );
         const me = executionData.eviction_residential_grace_manually_ended_at;
         setEvictionResidentialGraceManuallyEndedAt(typeof me === 'string' && me.trim() ? me.trim() : null);
+        if (executionFollowupSessionIdRef.current !== activeExecutionFollowupSessionIdRef.current) return;
         const hnd = executionData.eviction_heirs_notification_date_ymd;
         setEvictionHeirsNotificationDateYmd(
             typeof hnd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(hnd) ? hnd : '',

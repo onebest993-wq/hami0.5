@@ -10,7 +10,15 @@ export const EXEC_MODAL_SHELL_HEIGHT_CLASS =
     'h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)),920px)]';
 
 export const EXEC_MODAL_BACKDROP_SAFE_PAD =
-    'px-[max(0px,env(safe-area-inset-left))] py-[max(0px,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))]';
+    'px-[max(0px,env(safe-area-inset-left))] pr-[max(0px,env(safe-area-inset-right))] py-[max(0px,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))]';
+
+export const EXEC_MODAL_RIGHT_SAFE_PAD = 'pr-[max(0px,env(safe-area-inset-right))]';
+export const EXEC_MODAL_LEFT_RIGHT_SAFE_X =
+    'pl-[max(0px,env(safe-area-inset-left))] pr-[max(0px,env(safe-area-inset-right))]';
+export const EXEC_MODAL_BOTTOM_SAFE_BELOW = 'pb-[max(0.5rem,env(safe-area-inset-bottom))]';
+export const EXEC_MODAL_TOP_SAFE_ABOVE = 'pt-[max(0.5rem,env(safe-area-inset-top))]';
+export const EXEC_MODAL_SHEET_SIDE_SAFE =
+    'pl-[max(0px,env(safe-area-inset-left))] pr-[max(0px,env(safe-area-inset-right))]';
 
 export const EXEC_MODAL_TRASH_SHELL_MAX =
     'max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';
