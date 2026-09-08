@@ -1,66 +1,143 @@
 ---
-description: Hami Legal App - Architecture, conventions, and patterns
+description: Hami Legal App — verified architecture, conventions, and hard constraints
 alwaysApply: true
 ---
 
-# Hami Legal App — Architecture & Conventions
+# Hami Legal App — Architecture (verified 2026-09-08)
 
-## ⛔ Golden Rule (لا تتجاوزه)
+> Every statement here was verified against the code on 2026-09-08.
+> The previous version of this file described `App.tsx`, `DataService`, `AuthService`
+> and `client`/`admin` screens — **none of which exist**. It was injected into every
+> assisted request and actively misled the agents that worked on this repo.
+> **If you change the architecture, update this file in the same commit.**
 
-**لا تلاعب في الشكل أو التصميم إلا بإذن صريح.**  
-Do NOT modify UI, colors, layout, fonts, or any visual aspect. Only backend logic, performance, and code quality.
-
----
-
-## Project Context
-
-Hyper-premium Legal Application and Closed E-commerce Marketplace for Iraqi lawyers.
-
-**Design System:**
-- Primary: Deep Navy `#0A0F1C` / `#05060D`
-- Accents: Gold `#E6C673`, Emerald (success)
-- Style: Glassmorphism, Motion.js, RTL, Tajawal/Cairo fonts
+Iraqi legal case management for lawyers. Arabic RTL. Production-bound, handles
+privileged case data. Phone-first (Capacitor), with a separate admin web app.
 
 ---
 
-## Import Standards
+## ⛔ Hard constraints — never violate
 
-- Use `@/` for `src/` and `@/app` for `src/app`
-- Supabase config: `@/utils/supabase/info`
-- Shared components: `@/app/components/figma/ImageWithFallback`, `@/app/components/shared/*`
-
----
-
-## Routing (App.tsx)
-
-State-based, no React Router. Screens: `splash` | `auth` | `client` | `lawyer` | `profile` | `admin` | `settings` | `privacy` | `support`
-
----
-
-## Component Structure
-
-- `SharedComponents`: PageWrapper, GlassCard, GoldButton, AppHeader
-- `ui/`: shadcn-style primitives (Button, Card, Dialog, Input, etc.)
-- `lawyer/`, `client/`, `admin/`: feature domains
-- `figma/`: ImageWithFallback (asset fallback)
+1. **Zero Visual Freeze.** Do not change UI, colors, layout, fonts, spacing, or
+   Tailwind classes without explicit per-change permission from the owner.
+   Logic, performance, security, data integrity and code quality only.
+2. **Never run a guard with `--save`.** It rewrites the ratchet baseline in
+   `.audit/*.json` and makes CI green over a worse state. If a baseline genuinely
+   must move, it goes in its own commit prefixed `baseline:` with the reason.
+3. **Never delete a file just because nothing imports it.** Structural tests read
+   source files by string path. Always `grep` the basename across `src`, `scripts`
+   and `e2e` first.
+4. **Never invent an API.** If a property or method you need does not exist, add it
+   properly or use what exists — do not reach for it through
+   `as unknown as { _something }`. A guard written against a non-existent
+   `SecureStoreService._sessionUserId` silently killed seven save paths in this repo.
+5. **No secrets in code, commits, or replies.** Report presence and location only.
 
 ---
 
-## Services (v2.0)
+## Two apps, one repo
 
-- `DataService`, `SupabaseService`, `AuthService`, `CryptoService`
-- No AlternativePrivacyProtocol, WebAuthn, or figma:asset
+`__HAMI_CLIENT_PRODUCT__` is a build-time define that separates them.
+
+### Product (phone / web) — the actual product
+```
+index.html
+  → public/hami-boot.js          external, CSP-safe; paints the static shell
+  → src/index.tsx                entry; arms local-only, boot paint cache, fonts
+  → src/boot/*                   bootCriticalPreload, bootEntryPreamble,
+                                 bootShellKickoff, bootStaleChunkReload,
+                                 mountApplication, peekBootSessionUserId
+  → src/app/AppBootRoot.tsx
+  → src/app/AppResolvedRuntime.tsx
+  → src/app/AppRuntimeShell.tsx  ← screen switch lives HERE
+  → src/app/bootstrap/LawyerDashboardGate.tsx
+  → src/app/runtime/*Loader.ts + *BootHydrator.ts + *InstantPaint*.ts
+```
+
+**Screens are state, not routes. There is no router.**
+`AppRuntimeShell` switches exactly three: `'lawyer' | 'privacy' | 'support'`.
+Everything else is an overlay/section inside the lawyer dashboard.
+
+### Headquarters (HQ admin)
+```
+hq.html → src/hq/index.tsx → HqBootRoot → HqResolvedRuntime
+```
+Built with `vite build --mode hq` → `dist-hq`, deployed via `vercel-hq.json`.
+`src/hq/stubs/*` alias out lawyer code so it never reaches the HQ bundle.
 
 ---
 
-## Animations
+## Backend (BFF)
 
-Import from `@/app/animations/transitions`. Use `screenTransitions.splash`, `.auth`, `.main`, `.secondary` for screens.
+Route files: `src/app/api/**/route.ts` — Next-style `GET`/`POST` exports over Web
+`Request`/`Response`. **Not** Next.js; the wiring is custom:
+
+| Environment | How routes are served |
+|---|---|
+| dev | middleware in `vite.config.mts` → `server.ssrLoadModule(route.ts)` |
+| prod | `scripts/generate-vercel-api.mjs` → `src/app/api/vercelRouteManifest.ts` (generated, gitignored) → `scripts/bundle-vercel-api.mjs` (esbuild, `packages: 'external'`) → `api/handler.js` |
+
+`src/app/api/vercelNodeHandler.ts` is the single Vercel entry point.
+
+**Deployment target is Vercel** (`.vercel/project.json` is linked; there is a second
+linked project for HQ). `netlify.toml`, `wrangler.toml` and `firebase.json` are
+unused leftovers — do not treat them as live targets without asking.
 
 ---
 
-## Do NOT
+## Auth and session
 
-- Use relative `../../../utils/supabase/info` — use `@/utils/supabase/info`
-- Add AlternativePrivacyProtocol or figma:asset imports
-- Break RTL or Arabic text layout
+- BFF issues **HttpOnly** cookies `hami_access_token` (1h) / `hami_refresh_token`
+  (7d), `SameSite=Strict`. JWT is never in localStorage on the BFF path.
+- CSRF token is **bound to the subject**, not a bare double-submit.
+- **WIFE** = request signing (HMAC over a canonical payload + nonce + rate limit).
+  Its key is derived from the user's own access token, so it is **anti-tamper and
+  anti-replay — not authentication**. Do not describe it as auth.
+- Roles resolve **server-side only** (`src/app/api/security/roleResolver.ts`).
+  Never trust JWT `user_metadata` for privilege.
+- Flags: `VITE_BFF_AUTH` (BFF path on/off), `VITE_SHELL_AUTH_OPEN` (opens the shell
+  with no login — **must be false in any shipped build**).
+
+---
+
+## Storage and crypto
+
+- `src/app/services/SecureStoreService.ts` — IndexedDB-backed, encrypted values
+  prefixed `hami_enc_v2:`. Heavy keys are debounce-persisted.
+- `src/app/services/CryptoService.ts` — AES master key per user id, kept in the
+  IndexedDB keystore `hami-crypto-keystore`.
+- `src/app/api/kv-proxy/route.ts` — the only client path to cloud KV. Ownership is
+  enforced by `src/app/security/kvProxyKeyOwnership.ts`; a generated copy lives in
+  `supabase/functions/server/`. **Keep them in sync.**
+- Calendar data is **local-only** and must never reach cloud KV.
+- Supabase client identity: `src/utils/supabase/clientEnv.ts` in production.
+  `src/utils/supabase/info.ts` is a committed **dev fallback**, reachable only
+  through `devFallbackConfig.ts` and enforced by `guard:supabase-info-boundary`.
+
+---
+
+## Import conventions
+
+- `@/` → `src/` · `@/app` → `src/app`
+- Server-only modules (`src/app/api/security/*`) must never be imported by browser
+  code, and route files must never import modules that touch `window`/`localStorage`.
+
+---
+
+## Quality gates
+
+Official runner: `node scripts/run-gate-wave0.mjs` (handles Windows `npm.cmd`).
+Do **not** call `npm run gate:wave0` directly on Windows.
+
+Ratchet baselines live in `.audit/*.json` and are monotonic — they may only move
+toward stricter. See constraint #2.
+
+CI: `.github/workflows/` — `quality-gate.yml`, `boot-e2e.yml`, `execution-gate.yml`,
+`lawsuits-gate.yml`.
+
+---
+
+## Design system (read-only — see constraint #1)
+
+Deep navy `#0A0F1C` ground, gold `#E6C673` accent, RTL Arabic, Tajawal/Cairo.
+Shared primitives in `src/app/components/shared/` and `src/app/components/ui/`.
