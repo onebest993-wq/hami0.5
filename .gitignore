@@ -52,6 +52,10 @@ src/imports/lawyer-dashboard-error.txt
 
 # --- أدلة تدقيق مؤقتة (خطوط الأساس المُتعقَّبة مستثناة أدناه) ---
 .audit/_atomic_*
+# شقيقة _atomic_: خردة جلسات سابقة. كانت ٤٢ ملفاً متتبَّعاً بـ٢.٨ ميغا وصفر
+# قارئ، وأحدها (_tmp_guard_eslint_arch_boundaries.json) يُعاد كتابته في كل
+# تشغيل لحارس الحدود فيُوسّخ الشجرة ويُخفي التغييرات الحقيقية.
+.audit/_tmp_*
 .audit/execution-inventory.json
 .audit/import-closure-report.json
 .audit/eslint-temp.json
