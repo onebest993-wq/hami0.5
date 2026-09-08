@@ -37,8 +37,26 @@ function mergeBuildEnv() {
     if (!String(merged.VITE_BUILD_NATIVE ?? '').trim()) {
         merged.VITE_BUILD_NATIVE = 'true';
     }
-    /* تجربة الجهاز: لا توقف قسماً على شاشة الدخول */
-    merged.VITE_SHELL_AUTH_OPEN = 'true';
+    /*
+     * تجربة الجهاز — بطلب صريح، ولا تُفرض أبداً.
+     *
+     * كان السطر `merged.VITE_SHELL_AUTH_OPEN = 'true'` بلا شرط، وحده من بين كل
+     * متغيّرات هذه الدالة (البقية تحترم `if (!current)` فلا تكتب فوق قيمة
+     * موجودة). فكان يدهس `'false'` التي تضبطها `nativeViteBuildEnv` عمداً
+     * وتصفها بـ«بوابة دخول مغلقة افتراضياً — إنتاج-مثل»، ويدهس كذلك أي قيمة
+     * يضبطها الباني صراحةً في بيئته.
+     *
+     * النتيجة: كل APK يُنتجه الأمر الموثَّق الوحيد `npm run cap:build:android`
+     * كان يفتح لوحة المحامي كاملةً بلا شاشة دخول. لا توجد طريقة لبناء نسخة
+     * مصادَقة عبر هذا المسار.
+     */
+    if (String(process.env.HAMI_NATIVE_OPEN_SHELL ?? '').trim() === '1') {
+        merged.VITE_SHELL_AUTH_OPEN = 'true';
+        console.warn(
+            '\n[cap-sync-android] ⚠ HAMI_NATIVE_OPEN_SHELL=1 — بناء تجريبي بلا بوابة دخول.\n' +
+                '                     لا يُوزَّع ولا يُرفع إلى متجر.\n',
+        );
+    }
     if (!String(merged.VITE_ENABLE_CLOUD_SYNC ?? '').trim()) {
         merged.VITE_ENABLE_CLOUD_SYNC = 'true';
     }
@@ -64,14 +82,35 @@ console.log('[cap-sync-android] prepare + build (Supabase env) + cap sync androi
 run('node', ['scripts/ensure-capacitor-cli-tar-compat.mjs']);
 run('node', ['scripts/patch-android-proguard-compat.mjs']);
 
+/*
+ * هل جاءت هوية Supabase من البيئة أم من الاحتياطي المودَع في info.ts؟
+ * يُقرأ قبل الدمج — بعده يستحيل التمييز.
+ */
+const supabaseUrlFromEnv = Boolean(String(process.env.VITE_SUPABASE_URL ?? '').trim());
+
 const buildEnv = mergeBuildEnv();
 if (!buildEnv.VITE_SUPABASE_URL || !buildEnv.VITE_SUPABASE_ANON_KEY) {
     console.error('[cap-sync-android] BLOCKED — VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY missing after merge');
     process.exit(1);
 }
 
+/*
+ * `nativeViteBuildEnv` يسحب `e2eViteBuildEnv` الذي يقرأ مشروع التطوير من
+ * `src/utils/supabase/info.ts`. مفيد للتجربة، وكارثي إن وصل جهاز محامٍ:
+ * التطبيق يتحدّث إلى مشروع التطوير لا الإنتاج. لا يُوقف البناء — قد تكون
+ * التجربة مقصودة — لكنه لا يمرّ صامتاً بعد اليوم.
+ */
+if (!supabaseUrlFromEnv) {
+    console.warn(
+        '\n[cap-sync-android] ⚠ هوية Supabase من الاحتياطي المودَع (src/utils/supabase/info.ts)\n' +
+            '                     أي أن هذا البناء يتحدّث إلى مشروع التطوير لا الإنتاج.\n' +
+            '                     للإنتاج: اضبط VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY في البيئة.\n',
+    );
+}
+
+const shellOpen = buildEnv.VITE_SHELL_AUTH_OPEN ?? 'false';
 console.log(
-    `[cap-sync-android] build env: VITE_SUPABASE_URL=${String(buildEnv.VITE_SUPABASE_URL).slice(0, 32)}… shellOpen=${buildEnv.VITE_SHELL_AUTH_OPEN ?? 'true'} cloudSync=${buildEnv.VITE_ENABLE_CLOUD_SYNC ?? '0'} sentry=${buildEnv.VITE_ENABLE_SENTRY ?? '0'} pdfMinimal=${buildEnv.VITE_PDF_MINIMAL_ASSETS ?? '0'}\n`,
+    `[cap-sync-android] build env: VITE_SUPABASE_URL=${String(buildEnv.VITE_SUPABASE_URL).slice(0, 32)}… shellOpen=${shellOpen} supabaseFrom=${supabaseUrlFromEnv ? 'env' : 'info.ts(dev)'} cloudSync=${buildEnv.VITE_ENABLE_CLOUD_SYNC ?? '0'} sentry=${buildEnv.VITE_ENABLE_SENTRY ?? '0'} pdfMinimal=${buildEnv.VITE_PDF_MINIMAL_ASSETS ?? '0'}\n`,
 );
 
 run('npm', ['run', 'build'], buildEnv);
