@@ -47,9 +47,10 @@ export function resetLawsuitWorkspaceWarmSessionForTests(): void {
     activeLawsuitWorkspaceWarmSessionIdRef.current = 0;
 }
 
-// @ts-ignore - import.meta.hot متاح في بيئة Vite فقط
+/* `import.meta.hot` مُنمَّط أصلاً عبر "vite/client" في tsconfig.app.json،
+   فالتوجيهان اللذان كانا هنا يقمعان لا شيء — وقامعٌ فارغ اليوم يبتلع خطأً
+   حقيقياً غداً. أُزيلا، و tsc يعطي صفر أخطاء لهذا الملف. */
 if (typeof import.meta !== 'undefined' && import.meta.hot && typeof import.meta.hot.dispose === 'function') {
-    // @ts-ignore
     import.meta.hot.dispose(() => {
         void import('@/app/services/litigation/tearDownLitigationFloatingState').then((m) =>
             m.tearDownLitigationFloatingState({

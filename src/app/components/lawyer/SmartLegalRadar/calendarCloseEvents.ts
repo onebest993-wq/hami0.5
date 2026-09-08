@@ -12,12 +12,7 @@ export {
     describeCalendarEscapeStackForDebug,
 } from '@/app/components/lawyer/SmartLegalRadar/calendarEscapeStack';
 
-export function peekCalendarEscapeTopLayerSafe(): number {
-    try {
-        const { peekCalendarEscapeTopLayer } =
-            require('@/app/components/lawyer/SmartLegalRadar/calendarEscapeStack') as typeof import('./calendarEscapeStack');
-        return peekCalendarEscapeTopLayer();
-    } catch {
-        return 0;
-    }
-}
+/* حُذفت `peekCalendarEscapeTopLayerSafe`: صفر مستدعٍ في المستودع، وجسمها لا يعمل
+   أصلاً — `require` غير معرَّف في حزمة Vite للمتصفّح، فكان الاستدعاء يرمي
+   و`catch` يُرجع 0 دائماً. و«الآمِنة» التي تُرجع صفراً دائماً أسوأ من غيابها.
+   الوظيفة نفسها مُصدَّرة استاتيكياً أعلاه: `peekCalendarEscapeTopLayer`. */
