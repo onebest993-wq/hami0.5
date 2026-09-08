@@ -212,6 +212,29 @@ BEGIN
       ) = uid_text
     )
 
+    -- ٤) فهرس الطلبات العامة المفتوحة. مفتاحه `task_help:open:<recordId>` لا
+    --    يحمل معرّف مستخدم إطلاقاً، فلا تلتقطه أيٌّ من القواعد أعلاه ويبقى بعد
+    --    حذف سجلّه يتيماً إلى الأبد — فهرس عام ينمو بلا حدّ.
+    --    ليس تسريب خصوصية: المفتاح لا يحوي إلا معرّف السجلّ، والقارئ يُسقط
+    --    اليتيم صامتاً (taskHelpRepository.ts:185 `if (raw && typeof raw === 'object')`).
+    --    يُحذف هنا فقط حين يكون سجلّه مملوكاً لهذا المستخدم — أي بالشرط نفسه
+    --    الذي يُحذف به السجلّ في القاعدة السابقة، فلا يُمَسّ فهرس طلب زميل.
+    --    اللقطة الواحدة لجملة DELETE تضمن أن السجلّ ما يزال مرئياً للاستعلام
+    --    الفرعي وقت التقييم رغم أنه محذوف في الجملة نفسها.
+    OR (
+      key LIKE 'task_help:open:%'
+      AND EXISTS (
+        SELECT 1
+        FROM public.kv_store_f09713ba AS open_payload
+        WHERE open_payload.key =
+                'task_help:' || substring(kv_store_f09713ba.key FROM length('task_help:open:') + 1)
+          AND COALESCE(
+            to_jsonb(open_payload.value) ->> 'requesterId',
+            ''
+          ) = uid_text
+      )
+    )
+
     -- ▲▲ نهاية الإضافة ▲▲
 
     OR (
