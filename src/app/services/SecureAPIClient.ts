@@ -111,21 +111,73 @@ function mergeHeaders(a: HeadersInit | undefined, b: HeadersInit): HeadersInit {
     return out;
 }
 
-function resolveUrl(url: string): URL {
-    const base =
-        typeof window !== 'undefined' && window.location?.origin
-            ? window.location.origin
-            : 'http://localhost';
-    return new URL(url, base);
+/**
+ * أصل الـAPI للبناء الأصلي.
+ *
+ * في الويب يبقى **فارغاً**، فتُحلّ النداءات على أصل الوثيقة تماماً كما كانت.
+ * أمّا داخل WebView الخاص بـCapacitor فأصل الوثيقة `https://localhost`
+ * (`capacitor.config.ts` → `androidScheme: 'https'` بلا `server.url`)، وهو خادم
+ * محلي يخدّم الأصول المحزومة فحسب. فكل مسار نسبي `/api/*` يقصد خادماً غير موجود
+ * ويرتدّ ٤٠٤ — وهذا يشمل **تسعة عشر عائلة مسارات** لا المصادقة وحدها: المنتدى
+ * ومشاركة القضايا وطلبات المساعدة ورفع الملفات وkv-proxy وملفات التنفيذ والدعاوى
+ * والإشعارات وأحداث الخط الزمني ونقاط العمل والملاحظات العامة…
+ *
+ * أي أن الحزمة الأصلية اليوم لا تصل إلى أي طرف خلفي إطلاقاً. القيمة الفارغة تُبقي
+ * ذلك كما هو؛ وضبطها هو ما يجعل التطبيق الأصلي ممكناً أصلاً.
+ *
+ * ⚠️ الأصل وحده — أي مسار داخل القيمة إعدادٌ خاطئ يُتجاهل بدل أن يُركَّب على
+ * المسارات فينتج عناوين صامتة الخطأ.
+ */
+function readConfiguredApiOrigin(): string {
+    const raw = String(import.meta.env?.VITE_API_ORIGIN ?? '').trim();
+    if (!raw) return '';
+    try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '';
+        return parsed.origin;
+    } catch {
+        return '';
+    }
+}
+
+function documentOrigin(): string {
+    return typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'http://localhost';
 }
 
 function isApiRoute(pathname: string): boolean {
     return pathname.startsWith('/api/');
 }
 
-function isSameOriginApiRoute(resolved: URL): boolean {
+/** هل هذا العنوان مسار API نسبي يخصّنا؟ — وحده يُنسب إلى أصل الـAPI المضبوط */
+function isRelativeApiEndpoint(endpoint: string): boolean {
+    return endpoint.startsWith('/api/');
+}
+
+function resolveUrl(url: string): URL {
+    const configured = readConfiguredApiOrigin();
+    const base = configured && isRelativeApiEndpoint(url) ? configured : documentOrigin();
+    return new URL(url, base);
+}
+
+/**
+ * هل الوجهة هي **واجهتنا** نحن؟ — يحكم توقيع WIFE وإرسال كوكيز الجلسة معاً.
+ *
+ * كان اسمها `isSameOriginApiRoute` وكان ذلك دقيقاً ما دامت الواجهة على أصل
+ * الوثيقة. مع أصل API مضبوط لم يعد «نفس الأصل» وصفاً صحيحاً، والاسم الذي يصف
+ * غير ما يفعل يُضلّل مراجعةً كاملة — وهو ما وقع فعلاً في
+ * `originsAreSameSite` (انظر FINDING-009). فالاسم يتبع الدلالة.
+ *
+ * وحين لا يُضبط أصل API يبقى المنطق حرفياً كما كان: مقارنة بأصل الوثيقة، و`false`
+ * إن غاب `window`.
+ */
+function isOwnApiRoute(resolved: URL): boolean {
+    if (!isApiRoute(resolved.pathname)) return false;
+    const configured = readConfiguredApiOrigin();
+    if (configured) return resolved.origin === configured;
     if (typeof window === 'undefined') return false;
-    return resolved.origin === window.location.origin && isApiRoute(resolved.pathname);
+    return resolved.origin === window.location.origin;
 }
 
 /**
@@ -183,10 +235,20 @@ export class SecureAPIClient {
         // Rate limiting و Honeypot Detection: تُدار Server-side فقط عبر wifeValidator
         // الـ Frontend لا يعتمد عليهما كطبقة أمنية
 
+        /*
+         * الوجهة الفعلية للطلب. بلا أصل API مضبوط تبقى `endpoint` كما وردت حرفياً
+         * — نسبيةً كانت أو مطلقة — فالويب لا يتغيّر. ومع الضبط يُرسَل العنوان
+         * المطلق، إذ لا يُحلّ النسبي إلا على أصل الوثيقة.
+         */
+        const requestTarget =
+            readConfiguredApiOrigin() && isRelativeApiEndpoint(endpoint)
+                ? resolved.toString()
+                : endpoint;
+
         const method = normalizeMethod(options.method);
         const wireBody = options.body;
         const shouldSign =
-            isSameOriginApiRoute(resolved) &&
+            isOwnApiRoute(resolved) &&
             !isWifeUnsignedApiPath(pathname) &&
             !isWifeBootstrapApiPath(pathname);
         if (shouldSign && isAuthPaused()) {
@@ -257,20 +319,20 @@ export class SecureAPIClient {
                 ...options,
                 body: wireBody,
                 headers: nextHeaders,
-                credentials: isSameOriginApiRoute(resolved) ? 'include' : options.credentials,
+                credentials: isOwnApiRoute(resolved) ? 'include' : options.credentials,
                 signal: controller?.signal ?? options.signal,
             };
 
             if (!controller) {
-                return await nativeFetch(endpoint, nextOptions);
+                return await nativeFetch(requestTarget, nextOptions);
             }
 
             const fetchInit = { ...nextOptions, signal: controller.signal };
             let response: Response;
-            if (isKvProxyUrl(endpoint)) {
-                response = await fetchKvProxyGuarded(endpoint, fetchInit, nativeFetch);
+            if (isKvProxyUrl(requestTarget)) {
+                response = await fetchKvProxyGuarded(requestTarget, fetchInit, nativeFetch);
             } else {
-                response = await nativeFetch(endpoint, fetchInit);
+                response = await nativeFetch(requestTarget, fetchInit);
             }
             if (shouldSign && response.status === 403 && isNetworkFeatureProtectedPath(pathname)) {
                 const clone = response.clone();

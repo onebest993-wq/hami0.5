@@ -4,6 +4,13 @@ declare module 'virtual:hami-critical-native-android';
 
 interface ImportMetaEnv {
     readonly VITE_BFF_AUTH?: string;
+    /**
+     * أصل الـAPI المطلق للبناء الأصلي — مثل `https://app.example.com`.
+     * يُترك فارغاً في الويب فتبقى نداءات `/api/*` نسبيةً كما هي.
+     * يُضبط في حزمة Capacitor حيث أصل الوثيقة `https://localhost` خادمٌ محلي
+     * للأصول المحزومة، فكل مسار نسبي يرتدّ ٤٠٤. الأصل وحده — بلا مسار.
+     */
+    readonly VITE_API_ORIGIN?: string;
     readonly VITE_SUPABASE_URL?: string;
     readonly VITE_SUPABASE_ANON_KEY?: string;
     readonly VITE_SHELL_AUTH_OPEN?: string;
