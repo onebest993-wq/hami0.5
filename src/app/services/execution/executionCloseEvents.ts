@@ -32,6 +32,27 @@ export function abortExecutionNetworkAllSafe(): void {
             if (typeof fn === 'function') fn();
         }
     } catch {
-        /* P3b stub — Task8 AbortController globals attach side-effect boot will activate */
+        /* لا يُرمى من مسار تفكيك */
     }
 }
+
+/*
+ * ⚠️ هذا الاستدعاء يُنفَّذ ولا يُلغي شيئاً — والسبب ليس ما يوحي به التعليق السابق.
+ *
+ * كان مكتوباً هنا: «Task8 AbortController globals attach side-effect boot will
+ * activate» — أي أن التفعيل منتظَر. وهو **وقع فعلاً**: السطر الأول من هذا الملف
+ * `import './executionNetworkAbort'` يُحمّل الوحدة، فتنشر `__hamiExecAbortNetworkAll`
+ * على `window`، والدالّة أعلاه تجدها وتستدعيها عند كل إغلاق.
+ *
+ * المفقود شيء آخر تماماً: **لا طلب واحد في التطبيق مرتبط بإشارات تلك الـcontrollers.**
+ * `getExecFilesHydrateSignal` و`getExecFinancialSyncSignal` و
+ * `getExecSummonsFollowupSignal` — صفر مستهلك خارج ملفها. فالإلغاء يُلغي ثلاثة
+ * controllers لا يستمع إليها أحد.
+ *
+ * وقبل وصلها يجب إصلاح دورة حياتها: هي مفردات على مستوى الوحدة تُنشأ مرة واحدة،
+ * و`AbortController` أحادي الاستعمال بلا إعادة ضبط — فأول إغلاق يُبقيها ملغاة
+ * إلى الأبد، ومن يمرّرها إلى `fetch` غداً ستعمل مرة واحدة ثم تكسر كل طلب تالٍ.
+ *
+ * التفصيل الكامل: hami-audit/FINDING-009. والتعليق القديم ضلّل مراجعةً فعلية
+ * حتى كادت تُحذف بنية موصولة — فتُرك هذا مكانه كي لا يتكرّر.
+ */

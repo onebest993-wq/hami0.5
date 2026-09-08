@@ -29,6 +29,14 @@ export function abortLitigationNetworkAllSafe(): void {
             if (typeof fn === 'function') fn();
         }
     } catch {
-        /* P3b stub — Task8 AbortController globals attach side-effect boot will activate */
+        /*
+         * لا يُرمى من مسار تفكيك.
+         *
+         * ⚠️ وللدقّة: هذا الاستدعاء يُنفَّذ ولا يُلغي شيئاً. كان مكتوباً هنا
+         * «globals attach side-effect boot will activate» وكأن التفعيل منتظَر —
+         * وهو وقع فعلاً عبر `import './litigationAbortSingletons'` في السطر الأول.
+         * المفقود أن **لا طلب مرتبط بإشارات تلك الـcontrollers**، وأنها مفردات
+         * أحادية الاستعمال بلا إعادة ضبط. التفصيل: hami-audit/FINDING-009.
+         */
     }
 }
