@@ -3,13 +3,45 @@ name: Execution Gate
 # بوابة مستقلة لقسم التنفيذ — تُشغَّل عند تغيير ملفات التنفيذ فقط
 # حتى لا تُبطئ كل PR على quality-gate العام.
 
+# المرشّح كان يغطّي مجلّدين من سطح التنفيذ الحقيقي. الأعطال التي أفلتت في
+# ٢٠٢٦-٠٩ وقعت كلها خارجهما: utils/executionFilesStorage.ts (فهرس الملفّات لا
+# يُكتب)، infrastructure/execution/ExecutionDossierRepository.ts، و
+# ExecutionCreationView (زرّ الحفظ). فحتى مع PR ما كانت هذه البوّابة لتعمل.
+#
+# القائمة أدناه مستخرَجة من القرص لا من التخمين، والكتلتان متطابقتان عمداً —
+# اختلافهما في lawsuits-gate كان يعني سلوكاً مختلفاً بين الدفع وطلب الدمج.
+#
+# القائمة مكرّرة حرفياً في الكتلتين: GitHub Actions لا يدعم مراسي YAML
+# (&anchor / *ref)، فالاختصار بها يكسر الملف صامتاً. أي تعديل هنا يُنسخ هناك.
 on:
   # أفرع العمل تُقاس أيضاً — مرشّح المسارات أدناه يبقي التشغيل محصوراً.
   push:
     branches: ['**']
     paths:
+      # واجهة التنفيذ
       - 'src/app/components/lawyer/ExecutionDashboard/**'
+      - 'src/app/components/lawyer/ExecutionCreationView/**'
+      - 'src/app/components/lawyer/execution/**'
+      - 'src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/**'
+      - 'src/app/components/lawyer/seizedAssetsManager/**'
+      # طبقات التنفيذ
       - 'src/app/application/execution/**'
+      - 'src/app/domain/execution/**'
+      - 'src/app/infrastructure/execution/**'
+      - 'src/app/services/execution/**'
+      - 'src/app/stores/executionDashboardStore/**'
+      - 'src/app/types/execution/**'
+      - 'src/app/api/execution-files/**'
+      - 'src/app/utils/execution*'
+      - 'src/app/utils/executor*'
+      - 'src/app/hooks/useLawyerExecutionFiles.ts'
+      # نواة التخزين المشتركة — هنا وقع الانحدار الذي أسقط ١٢ ملف اختبار
+      - 'src/app/services/SecureStoreService.ts'
+      - 'src/app/services/CryptoService.ts'
+      - 'src/app/services/dossierPersistence/**'
+      - 'src/app/services/storage/**'
+      - 'src/app/api/kv-proxy/**'
+      # الاختبارات والأدوات والوثائق
       - 'e2e/execution*.spec.ts'
       - 'e2e/decisions-storage-persist.spec.ts'
       - 'e2e/helpers/execution*.ts'
@@ -20,8 +52,30 @@ on:
       - '.github/workflows/execution-gate.yml'
   pull_request:
     paths:
+      # واجهة التنفيذ
       - 'src/app/components/lawyer/ExecutionDashboard/**'
+      - 'src/app/components/lawyer/ExecutionCreationView/**'
+      - 'src/app/components/lawyer/execution/**'
+      - 'src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/**'
+      - 'src/app/components/lawyer/seizedAssetsManager/**'
+      # طبقات التنفيذ
       - 'src/app/application/execution/**'
+      - 'src/app/domain/execution/**'
+      - 'src/app/infrastructure/execution/**'
+      - 'src/app/services/execution/**'
+      - 'src/app/stores/executionDashboardStore/**'
+      - 'src/app/types/execution/**'
+      - 'src/app/api/execution-files/**'
+      - 'src/app/utils/execution*'
+      - 'src/app/utils/executor*'
+      - 'src/app/hooks/useLawyerExecutionFiles.ts'
+      # نواة التخزين المشتركة — هنا وقع الانحدار الذي أسقط ١٢ ملف اختبار
+      - 'src/app/services/SecureStoreService.ts'
+      - 'src/app/services/CryptoService.ts'
+      - 'src/app/services/dossierPersistence/**'
+      - 'src/app/services/storage/**'
+      - 'src/app/api/kv-proxy/**'
+      # الاختبارات والأدوات والوثائق
       - 'e2e/execution*.spec.ts'
       - 'e2e/decisions-storage-persist.spec.ts'
       - 'e2e/helpers/execution*.ts'

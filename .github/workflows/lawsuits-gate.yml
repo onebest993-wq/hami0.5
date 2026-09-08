@@ -1,15 +1,39 @@
 name: Lawsuits Gate
 
+# كانت كتلتا push وpull_request تحملان قائمتين مختلفتين (٧ مقابل ١٤ مساراً)،
+# فيختلف سلوك البوّابة بين الدفع وطلب الدمج بلا سبب معلَن. وحُدِّدتا هنا.
+#
+# والقائمة كانت تفوّت سطح الدعاوى الفعلي: performLawyerNewCaseSave.ts (حفظ دعوى
+# جديدة) في LawyerNewCase/ خارجها تماماً، ومعه محرّك القرارات والأحوال الشخصية
+# ونواة التخزين التي وقع فيها الانحدار.
+#
+# القائمة مكرّرة حرفياً في الكتلتين: GitHub Actions لا يدعم مراسي YAML
+# (&anchor / *ref)، فالاختصار بها يكسر الملف صامتاً. أي تعديل هنا يُنسخ هناك.
 on:
   pull_request:
     paths:
+      # واجهة الدعاوى والقضايا
       - 'src/app/domain/lawsuit/**'
+      - 'src/app/components/lawyer/LawyerNewCase/**'
+      - 'src/app/components/lawyer/LawyerNewCase.tsx'
       - 'src/app/components/lawyer/smart-modal/**'
       - 'src/app/components/lawyer/criminal-system/**'
       - 'src/app/components/lawyer/ArchivePortal/**'
+      - 'src/app/components/lawyer/personal-status/**'
+      - 'src/app/components/lawyer/DecisionsAndAppealsEngine/**'
+      # طبقات البيانات
+      - 'src/app/api/lawsuit-files/**'
       - 'src/app/services/caseShare/**'
       - 'src/app/services/cloudSyncEngine.ts'
       - 'src/app/services/criminalShardedPersistStorage.ts'
+      - 'src/app/utils/criminalCases*'
+      # نواة التخزين المشتركة — هنا وقع الانحدار الذي أسقط اختبارات الدوام
+      - 'src/app/services/SecureStoreService.ts'
+      - 'src/app/services/CryptoService.ts'
+      - 'src/app/services/dossierPersistence/**'
+      - 'src/app/services/storage/**'
+      - 'src/app/api/kv-proxy/**'
+      # الاختبارات والأدوات
       - 'e2e/civil-lawsuit-*.spec.ts'
       - 'e2e/criminal-dossier-open.spec.ts'
       - 'e2e/helpers/civilLawsuitFixtures.ts'
@@ -21,13 +45,35 @@ on:
   push:
     branches: ['**']
     paths:
+      # واجهة الدعاوى والقضايا
       - 'src/app/domain/lawsuit/**'
+      - 'src/app/components/lawyer/LawyerNewCase/**'
+      - 'src/app/components/lawyer/LawyerNewCase.tsx'
       - 'src/app/components/lawyer/smart-modal/**'
       - 'src/app/components/lawyer/criminal-system/**'
       - 'src/app/components/lawyer/ArchivePortal/**'
+      - 'src/app/components/lawyer/personal-status/**'
+      - 'src/app/components/lawyer/DecisionsAndAppealsEngine/**'
+      # طبقات البيانات
+      - 'src/app/api/lawsuit-files/**'
+      - 'src/app/services/caseShare/**'
+      - 'src/app/services/cloudSyncEngine.ts'
+      - 'src/app/services/criminalShardedPersistStorage.ts'
+      - 'src/app/utils/criminalCases*'
+      # نواة التخزين المشتركة — هنا وقع الانحدار الذي أسقط اختبارات الدوام
+      - 'src/app/services/SecureStoreService.ts'
+      - 'src/app/services/CryptoService.ts'
+      - 'src/app/services/dossierPersistence/**'
+      - 'src/app/services/storage/**'
+      - 'src/app/api/kv-proxy/**'
+      # الاختبارات والأدوات
       - 'e2e/civil-lawsuit-*.spec.ts'
       - 'e2e/criminal-dossier-open.spec.ts'
+      - 'e2e/helpers/civilLawsuitFixtures.ts'
       - 'scripts/lawsuits-*.mjs'
+      - 'scripts/run-lawsuits-ci-e2e.mjs'
+      - 'scripts/e2e-preview-manager.mjs'
+      - '.github/workflows/lawsuits-gate.yml'
   workflow_dispatch:
 
 concurrency:
