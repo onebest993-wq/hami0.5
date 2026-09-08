@@ -13,8 +13,9 @@ on:
       - 'src/app/bootstrap/**'
       - 'src/boot/**'
       - '.github/workflows/boot-e2e.yml'
+  # أفرع العمل تُقاس أيضاً — مرشّح المسارات أدناه يبقي التشغيل محصوراً.
   push:
-    branches: [main, master]
+    branches: ['**']
     paths:
       - 'public/hami-boot.js'
       - 'e2e/app-boot-smoke.spec.ts'

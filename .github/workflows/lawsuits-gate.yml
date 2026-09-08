@@ -17,8 +17,9 @@ on:
       - 'scripts/run-lawsuits-ci-e2e.mjs'
       - 'scripts/e2e-preview-manager.mjs'
       - '.github/workflows/lawsuits-gate.yml'
+  # أفرع العمل تُقاس أيضاً — مرشّح المسارات أدناه يبقي التشغيل محصوراً.
   push:
-    branches: [main, master]
+    branches: ['**']
     paths:
       - 'src/app/domain/lawsuit/**'
       - 'src/app/components/lawyer/smart-modal/**'

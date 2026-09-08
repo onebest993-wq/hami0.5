@@ -4,8 +4,9 @@ name: Execution Gate
 # حتى لا تُبطئ كل PR على quality-gate العام.
 
 on:
+  # أفرع العمل تُقاس أيضاً — مرشّح المسارات أدناه يبقي التشغيل محصوراً.
   push:
-    branches: [main, master]
+    branches: ['**']
     paths:
       - 'src/app/components/lawyer/ExecutionDashboard/**'
       - 'src/app/application/execution/**'
