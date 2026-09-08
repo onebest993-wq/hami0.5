@@ -143,6 +143,12 @@ export function markBootRevealDone(): void {
     bootSecureStoreShellSync();
     if (firstMark && typeof window !== 'undefined') {
         void import('@/app/runtime/nativeBootTelemetry').then((m) => m.publishNativeBootTelemetry());
+        /*
+         * بعد الكشف لا قبله: الطلب لا يحجب رسماً، وتأخيره إلى هنا يُبقي زمن أول
+         * إطار كما هو. وقبل هذا لم يكن يُطلب إطلاقاً، فكل قواعد IndexedDB — ومنها
+         * مفتاح فكّ الأرشيف — في فئة «أفضل جهد» القابلة للإخلاء. FINDING-012.
+         */
+        void import('@/app/runtime/persistentStorageGrant').then((m) => m.ensurePersistentStorage());
     }
 }
 
