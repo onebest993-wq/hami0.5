@@ -3,6 +3,49 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 
+/*
+ * توقيع الإصدار.
+ *
+ * بلا هذا لا يُنتج Gradle إلا `app-release-unsigned.apk` — لا يُثبَّت على جهاز
+ * ولا يُرفع إلى متجر. أي أن نسخة الإصدار كانت غير قابلة للاختبار على هاتف أصلاً.
+ *
+ * المخزن نفسه لا يدخل المستودع أبداً ولا يُنشئه أحد نيابةً عن صاحب التطبيق:
+ * فقدانه يعني استحالة نشر أي تحديث لاحق للتطبيق نفسه إلى الأبد، وتسريبه يعني
+ * أن أي طرف ينشر تحديثاً «موقَّعاً» لتطبيق محاماة. لذلك تُقرأ الهوية من
+ * `keystore.properties` (مُتجاهَل في git) أو من البيئة لبناء CI.
+ *
+ * وغيابه لا يوقف البناء: تبقى مخرجات التنقيح وغير الموقَّعة كما هي اليوم، فلا
+ * تتعطّل أي دورة عمل قائمة.
+ *
+ * keystore.properties:
+ *     storeFile=C:/path/to/hami-release.jks
+ *     storePassword=…
+ *     keyAlias=hami
+ *     keyPassword=…
+ */
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = false
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    hasReleaseKeystore = keystoreProperties['storeFile'] != null
+} else if (System.getenv('HAMI_KEYSTORE_PATH')) {
+    keystoreProperties['storeFile'] = System.getenv('HAMI_KEYSTORE_PATH')
+    keystoreProperties['storePassword'] = System.getenv('HAMI_KEYSTORE_PASSWORD')
+    keystoreProperties['keyAlias'] = System.getenv('HAMI_KEY_ALIAS')
+    keystoreProperties['keyPassword'] = System.getenv('HAMI_KEY_PASSWORD')
+    hasReleaseKeystore = true
+}
+
+if (!hasReleaseKeystore) {
+    logger.lifecycle(
+        '[hami] لا مخزن توقيع — مخرَج الإصدار سيكون app-release-unsigned.apk ' +
+        '(لا يُثبَّت على جهاز ولا يُرفع إلى متجر). ' +
+        'أنشئ keystore.properties أو اضبط HAMI_KEYSTORE_PATH.'
+    )
+}
+
 android {
     namespace = "iq.hami.legal"
     compileSdk rootProject.ext.compileSdkVersion
@@ -19,8 +62,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                /* v1 لأجل minSdk 24، وv2/v3 لسلامة التحقّق على أندرويد الحديث */
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

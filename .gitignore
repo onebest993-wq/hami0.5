@@ -21,6 +21,12 @@ vercel-import*.env
 *.key
 *.keystore
 *.jks
+# كلمات مرور مخزن التوقيع نصّاً صريحاً — أخطر من المخزن نفسه، إذ يسرّبه معه.
+# تسريب مفتاح التوقيع يعني أن أي طرف يستطيع نشر تحديث «موقَّع» لتطبيق محاماة.
+keystore.properties
+key.properties
+android/keystore.properties
+android/key.properties
 google-services.json
 GoogleService-Info.plist
 
