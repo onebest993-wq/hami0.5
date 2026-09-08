@@ -77,8 +77,26 @@ function clearBrowserStorage(): void {
     clearPersistedDeviceId();
 }
 
-async function wipeLocalSecureStore(): Promise<void> {
-    SecureStoreService.discardHeavyPersistPending();
+/**
+ * ذاكرة فقط — لا تلمس قرصاً، فتعمل في الوضعين.
+ *
+ * `clearDecryptedMemoryCache` هي **جوهر** عزل الحسابين: `decryptedCache` خريطة
+ * على مستوى الوحدة (SecureStoreService.ts:51) تعيش ما دامت الصفحة حيّة،
+ * والخروج لا يُعيد تحميل الصفحة. لو بقيت لقرأ الحساب الثاني نصوص الأول
+ * المفكوكة من الذاكرة — وهو تحديداً ما توثّق هذه الدالة أنها تمنعه.
+ * كانت مدفونة داخل الطور المُتلِف، فوجب فصلها كي لا يُسقطها وضع `'session'`.
+ *
+ * والكتابات المؤجّلة: `discard` يُلغي المؤقّتات بلا كتابة. كان ذلك مقبولاً حين
+ * يُمحى كل شيء بعده مباشرةً، أمّا والخروج يحفظ البيانات فإلغاؤها يفقد آخر
+ * تعديلات المستخدم. لذلك `flush` عند الخروج (يكتبها فعلاً عبر
+ * queueDurableSetItem) و`discard` عند المسح الكامل.
+ */
+async function clearSecureStoreMemory(scope: 'all' | 'session'): Promise<void> {
+    if (scope === 'session') {
+        SecureStoreService.flushHeavyPersistPending();
+    } else {
+        SecureStoreService.discardHeavyPersistPending();
+    }
     SecureStoreService.clearDecryptedMemoryCache();
     try {
         const { storageCache } = await import('@/app/utils/storageCache');
@@ -86,6 +104,14 @@ async function wipeLocalSecureStore(): Promise<void> {
     } catch {
         /* best effort */
     }
+}
+
+/**
+ * الشقّ المُتلِف وحده — يُحذف مفاتيح محفوظة، فلا يعمل إلا في `'all'`.
+ * `purgeExecutionLocalStateOnLogout` رغم اسمه يحذف مفاتيح `execution_` و
+ * `garnishment_` و`hami_unified_funds_ledger_` — بيانات إضبارات حقيقية.
+ */
+async function wipeLocalSecureStore(): Promise<void> {
     try {
         const { purgeExecutionLocalStateOnLogout } = await import(
             '@/app/utils/executionWipeRegistry'
@@ -204,6 +230,10 @@ export async function purgeLocalApplicationData(
         clearLocalNotificationCache(userId);
         await resetNotificationStoreAfterWipe();
     });
+    /* ذاكرة فقط — يعمل قبل الطور المُتلِف تماماً كما كان داخله، وفي الوضعين */
+    await runLocalPurgeStage(failedStages, 'secure_store_memory', () =>
+        clearSecureStoreMemory(sessionScoped ? 'session' : 'all'),
+    );
     await runStage('secure_store', wipeLocalSecureStore);
     await runStage('vault_blobs', clearAllVaultBlobs);
     /* ذاكرة فقط — destroy() لا يلمس IndexedDB، فهو مطلوب في الوضعين */

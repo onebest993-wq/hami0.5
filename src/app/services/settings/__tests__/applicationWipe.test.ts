@@ -12,6 +12,7 @@ const {
   listKeys,
   deleteItem,
   discardHeavyPersistPending,
+  flushHeavyPersistPending,
   clearDecryptedMemoryCache,
   storageCacheClear,
   purgeExecutionLocal,
@@ -27,6 +28,7 @@ const {
   listKeys: vi.fn(async () => [] as string[]),
   deleteItem: vi.fn(async () => undefined),
   discardHeavyPersistPending: vi.fn(),
+  flushHeavyPersistPending: vi.fn(),
   clearDecryptedMemoryCache: vi.fn(),
   storageCacheClear: vi.fn(),
   purgeExecutionLocal: vi.fn(async () => undefined),
@@ -61,6 +63,7 @@ vi.mock('@/app/services/SecureStoreService', () => ({
     listKeys,
     deleteItem,
     discardHeavyPersistPending,
+    flushHeavyPersistPending,
     clearDecryptedMemoryCache,
   },
 }));
@@ -277,6 +280,44 @@ describe('wipeAllApplicationData', () => {
     expect(clearRepo).not.toHaveBeenCalled();
     /* وعزل الجلسة يقع كما كان */
     expect(cryptoDestroy).toHaveBeenCalled();
+  });
+
+  /*
+   * انحدار على الإصلاح نفسه. `clearDecryptedMemoryCache` كانت مدفونة داخل الطور
+   * المُتلِف `secure_store`، فحين مُنع الطور في نطاق الجلسة سقطت معه — وهي جوهر
+   * الغرض المعلَن للدالة: `decryptedCache` خريطة على مستوى الوحدة تعيش ما دامت
+   * الصفحة حيّة، والخروج لا يُعيد التحميل، فكان الحساب الثاني يرث نصوص الأول
+   * المفكوكة. لا يُستدعى هذا التنظيف في كود الإنتاج إلا من هنا.
+   */
+  it('نطاق الجلسة يُفرغ الكاش المفكوك — عزل الحساب التالي لا يسقط مع منع الإتلاف', async () => {
+    const { purgeLocalApplicationData } = await import('@/app/services/settings/applicationWipe');
+
+    await purgeLocalApplicationData('user-1', undefined, {
+      preserveLegalTerms: true,
+      scope: 'session',
+    });
+
+    expect(clearDecryptedMemoryCache).toHaveBeenCalled();
+    expect(storageCacheClear).toHaveBeenCalled();
+    /* ومع ذلك لا مفتاح محفوظ يُحذف */
+    expect(deleteItem).not.toHaveBeenCalled();
+    expect(purgeExecutionLocal).not.toHaveBeenCalled();
+  });
+
+  /*
+   * انحدار ثانٍ: `discard` يُلغي مؤقّتات الكتابة بلا كتابة. كان مقبولاً حين يُمحى
+   * كل شيء بعده، أمّا والخروج يحفظ البيانات فإلغاؤها يفقد آخر تعديل للمستخدم.
+   */
+  it('نطاق الجلسة يُفرِّغ الكتابات المؤجّلة إلى القرص ولا يُلغيها', async () => {
+    const { purgeLocalApplicationData } = await import('@/app/services/settings/applicationWipe');
+
+    await purgeLocalApplicationData('user-1', undefined, {
+      preserveLegalTerms: true,
+      scope: 'session',
+    });
+
+    expect(flushHeavyPersistPending).toHaveBeenCalled();
+    expect(discardHeavyPersistPending).not.toHaveBeenCalled();
   });
 
   it('النطاق الكامل يبقى مُتلِفاً — حذف الحساب و«امسح بياناتي» لم يتغيّرا', async () => {
