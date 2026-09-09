@@ -176,15 +176,52 @@ async function flushCryptoDeferredWrites(): Promise<void> {
   }
 }
 
+/**
+ * جيل الحذف — يمنع كتابةً أُطلقت قبل الحذف من الهبوط بعده.
+ *
+ * `setItemSync` يُطلق كتابة دائمة غير متزامنة ولا ينتظرها. فإن حُذف المفتاح قبل
+ * هبوطها، تُنفَّذ الكتابة بعد الحذف **فتُعيد كتابة القيمة المحذوفة**. قِيس، لا
+ * استُنتج:
+ *
+ *     setItemSync('A', v); await deleteItem('A');
+ *     getItemSync('A')               →  null   ✅ الحذف وقع
+ *     await tick(); getItemSync('A') →  v      ❌ عاد
+ *
+ * وضابطان يعزلان السبب تماماً: `await waitForPendingSetItem('A')` قبل الحذف
+ * يمنع العودة، وكذلك مجرّد `await tick()` — أي أن هبوط الكتابة الطائرة هو
+ * الفاعل وحده. و`deleteItemSync` مصاب بالعطل نفسه.
+ *
+ * الأثر: محامٍ يعدّل إضبارة ثم يحذفها في اللحظة التالية — فتعود بعد لحظة بلا
+ * رسالة. حذفٌ لا يثبت في تطبيق أسرار مهنية عطلٌ بمرتبة فقدان البيانات.
+ *
+ * الحلّ: كل كتابة تلتقط جيل المفتاح وقت جدولتها، وتُسقط نفسها إن تغيّر الجيل
+ * قبل تنفيذها. ولا يُسجَّل جيل إلا وهناك كتابة معلّقة فعلاً، ويُنظَّف مع آخر
+ * كتابة — فلا نمو غير محدود.
+ *
+ * وتسلسل set→delete→set يبقى صحيحاً: الكتابة الأولى تُسقَط، والثانية التقطت
+ * الجيل الجديد فتُنفَّذ.
+ */
+const keyDeleteGeneration = new Map<string, number>();
+
+function markKeyDeletedForPendingWrites(key: string): void {
+  /* بلا كتابة طائرة لا شيء يُسقَط — وتسجيل جيل هنا يُسرّب ذاكرة بلا فائدة */
+  if (!durableSetItemPending.has(key)) return;
+  keyDeleteGeneration.set(key, (keyDeleteGeneration.get(key) ?? 0) + 1);
+}
+
 function queueDurableSetItem(
   key: string,
   value: string,
   options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
 ): Promise<void> {
+  const generationAtQueue = keyDeleteGeneration.get(key) ?? 0;
   const previous = durableSetItemPending.get(key) ?? Promise.resolve();
   const run = previous
     .catch(() => undefined)
-    .then(() => SecureStoreService.setItem(key, value, options))
+    .then(() => {
+      if ((keyDeleteGeneration.get(key) ?? 0) !== generationAtQueue) return undefined;
+      return SecureStoreService.setItem(key, value, options);
+    })
     .then(
       () => undefined,
       (error: unknown) => {
@@ -204,7 +241,11 @@ function queueDurableSetItem(
     );
   durableSetItemPending.set(key, run);
   void run.finally(() => {
-    if (durableSetItemPending.get(key) === run) durableSetItemPending.delete(key);
+    if (durableSetItemPending.get(key) === run) {
+      durableSetItemPending.delete(key);
+      /* آخر كتابة معلّقة زالت — فلا حاجة لحفظ الجيل */
+      keyDeleteGeneration.delete(key);
+    }
   });
   return run;
 }
@@ -1677,6 +1718,9 @@ class SecureStoreService {
   }
 
   static async deleteItem(key: string): Promise<void> {
+    /* كتابة طائرة أُطلقت قبل هذا الحذف كانت تهبط بعده فتُحيي المفتاح */
+    markKeyDeletedForPendingWrites(key);
+    dropStalePersistQueueForKey(key);
     deleteDecryptedCacheKey(key);
     if (isWebEnvironment()) {
       await this.ensureWebInfrastructureReady();
@@ -1952,6 +1996,9 @@ class SecureStoreService {
   }
 
   static deleteItemSync(key: string): void {
+    /* المتزامن مصاب بالعطل نفسه — قِيس: setItemSync ثم deleteItemSync ثم tick ⇒ يعود */
+    markKeyDeletedForPendingWrites(key);
+    dropStalePersistQueueForKey(key);
     if (isWebEnvironment()) {
       this.ensureWebMigrationSync();
       this.ensureWebReadySyncKickoff();
