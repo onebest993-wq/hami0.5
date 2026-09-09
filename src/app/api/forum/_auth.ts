@@ -247,21 +247,61 @@ function isUnsafeForumErrorMessage(message: string): boolean {
     return !/[\u0600-\u06FF]/.test(message);
 }
 
-/** أخطاء المنتدى للعميل: عربي معروف يمرّ، تفاصيل Postgres لا. */
+/** رسائل عامة آمنة لكل حالة مصنَّفة — تُستعمل حين يحمل الأصل تفاصيل داخلية */
+const FORUM_SAFE_MESSAGE_BY_STATUS: Readonly<Record<number, string>> = {
+    403: 'ليست لديك صلاحية لهذا الإجراء',
+    404: 'العنصر غير موجود',
+    409: 'تعارض في الحالة — أعد المحاولة',
+    423: 'العنصر مقفل',
+};
+
+/** 0 = غير مصنَّف */
+function classifyForumErrorStatus(message: string): number {
+    if (
+        message.includes('صلاحية') ||
+        message.includes('الانضمام للمجموعة') ||
+        message.includes('لا يمكنك') ||
+        message.includes('لا يخصّك')
+    ) {
+        return 403;
+    }
+    if (message.includes('أفضل إجابة')) return 409;
+    if (message.includes('مقفل')) return 423;
+    if (message.includes('غير موجود')) return 404;
+    return 0;
+}
+
+/**
+ * أخطاء المنتدى للعميل: عربي معروف يمرّ، تفاصيل Postgres لا.
+ *
+ * **الحالة تُشتقّ من المعنى، والنصّ وحده هو ما يُعمَّم.** كان الترتيب معكوساً:
+ * فحصُ التسريب يسبق التصنيف، فيبتلع كلَّ خطأ يحمل بادئة تقنية — بما فيه رفضُ
+ * صلاحيةٍ مشروع.
+ *
+ * `deletePostAuthorized` يرمي حرفياً:
+ *     '[forumRepo:postgres:opcode] ليس لديك صلاحية لحذف هذا المنشور'
+ *
+ * فيها «صلاحية» (⇒ ٤٠٣) وفيها `postgres` (⇒ تسريب). فكان الرفض يخرج **٥٠٠**:
+ * عميلٌ يظنّ عطلَ خادم بدل منعٍ مقصود، ومراقبةٌ تعدّ الرفض المشروع خطأً.
+ *
+ * البيانات كانت سليمة دائماً — الرمي يسبق `deletePost` — فالعطل في الإبلاغ لا
+ * في الحماية. والحارسان صحيحان كلٌّ على حدة؛ ترتيبهما وحده كان خاطئاً.
+ *
+ * وهذا لا يفتح باب تسريب: خطأ Postgres خالص لا يحمل حرفاً عربياً، فلا يُصنَّف
+ * أصلاً ويبقى ٥٠٠ عاماً — التصنيف لا يرفع الحالة إلا حين تكون رسالتنا نحن
+ * حاضرةً بجانب البادئة التقنية.
+ */
 export function forumCatchJsonResponse(err: unknown): Response {
     const message = err instanceof Error ? err.message.trim() : '';
+    const classified = classifyForumErrorStatus(message);
     if (isUnsafeForumErrorMessage(message)) {
+        if (classified) {
+            return jsonResponse(classified, {
+                ok: false,
+                error: FORUM_SAFE_MESSAGE_BY_STATUS[classified] ?? FORUM_GENERIC_500,
+            });
+        }
         return jsonResponse(500, { ok: false, error: FORUM_GENERIC_500 });
     }
-    let status = 400;
-    if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة') || message.includes('لا يمكنك') || message.includes('لا يخصّك')) {
-        status = 403;
-    } else if (message.includes('أفضل إجابة')) {
-        status = 409;
-    } else if (message.includes('مقفل')) {
-        status = 423;
-    } else if (message.includes('غير موجود')) {
-        status = 404;
-    }
-    return jsonResponse(status, { ok: false, error: message.slice(0, 180) });
+    return jsonResponse(classified || 400, { ok: false, error: message.slice(0, 180) });
 }
