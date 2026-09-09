@@ -71,6 +71,12 @@ if (fs.existsSync(nodpiPadded)) {
 cp('xml/data_extraction_rules.xml', 'android/app/src/main/res/xml/data_extraction_rules.xml');
 cp('xml/backup_rules.xml', 'android/app/src/main/res/xml/backup_rules.xml');
 cp('xml/network_security_config.xml', 'android/app/src/main/res/xml/network_security_config.xml');
+/*
+ * بلا هذا السطر يعيد أول `cap add android` قالبَ Capacitor الافتراضي، وفيه
+ * `<external-path path="." />` — جذر التخزين الخارجي كاملاً عبر FileProvider،
+ * بلا مستعمل واحد في المشروع.
+ */
+cp('xml/file_paths.xml', 'android/app/src/main/res/xml/file_paths.xml');
 
 const patch = spawnSync(process.execPath, ['scripts/patch-android-proguard-compat.mjs'], {
   cwd: ROOT,
