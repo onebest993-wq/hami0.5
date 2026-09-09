@@ -70,6 +70,10 @@ src/imports/lawyer-dashboard-error.txt
 .audit/phase*-*.txt
 .audit/*-run.txt
 .audit/*-gate.txt
+# نظير JSON لما سبق: `guard-test-ratchet.mjs` يكتب `.audit/vitest-run.json` في كل
+# تشغيل ولا يقرأه أبداً. وكونه متتبَّعاً يجعل كل تشغيل للحارس يُوسِخ الشجرة، فتضيع
+# التعديلات الحقيقية بين ضجيج مخرجات الفحص. لا يطابق خطوط الأساس (`*baseline*.json`).
+.audit/*-run.json
 !.audit/import-closure-gate.json
 !.audit/lint-baseline.json
 !.audit/test-ratchet-baseline.json
