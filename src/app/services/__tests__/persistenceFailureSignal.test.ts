@@ -107,4 +107,25 @@ describe('إشارة فشل التثبيت', () => {
 
         expect(captured).toHaveBeenCalledTimes(2);
     });
+
+    /*
+     * النداء المزدوج من IndexedDB: خطأُ الطلب يُبعث `onerror` على المعاملة ثم
+     * يُجهضها فيُبعث `onabort`، و`done()` تُبلّغ في المسارين — عطلٌ واحد ونداءان.
+     * فيجب ألّا ينفخ العدّاد الذي يصل الرصد.
+     */
+    it('العطل الواحد يُعدّ مرّة ولو نادى مسارَي onerror وonabort', async () => {
+        signalPersistenceFailure('lawyer_files', 'transaction-failed', 'AbortError');
+        await flushReport();
+        /* النداء الثاني للعطل نفسه */
+        signalPersistenceFailure('lawyer_files', 'transaction-failed', 'AbortError');
+        await flushReport();
+        /* ثم عطلٌ متمايز حقيقي */
+        signalPersistenceFailure('lawyer_notes', 'db-unavailable');
+        await flushReport();
+
+        const counts = captured.mock.calls.map(
+            (call) => (call[1] as { failureCount?: number }).failureCount,
+        );
+        expect(counts).toEqual([1, 2]);
+    });
 });
