@@ -88,12 +88,23 @@ function clearBrowserStorage(): void {
  *
  * والكتابات المؤجّلة: `discard` يُلغي المؤقّتات بلا كتابة. كان ذلك مقبولاً حين
  * يُمحى كل شيء بعده مباشرةً، أمّا والخروج يحفظ البيانات فإلغاؤها يفقد آخر
- * تعديلات المستخدم. لذلك `flush` عند الخروج (يكتبها فعلاً عبر
- * queueDurableSetItem) و`discard` عند المسح الكامل.
+ * تعديلات المستخدم. لذلك يُكتب عند الخروج و`discard` عند المسح الكامل.
+ *
+ * ⚠️ والكتابة **تُنتظر**. كان هنا `flushHeavyPersistPending()` بلا انتظار، وبعده
+ * بطورين `CryptoService.destroy()` يمحو المفتاح — فتصل الكتابة إلى التشفير وقد زال
+ * مفتاحه، فتُرمى `StorageEncryptionError` وتُؤجَّل في طابور لا يُفرَّغ بعد الخروج.
+ * قِيس على الدالّة نفسها: `setItemSync('lawyer_notes', …)` ثم خروجٌ بنطاق الجلسة
+ * ⇒ **القرص `null`** والنصّ الصريح باقٍ في المرآة. أي أن الـflush الذي أُضيف
+ * ليحفظ آخر تعديل كان يضمن ضياعه، ويُبقي نصّه لمن يدخل بعده.
+ *
+ * فالترتيب الآن: تُنتظر الكتابات حتى تبلغ القرص، ثم يُسقط ما بقي نصّاً صريحاً
+ * لمفتاح حسّاس من المرآة (`clearDecryptedMemoryCache` تمسح كاش الفكّ وحده،
+ * والمرآة `webFallbackStore` تحمل ما كتبه `setItemSync` صريحاً حتى تهبط الكتابة).
  */
 async function clearSecureStoreMemory(scope: 'all' | 'session'): Promise<void> {
     if (scope === 'session') {
-        SecureStoreService.flushHeavyPersistPending();
+        await SecureStoreService.waitForAllPendingPersist();
+        SecureStoreService.dropSensitivePlaintextMirror();
     } else {
         SecureStoreService.discardHeavyPersistPending();
     }

@@ -1409,13 +1409,8 @@ class SecureStoreService {
             if (!key.startsWith('hami_notes_sync_map_')) {
               _guard(`Refused empty overwrite for "${key}" — existing data preserved.`);
             }
-            /*
-             * إن سُمّمت المرآة بـ [] خطأً، أعد ciphertext القرص حتى لا تكذب القراءات التالية.
-             */
-            /*
-             * أعد ciphertext القرص بعد الرفض — حتى قائمة أقصر في المرآة
-             * لا تُجبر getItem على مقارنة القرص في كل قراءة.
-             */
+            /* بعد الرفض أعد ciphertext القرص إلى المرآة: مرآةٌ مسمَّمة بـ[] تكذب على
+               القراءات التالية، وقائمة أقصر تُجبر getItem على مقارنة القرص كل مرّة. */
             if (existingRaw.startsWith(ENCRYPTED_PREFIX) && key.includes('lawyer_files')) {
               webFallbackStore.set(key, existingRaw);
               deleteDecryptedCacheKey(key);
@@ -1651,12 +1646,7 @@ class SecureStoreService {
   }
 
   static async deleteItem(key: string): Promise<void> {
-    /*
-     * حاجزان لأن للكتابة الطائرة حالتين: مجدولة لم تبدأ (يكفيها الجيل)، وبدأت
-     * فعلاً (تجاوزت فحص الجيل فتُنتظر هنا). بعدهما لا كتابة طائرة والحذف نهائي.
-     * لا جمود: `setItem` لا تستدعي `deleteItem`، والانتظار مرّة لا حلقة.
-     * التفصيل: `secureStoreDeleteBarrier.ts` و FINDING-012.
-     */
+    /* حاجزان: الجيل لكتابة لم تبدأ، والانتظار لواحدة بدأت. `secureStoreDeleteBarrier.ts` */
     markKeyDeleted(key);
     dropStalePersistQueueForKey(key);
     const inFlightWrite = durableSetItemPending.get(key);
@@ -1689,6 +1679,19 @@ class SecureStoreService {
     decryptedCache.clear();
     diskVerifiedDecryptedCacheKeys.clear();
     decryptedCacheOrder.length = 0;
+  }
+
+  /**
+   * خروج الحساب: يُسقط ما بقي **نصّاً صريحاً** لمفتاح حسّاس في المرآة فلا يرثه التالي.
+   * يُستدعى بعد `waitForAllPendingPersist` — والقرص استلم، فالإسقاط قراءةٌ منه لا فقدان.
+   */
+  static dropSensitivePlaintextMirror(): void {
+    for (const key of [...webFallbackStore.keys()]) {
+      if (!isSensitiveKey(key)) continue;
+      if (webFallbackStore.get(key)?.startsWith(ENCRYPTED_PREFIX)) continue;
+      webFallbackStore.delete(key);
+      deleteDecryptedCacheKey(key);
+    }
   }
 
   /** flush فوري لكتابات IDB المؤجّلة (عند إخفاء التبويب) */

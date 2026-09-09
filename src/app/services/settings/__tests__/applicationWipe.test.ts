@@ -12,7 +12,8 @@ const {
   listKeys,
   deleteItem,
   discardHeavyPersistPending,
-  flushHeavyPersistPending,
+  waitForAllPendingPersist,
+  dropSensitivePlaintextMirror,
   clearDecryptedMemoryCache,
   storageCacheClear,
   purgeExecutionLocal,
@@ -28,7 +29,8 @@ const {
   listKeys: vi.fn(async () => [] as string[]),
   deleteItem: vi.fn(async () => undefined),
   discardHeavyPersistPending: vi.fn(),
-  flushHeavyPersistPending: vi.fn(),
+  waitForAllPendingPersist: vi.fn(async () => undefined),
+  dropSensitivePlaintextMirror: vi.fn(),
   clearDecryptedMemoryCache: vi.fn(),
   storageCacheClear: vi.fn(),
   purgeExecutionLocal: vi.fn(async () => undefined),
@@ -63,7 +65,8 @@ vi.mock('@/app/services/SecureStoreService', () => ({
     listKeys,
     deleteItem,
     discardHeavyPersistPending,
-    flushHeavyPersistPending,
+    waitForAllPendingPersist,
+    dropSensitivePlaintextMirror,
     clearDecryptedMemoryCache,
   },
 }));
@@ -307,8 +310,13 @@ describe('wipeAllApplicationData', () => {
   /*
    * انحدار ثانٍ: `discard` يُلغي مؤقّتات الكتابة بلا كتابة. كان مقبولاً حين يُمحى
    * كل شيء بعده، أمّا والخروج يحفظ البيانات فإلغاؤها يفقد آخر تعديل للمستخدم.
+   *
+   * وانحدار ثالث فوقه: `flush` وحده **لا يكفي** — يُطلق الكتابة ولا ينتظرها، ثم
+   * يمحو `CryptoService.destroy()` المفتاح بعد طورين فتفشل الكتابة وتضيع. فالعقد
+   * هنا انتظارٌ فعليّ (`waitForAllPendingPersist` تُفرّغ المؤجَّل ثم تنتظر هبوطه)،
+   * ثم إسقاط ما بقي نصّاً صريحاً لمفتاح حسّاس من المرآة.
    */
-  it('نطاق الجلسة يُفرِّغ الكتابات المؤجّلة إلى القرص ولا يُلغيها', async () => {
+  it('نطاق الجلسة ينتظر هبوط الكتابات ولا يُلغيها، ثم يُسقط النصّ الصريح', async () => {
     const { purgeLocalApplicationData } = await import('@/app/services/settings/applicationWipe');
 
     await purgeLocalApplicationData('user-1', undefined, {
@@ -316,7 +324,8 @@ describe('wipeAllApplicationData', () => {
       scope: 'session',
     });
 
-    expect(flushHeavyPersistPending).toHaveBeenCalled();
+    expect(waitForAllPendingPersist).toHaveBeenCalled();
+    expect(dropSensitivePlaintextMirror).toHaveBeenCalled();
     expect(discardHeavyPersistPending).not.toHaveBeenCalled();
   });
 
