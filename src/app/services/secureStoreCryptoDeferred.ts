@@ -40,6 +40,21 @@ export interface CryptoDeferredHost {
 const MAX_KEY_WAIT_ATTEMPTS = 24;
 /** فشل الكتابة نفسها والمفتاح حاضر — أقصر، فالسبب لا يُرجى زواله بمجرّد الانتظار */
 const MAX_WRITE_FAILURE_ATTEMPTS = 8;
+/**
+ * ⚠️ **وهذا ليس الفاصل الفعليّ لكل مفتاح.** قِيس على مسار `setItem` الحقيقي:
+ *
+ *     lawyer_notes (ليس encrypt-or-fail)   →  [400, 400]     ⇒ الوتيرة ٤٠٠
+ *     lawyer_files (encrypt-or-fail)       →  [400, 1200]    ⇒ كما هو موثَّق
+ *
+ * السبب أن `setItem` عند `StorageEncryptionError` على مفتاحٍ ليس encrypt-or-fail
+ * **تُعيد الإدراج بنفسها** (SecureStoreService: `queueCryptoDeferredWrite` داخل
+ * `catch`)، فتسبق `scheduleFlush(400)` نداءَ هذه الوحدة بـ1200، و`flushScheduled`
+ * يجعل الثاني بلا أثر. فميزانية الثماني جولات تنقضي في ~٣٫٢ث لا ~٩٫٦ث لذلك الصنف.
+ *
+ * لم يُغيَّر هنا: إصلاحه إمّا أن تمرّر `setItem` فشلها للطابور بدل إعادة الإدراج،
+ * وإمّا جدولةٌ تُلغي الأقصر لصالح الأطول — وكلاهما مسٌّ بأخطر دالّة في المخزن،
+ * فيُذكر بصدق حتى يُعالَج بدل أن يبقى الثابت يَعِد بما لا يفعل.
+ */
 const RETRY_DELAY_MS = 1_200;
 const FIRST_FLUSH_DELAY_MS = 400;
 
