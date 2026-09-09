@@ -80,8 +80,13 @@ describe('ensurePersistentStorage', () => {
         expect(String(warn.mock.calls[0]?.[0])).toContain('50MB من 100MB');
     });
 
-    /* مسار إقلاع: لا يرمي مهما فعل المحرّك */
-    it('لا يرمي حين يفشل persist', async () => {
+    /*
+     * مسار إقلاع: لا يرمي مهما فعل المحرّك — **ولا يصمت**. كان الخطأ يُبتلع بلا
+     * سطر، وهو الحال الأسوأ: لا يُعرف أمُنح الدوام أم لا، فتبقى قواعد IndexedDB
+     * — وفيها مفتاح فكّ الأرشيف — قابلةً للإخلاء بلا علم أحد. والوحدة تُحذّر من
+     * الرفض صراحةً، فصمتُها عن الخطأ كان تناقضاً داخلها.
+     */
+    it('لا يرمي حين يفشل persist — ويُسجّل السبب بدل ابتلاعه', async () => {
         stubStorage({
             persist: async () => {
                 throw new Error('quota subsystem down');
@@ -90,6 +95,8 @@ describe('ensurePersistentStorage', () => {
         });
 
         await expect(ensurePersistentStorage()).resolves.toEqual({ outcome: 'error' });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0]?.[0])).toContain('تعذّر طلب التخزين الدائم');
     });
 
     it('لا يرمي حين تغيب الواجهة كلياً', async () => {

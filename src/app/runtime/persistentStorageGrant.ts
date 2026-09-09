@@ -104,7 +104,14 @@ export function ensurePersistentStorage(): Promise<PersistentStorageReport> {
                         : ''),
             );
             return report;
-        } catch {
+        } catch (error) {
+            /*
+             * الرفض يُحذَّر منه أعلاه، وكان الخطأ يمرّ صامتاً — وهو الحال الأسوأ:
+             * لا يُعرف أمُنح الدوام أم لا، فتبقى قواعد IndexedDB — وفيها مفتاح فكّ
+             * الأرشيف — قابلةً للإخلاء بلا أن يعلم أحد. الوحدة لا ترمي أبداً
+             * (مسار إقلاع)، لكنها لا تصمت بعد اليوم.
+             */
+            console.warn('[hami:storage] تعذّر طلب التخزين الدائم:', error);
             return publish({ outcome: 'error' });
         }
     })();

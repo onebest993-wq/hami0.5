@@ -764,7 +764,9 @@ export async function authLogout(
             if (!result.complete) {
                 console.warn('[auth] local logout purge incomplete:', result.failedStages.join(', '));
             }
-        } catch {
+        } catch (error) {
+            /* السبب يُسجَّل: بلا هذا يبقى «فشل التنظيف» بلا خيطٍ يُتتبَّع */
+            console.warn('[auth] local logout purge threw:', error);
             purgeComplete = false;
         }
     }
