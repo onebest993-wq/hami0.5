@@ -1841,7 +1841,6 @@ class SecureStoreService {
    * القديم تمسح إضبارة أُنشئت ولم تُفلَش بعد.
    */
   static isDiskHydrationSettledSync(): boolean {
-    if (import.meta.env.VITEST) return true;
     if (!isWebEnvironment()) return true;
     return webInfraReady;
   }
