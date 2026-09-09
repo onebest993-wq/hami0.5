@@ -34,7 +34,17 @@ describe('phase-7 execution commit-first', () => {
         const criminal = readFileSync(join(runtime, 'criminalOpenContract.ts'), 'utf8');
 
         expect(execution).toMatch(/prepareExecutionDossierOpen\(mode\);\s*commit\(\)/);
-        expect(lawsuit).toMatch(/prepareLawsuitDossierChrome\(\);\s*commit\(\)/);
         expect(criminal).toMatch(/commit\(trimmed\);\s*prepareCriminalDossierOpen\(trimmed\)/);
+        /*
+         * عقد الدعوى لا يُقاس بالتجاور بعد اليوم. كان الشرط `chrome();\s*commit()`
+         * أي ألّا يفصل بينهما إلا فراغ، فأُقحم بينهما حارس جلسة واستيراد ديناميّ
+         * **غير مُنتظَر** — فانكسر الشرط **والعقد سليم**: commit ما زال يقع قبل أيّ
+         * await.
+         *
+         * ويقيسه الآن `lawsuitOpenContractBehavior.test.ts` سلوكاً: يُستدعى commit
+         * ولمّا يهبط الاستيراد الديناميّ بعد. وذلك يبقى صحيحاً مهما أُعيد ترتيب
+         * الأسطر، ويخفق فعلاً لو وُضع commit خلف انتظار.
+         */
+        expect(lawsuit).toContain('prepareLawsuitDossierChrome()');
     });
 });

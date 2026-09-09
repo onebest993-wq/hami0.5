@@ -86,6 +86,27 @@ describe('عقد فتح إضبارة الدعوى — سلوكاً', () => {
         expect(warmWorkspace).not.toHaveBeenCalled();
     });
 
+    it('commit يقع قبل أيّ await — النقرة لا تُعلَّق على التسخين', async () => {
+        const { openLawsuitDossierWithContract, resetLawsuitDossierSessionForTests } = await import(
+            '@/app/runtime/lawsuitOpenContract'
+        );
+        resetLawsuitDossierSessionForTests();
+        const commit = vi.fn();
+
+        openLawsuitDossierWithContract(commit);
+
+        /*
+         * لا `await` بين السطرين. فوقوع commit هنا يعني أنه لم يُوضَع خلف انتظار،
+         * وأن تفكيك الحالة العائمة — وهو استيراد ديناميّ — لم يهبط بعد.
+         * وهذا هو «commit-first» الذي كان يُقاس بتجاور نصّي: `chrome();\s*commit()`.
+         */
+        expect(commit).toHaveBeenCalledTimes(1);
+        expect(tearDownFloating).not.toHaveBeenCalled();
+
+        await settle();
+        expect(tearDownFloating).toHaveBeenCalled();
+    });
+
     it('ضابط — المسار الثقيل يُسخّن المساحة فعلاً، فالفرق بين الدالّتين حقيقي', async () => {
         const { prepareLawsuitDossierOpen, resetLawsuitDossierSessionForTests } = await import(
             '@/app/runtime/lawsuitOpenContract'
