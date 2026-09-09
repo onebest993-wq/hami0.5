@@ -18,6 +18,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { markKeyDeleted } from '@/app/services/secureStoreDeleteBarrier';
 
 /** يكفي لهبوط الكتابة المؤجّلة لو لم يُسقطها الحاجز */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
@@ -77,5 +78,30 @@ describe('حاجز الحذف — الحذف نهائي مهما كان مسار
         await SecureStoreService.setItem('barrier:plain', '{"g":1}');
         await settle();
         expect(SecureStoreService.getItemSync('barrier:plain')).toBe('{"g":1}');
+    });
+
+    /*
+     * حذفٌ جماعي أثناء كتابة طائرة — وهو ما يقع فعلاً في «امسح كل بياناتي» وحذف
+     * الحساب: `listKeys()` ثم `deleteItem` لكل مفتاح على الجهاز، وإضابير التنفيذ
+     * وحدها مفتاحٌ لكل ملف. وكان سقف الـ٢٥٦ بإزاحة الأقدم يُسقط مدخل الضحية
+     * فتقرأ الكتابة صفراً عند الالتزام فتهبط — **فيعود المحذوف أثناء المحو نفسه**.
+     */
+    it('حذفٌ جماعي أثناء كتابة طائرة لا يُنسي الحاجز مفتاحها', async () => {
+        const pending = SecureStoreService.setItem('barrier:victim', '{"x":1}');
+        SecureStoreService.deleteItemSync('barrier:victim');
+        for (let i = 0; i < 300; i += 1) markKeyDeleted(`barrier:bulk-${i}`);
+        await pending;
+        await settle();
+        expect(SecureStoreService.getItemSync('barrier:victim')).toBeNull();
+    });
+
+    /* الضابط: العدد وحده لا يُسقط شيئاً — بحذفٍ واحد كان يمرّ أصلاً */
+    it('والضابط — حذفٌ واحد بين الالتقاط والالتزام يبقى نهائياً', async () => {
+        const pending = SecureStoreService.setItem('barrier:victim-one', '{"x":1}');
+        SecureStoreService.deleteItemSync('barrier:victim-one');
+        markKeyDeleted('barrier:bulk-single');
+        await pending;
+        await settle();
+        expect(SecureStoreService.getItemSync('barrier:victim-one')).toBeNull();
     });
 });
