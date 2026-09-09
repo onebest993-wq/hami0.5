@@ -1,4 +1,5 @@
-import { addDaysYmd } from './judgmentTypes';
+/* مباشرةً لا عبر برميل judgmentTypes — البرميل يُعيد تصدير opponentAppealMethods فتنشأ دائرة */
+import { addDaysYmd } from './judgmentTypeGuards';
 import { daysRemainingUntil } from './absentJudgmentFlow';
 
 /** مهلة الاستئناف في البداءة: 15 يوماً من اليوم التالي لصدور القرار */
