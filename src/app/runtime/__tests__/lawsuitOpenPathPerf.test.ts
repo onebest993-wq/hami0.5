@@ -16,12 +16,16 @@ describe('lawsuit open-path performance contracts', () => {
 
         const open = read('src/app/runtime/lawsuitOpenContract.ts');
         expect(open).toContain('prepareLawsuitDossierChrome()');
-        expect(open).toMatch(
-            /export function openLawsuitDossierWithContract[\s\S]{0,400}prepareLawsuitDossierChrome\(\)/,
-        );
-        expect(open).not.toMatch(
-            /export function openLawsuitDossierWithContract[\s\S]{0,400}prepareLawsuitDossierOpen\(\)/,
-        );
+        /*
+         * كان هنا تعبيران يشترطان وقوع الاستدعاء خلال ٤٠٠ حرف من تعريف الدالّة.
+         * فصارت المسافة ٤٥٥ حرفاً بعد إضافة حارس الجلسة، فأخفقا — **والعقد سليم**:
+         * الدالّة تستدعي chrome ولا تستدعي open. أي أنهما كانا يقيسان التنسيق
+         * ويُبلّغان عن العقد.
+         *
+         * والعقد نفسه — مَن يُستدعى ومَن لا يُستدعى — يقيسه الآن سلوكاً:
+         * `lawsuitOpenContractBehavior.test.ts`، وقد أُثبتت أسنانه بخرق العقد في
+         * المصدر والتحقّق من إخفاقه.
+         */
     });
 
     it('بطاقات المخزن بلا Framer وبلا تسخين مساحة كامل عند hover', () => {
