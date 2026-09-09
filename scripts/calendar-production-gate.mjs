@@ -13,6 +13,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { globSync } from 'node:fs';
+import { CALENDAR_CRITICAL_GLOBS, CALENDAR_CRITICAL_MIN } from './calendar-gate-manifest.mjs';
 
 const EXACT_BANNER = '===== CALENDAR TIER-1 PRODUCTION GATE PASSED =====';
 const EXACT_LAST_STDOUT_LINE = '=== Gate result === PASSED';
@@ -69,26 +70,7 @@ if (phase0Clean !== 4) {
  * + dossierSync bridges + input security + permissions + escapeStack + abort.
  * =======================================================================*/
 console.log('=== Phase1: Critical Paths Glob REAL DISK (target ≥56) ===');
-const criticalGlobs = [
-    'src/app/services/calendar/**/*.{ts,tsx}',
-    'src/app/components/lawyer/SmartLegalRadar/**/*.{ts,tsx}',
-    'src/app/hooks/lawyerDashboard/schedule/**/*.{ts,tsx}',
-    'src/app/hooks/lawyerDashboard/*Schedule*.{ts,tsx}',
-    'src/app/hooks/lawyerDashboard/*schedule*.{ts,tsx}',
-    'src/app/hooks/*scheduleIntentWarm*.{ts,tsx}',
-    'src/app/hooks/__tests__/*useLawyerDashboardSchedule*.test.ts',
-    'src/app/services/schedule/**/*.{ts,tsx}',
-    'src/app/runtime/schedule*.{ts,tsx}',
-    'src/app/runtime/__tests__/*calendar*.test.{ts,tsx}',
-    'src/app/runtime/__tests__/*schedule*.test.{ts,tsx}',
-    'src/app/components/lawyer/dashboard/schedule/**/*.{ts,tsx}',
-    'src/app/components/lawyer/dashboard/*Schedule*.{ts,tsx}',
-    'src/app/components/lawyer/hooks/__tests__/*useCalendarData*.test.ts',
-    'src/app/services/cloud/lawyerCalendarCloud*.{ts,tsx}',
-    'src/app/services/__tests__/calendarFullSimulation.test.ts',
-    'src/app/services/__tests__/calendarFullScheduleSync.test.ts',
-    'src/app/services/notifications/native/__tests__/calendarNativeReminderScheduler.test.ts',
-];
+const criticalGlobs = CALENDAR_CRITICAL_GLOBS;
 const criticalPaths = [];
 for (const g of criticalGlobs) {
     const matches = globSync(g, { caseSensitive: false, nodir: true });
@@ -97,11 +79,11 @@ for (const g of criticalGlobs) {
     }
 }
 console.log(`Phase1 actual critical paths count: ${criticalPaths.length}`);
-if (criticalPaths.length < 56) {
-    fail(`Phase1 critical paths ${criticalPaths.length} BELOW threshold 56 → FAIL`);
+if (criticalPaths.length < CALENDAR_CRITICAL_MIN) {
+    fail(`Phase1 critical paths ${criticalPaths.length} BELOW threshold ${CALENDAR_CRITICAL_MIN} → FAIL`);
     process.exit(1);
 }
-ok(`Phase1 critical paths: ${criticalPaths.length} ≥ 56 PASS (NTFS-case-safe via globSync)`);
+ok(`Phase1 critical paths: ${criticalPaths.length} ≥ ${CALENDAR_CRITICAL_MIN} PASS (NTFS-case-safe via globSync)`);
 
 const shuffled = [...criticalPaths].sort(() => 0.5 - Math.random());
 const sample = shuffled.slice(0, 20);

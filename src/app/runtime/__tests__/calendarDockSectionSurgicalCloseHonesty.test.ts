@@ -562,13 +562,36 @@ describe('calendar dock section surgical close honesty', () => {
         expect(visitHook).toContain('consumeOpenExecutionVisitationWorkspaceRequest');
     });
 
-    it('بوابة التقويم تقيس المسارات الحية لا القشور المحذوفة', () => {
+    it('بوابة التقويم تقيس المسارات الحية لا القشور المحذوفة', async () => {
+        /*
+         * كان هذا يقرأ **نصّ** سكربت البوّابة ويطلب أن يحوي أسماء ملفات بعينها.
+         * والبوّابة تعمل بـglobs لا بأسماء، فلم يكن أيٌّ من الخمسة موجوداً في نصّها:
+         * الإيجابية الثلاثة تخفق **والتغطية قائمة**، والسلبيتان تمرّان **بالصدفة**
+         * — يغيب اسم القشرة المحذوفة كما يغيب اسم الملف الحيّ.
+         *
+         * فصارت الأنماط في `scripts/calendar-gate-manifest.mjs`، ويُحلّ هنا فيُسأل
+         * السؤال الصحيح: **هل يُقاس هذا الملف؟** لا: هل اسمه مكتوب في السكربت؟
+         */
+        const { CALENDAR_CRITICAL_GLOBS } = await import(
+            '../../../../scripts/calendar-gate-manifest.mjs'
+        );
+        const measured = new Set<string>();
+        for (const glob of CALENDAR_CRITICAL_GLOBS) {
+            for (const hit of fs.globSync(glob, { caseSensitive: false, nodir: true })) {
+                const name = String(hit).split(/[\\/]/).pop();
+                if (name) measured.add(name);
+            }
+        }
+        expect(measured.size).toBeGreaterThanOrEqual(56);
+        expect(measured.has('RadarOpenInstantChrome.tsx')).toBe(true);
+        expect(measured.has('CalendarReminderModal.tsx')).toBe(true);
+        expect(measured.has('LawyerDashboardScheduleTab.tsx')).toBe(true);
+        expect(measured.has('ScheduleInstantShell.tsx')).toBe(false);
+        expect(measured.has('LegalCommandCenterDock.tsx')).toBe(false);
+        /* والبوّابة تستهلك البيان نفسه — فلا تنحرف قائمتان */
         const gate = fs.readFileSync(path.join(root, 'scripts/calendar-production-gate.mjs'), 'utf8');
-        expect(gate).toContain('RadarOpenInstantChrome.tsx');
-        expect(gate).toContain('CalendarReminderModal.tsx');
-        expect(gate).toContain('LawyerDashboardScheduleTab.tsx');
-        expect(gate).not.toContain('ScheduleInstantShell.tsx');
-        expect(gate).not.toContain('LegalCommandCenterDock.tsx');
+        expect(gate).toContain("from './calendar-gate-manifest.mjs'");
+        expect(gate).not.toMatch(/const criticalGlobs = \[/);
         const e2e = fs.readFileSync(path.join(root, 'e2e/smart-legal-radar.spec.ts'), 'utf8');
         expect(e2e).toContain("toHaveAttribute('aria-label', 'إغلاق التقويم')");
         expect(e2e).toContain("toHaveText('الشهر')");
