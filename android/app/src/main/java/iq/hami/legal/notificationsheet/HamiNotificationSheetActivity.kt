@@ -5,6 +5,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.OnBackPressedCallback
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -37,6 +38,14 @@ class HamiNotificationSheetActivity : ComponentActivity() {
             WindowManager.LayoutParams.FLAG_SECURE,
         )
         enableEdgeToEdge()
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    finishSheet()
+                }
+            },
+        )
         dismissRequested = false
         val payload = pendingPayload ?: HamiNotificationSheetPayload.empty()
         val plugin = HamiNotificationSheetPlugin.instance
@@ -87,10 +96,5 @@ class HamiNotificationSheetActivity : ComponentActivity() {
         finish()
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        finishSheet()
     }
 }

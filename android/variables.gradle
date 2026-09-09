@@ -13,7 +13,7 @@
  * minSdk 24 هو الحدّ الأدنى لـCapacitor 8 (كان 22). أندرويد ٥ خارج التغطية.
  */
 ext {
-    kotlinVersion = '2.3.0'
+    kotlinVersion = '2.3.10'
     composeBomVersion = '2025.01.01'
     minSdkVersion = 24
     compileSdkVersion = 36

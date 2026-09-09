@@ -99,6 +99,18 @@ android {
 kotlin {
     jvmToolchain(21)
 }
+composeCompiler {
+    includeComposeMappingFile = true
+}
+
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.jetbrains.kotlin' && details.requested.name == 'compose-group-mapping') {
+            details.useVersion '2.3.10'
+            details.because 'compose-group-mapping 2.2.10 was never published; align with Kotlin Compose plugin'
+        }
+    }
+}
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
