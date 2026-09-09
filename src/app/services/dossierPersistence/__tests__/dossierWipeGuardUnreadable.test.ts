@@ -45,6 +45,19 @@ describe('حارس المسح — الموجود غير المقروء', () => {
         /* الاستعادة تمرّ عبر deleteItem ثم setItem أو allowShrink بعد فكّ صريح */
     });
 
+    it('ويسمح بالكتابة غير الفارغة فوق غير المقروء لغير الدعاوى — تمييزٌ متعمَّد', () => {
+        const real = JSON.stringify([{ id: 'a' }]);
+        /*
+         * الدعاوى تُصان كلياً (الحالة أعلاه)، وغيرها يُرفض التفريغ فقط. والسبب أن
+         * منع كل كتابة على مفتاح موجودُه تالف يُجمّده أبداً بلا طريق استعادة.
+         *
+         * وهذا التمييز هو ما اقتضى تصحيح رسالة `SecureStoreService`: كانت تقول
+         * «preserved, not overwritten» عن كل مفتاح، وهي صادقة في الدعاوى وحدها.
+         */
+        expect(shouldRejectDossierWipe('lawyer_notes', real, CIPHERTEXT)).toBe(false);
+        expect(shouldRejectDossierWipe('executionFiles', real, CIPHERTEXT)).toBe(false);
+    });
+
     it('لا يغيّر سلوك المفاتيح غير المحمية', () => {
         expect(shouldRejectDossierWipe('hami:ui:scratch', '[]', TRUNCATED)).toBe(false);
     });

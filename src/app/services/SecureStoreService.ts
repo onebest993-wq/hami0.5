@@ -1108,7 +1108,8 @@ class SecureStoreService {
 
   private static shouldRejectEmptyOverwrite(key: string, incoming: string, existing: string): boolean {
     if (isUnreadableProtectedValue(key, existing)) {
-      _guard(`Stored value for "${key}" is unreadable — preserved, not overwritten.`);
+      /* لا تَعِد بالصيانة: `dossierWipeGuard` يصون الدعاوى كلياً ويرفض التفريغ فقط لغيرها */
+      _guard(`Stored value for "${key}" is unreadable — emptying writes refused, lawsuit keys refuse all.`);
       signalUnreadableStoredValue(key, existing, 'write');
     }
     if (key === 'hami:criminal:store') {
