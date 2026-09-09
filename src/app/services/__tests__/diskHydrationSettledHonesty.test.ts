@@ -25,7 +25,11 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 
 describe('صدق حارس استقرار الترطيب', () => {
     it('يقول «لم تستقرّ» قبل أن تُهيَّأ البنية — وهو ما كان يستحيل قياسه', () => {
-        expect(SecureStoreService.isDiskHydrationSettledSync()).toBe(false);
+        expect(
+            SecureStoreService.isDiskHydrationSettledSync(),
+            'إن أخفقت هذه: هل أُقحمت قبلها حالةٌ تلمس التخزين؟ أوّل تعامل يُهيّئ البنية ' +
+                'فتصير مستقرّة. قِيس: إقحام getItemSync قبلها يُخفقها. أعِدها إلى أوّل الملف.',
+        ).toBe(false);
     });
 
     it('ثم يقول «استقرّت» بعد أوّل تعامل مع التخزين', () => {
