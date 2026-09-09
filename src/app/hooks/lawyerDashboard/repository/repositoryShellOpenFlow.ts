@@ -237,14 +237,28 @@ export function commitRepositoryOpen({
             })
             .catch(() => {
                 if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
+                /*
+                 * تنبيه فقط — والقشرة تبقى مفتوحة.
+                 *
+                 * كان هنا `tearDownRepoFloatingState({ reason: 'tearDown' })`، وهو
+                 * يستدعي `p7ChromeSnap` فيُخفي القشرة الدافئة ويزيل زينة الرسم
+                 * الفوري. والنتيجة أسوأ من الطرفين: قشرة مفتوحة (reveal استدعى
+                 * `setIsRepositoryOpen(true)` قبلها)، بزينة منزوعة، بلا محتوى
+                 * لأن المقطع لم يُحمَّل.
+                 *
+                 * والمستدعي الوحيد يقول ما هو مقصود صراحةً:
+                 *     onChunkFailed: () => SmartToast.error(`تعذّر تحميل …`)
+                 * تنبيهٌ ولا إغلاق — فالمستخدم يُعيد المحاولة أو يُغلق بنفسه،
+                 * والإغلاق حينها يمرّ بمسار الإغلاق الذي يُفكّك كما ينبغي.
+                 *
+                 * وتفكيكُ حالةٍ عائمة لسطحٍ **ما زال مفتوحاً** خطأ في ذاته: كل
+                 * قيم `reason` المتاحة عن المغادرة (`navigate-away` · `unmount` ·
+                 * `idle-release`)، وتنفيذه هنا يُبطل مكدّس Escape للقشرة القائمة.
+                 *
+                 * الادّعاء `concealMock` كُتب في 3b9b03bc، وأُدخل التفكيك بعده في
+                 * commit التجميع 065d18a2 بلا تعليل مخصَّص — فكسره ومرّ غير مقروء.
+                 */
                 onChunkFailed?.();
-                try {
-                    void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
-                        tearDownRepoFloatingState({ targetSurface: 'repository-hub', reason: 'tearDown' });
-                    });
-                } catch {
-                    /* never throw on chunk fail cleanup */
-                }
             });
     };
 
