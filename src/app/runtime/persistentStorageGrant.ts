@@ -18,14 +18,16 @@
  * الإخلاء. لذلك يُطلب دائماً، ويُسجَّل الرفض كي لا يمرّ صامتاً.
  */
 
-export type PersistentStorageOutcome =
+/* غير مُصدَّرين: لا مستهلك خارجهما، وقاعدة حارس التصديرات الميتة صريحة — صِل
+   بمستهلك أو لا تُصدّر. والاستدلال البنيوي يكفي المستدعي بلا تسمية. */
+type PersistentStorageOutcome =
     | 'already-persistent'
     | 'granted'
     | 'denied'
     | 'unsupported'
     | 'error';
 
-export type PersistentStorageReport = {
+type PersistentStorageReport = {
     outcome: PersistentStorageOutcome;
     /** بالبايت — للتشخيص حين يُرفض الدوام */
     usageBytes?: number;
