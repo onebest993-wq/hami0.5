@@ -82,7 +82,7 @@ function dropStalePersistQueueForKey(key: string): void {
     heavyPersistTimers.delete(key);
   }
   heavyPersistPending.delete(key);
-  cryptoDeferredWrites.delete(key);
+  dropCryptoDeferredWrite(key);
 }
 
 function shouldDropStaleAtomicWrite(key: string): boolean {
@@ -118,63 +118,18 @@ let heldAtomicWriteGate: {
   promise: Promise<void>;
   resolve: () => void;
 } | null = null;
-const cryptoDeferredWrites = new Map<string, string>();
-let cryptoDeferredFlushTimer: ReturnType<typeof setTimeout> | null = null;
-let cryptoDeferredAttempts = 0;
-const CRYPTO_DEFERRED_MAX_ATTEMPTS = 24;
-
-function scheduleCryptoDeferredFlush(delayMs: number): void {
-  if (import.meta.env.VITEST) return;
-  if (cryptoDeferredFlushTimer != null) return;
-  cryptoDeferredFlushTimer = setTimeout(() => {
-    cryptoDeferredFlushTimer = null;
-    void flushCryptoDeferredWrites();
-  }, delayMs);
-}
-
-function queueCryptoDeferredWrite(key: string, value: string): void {
-  cryptoDeferredWrites.set(key, value);
-  scheduleCryptoDeferredFlush(400);
-}
-
-async function flushCryptoDeferredWrites(): Promise<void> {
-  if (cryptoDeferredWrites.size === 0) return;
-  try {
-    if (!CryptoService.hasMasterKey() && heldAtomicWriteGate == null) {
-      await CryptoService.initialize();
-    }
-  } catch {
-    /* wrap قد يصل مع الجلسة */
-  }
-  if (!CryptoService.hasMasterKey()) {
-    if (cryptoDeferredAttempts < CRYPTO_DEFERRED_MAX_ATTEMPTS) {
-      cryptoDeferredAttempts += 1;
-      scheduleCryptoDeferredFlush(1_200);
-    }
-    return;
-  }
-  cryptoDeferredAttempts = 0;
-  const batch = [...cryptoDeferredWrites.entries()];
-  cryptoDeferredWrites.clear();
-  for (const [key, value] of batch) {
-    if (shouldDropStaleAtomicWrite(key)) {
-      continue;
-    }
-    try {
-      await SecureStoreService.setItem(key, value);
-    } catch (error) {
-      if (error instanceof StorageEncryptionError) {
-        cryptoDeferredWrites.set(key, value);
-        continue;
-      }
-      _err(`Deferred persist failed for "${key}":`, error);
-    }
-  }
-  if (cryptoDeferredWrites.size > 0 && cryptoDeferredAttempts < CRYPTO_DEFERRED_MAX_ATTEMPTS) {
-    cryptoDeferredAttempts += 1;
-    scheduleCryptoDeferredFlush(1_200);
-  }
-}
+/* الآلية في `secureStoreCryptoDeferred.ts` — تُوصَل هنا لأن الكتابة الفعلية عندنا */
+configureCryptoDeferred({
+  persist: (key, value) => SecureStoreService.setItem(key, value),
+  shouldDropStaleWrite: (key) => shouldDropStaleAtomicWrite(key),
+  atomicGateHeld: () => heldAtomicWriteGate != null,
+  schedule: (run, delayMs) => {
+    if (import.meta.env.VITEST) return false;
+    setTimeout(run, delayMs);
+    return true;
+  },
+  reportError: (message, error) => { _err(message, error); },
+});
 
 function queueDurableSetItem(
   key: string,
@@ -311,6 +266,13 @@ import {
 } from '@/app/services/dossierPersistence/protectedStorageKeys';
 import { recoverPlaintextAfterDecryptFailure } from '@/app/services/secureStoreRecovery';
 import { markKeyDeleted, readDeleteGeneration } from '@/app/services/secureStoreDeleteBarrier';
+import {
+    configureCryptoDeferred,
+    dropCryptoDeferredWrite,
+    flushCryptoDeferredWrites,
+    queueCryptoDeferredWrite,
+    resetCryptoDeferredAttempts,
+} from '@/app/services/secureStoreCryptoDeferred';
 
 const decryptFailureWarned = new Set<string>();
 
@@ -904,7 +866,7 @@ class SecureStoreService {
   static async rewarmSensitiveAfterWrapChange(): Promise<void> {
     if (!isWebEnvironment()) return;
     decryptFailureWarned.clear();
-    cryptoDeferredAttempts = 0;
+    resetCryptoDeferredAttempts();
     try {
       await CryptoService.initialize();
     } catch {
