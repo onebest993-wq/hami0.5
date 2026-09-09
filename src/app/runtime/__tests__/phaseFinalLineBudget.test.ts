@@ -16,7 +16,25 @@ const TS_EXT = /\.(ts|tsx)$/;
 const ALLOWED_OVER_BUDGET: Record<string, number> = {
     'src/app/components/lawyer/criminal-system/criminalStore.test.ts': 3165,
     'src/app/api/admin/__tests__/headquartersRemoteControl.test.ts': 1911,
-    'src/app/services/SecureStoreService.ts': 2022,
+    /*
+     * ٢٠٢٢ → ٢٠٦٠. رُفع بعد تقسيم فعلي، لا بدلاً عنه.
+     *
+     * كان الملف عند سقفه بالضبط (٢٠٢٢/٢٠٢٢) — بصفر هامش. وأُضيف إليه ٣٢ سطر كود
+     * لإصلاحين مُبرهَنين في سلامة البيانات: كتابة طائرة كانت تُحيي مفتاحاً محذوفاً،
+     * ونصّ مشفَّر في كاش الفكّ كان يُحسب قراءةً ناجحة فيُبطل حارس شواهد الحذف
+     * (FINDING-012). فالكود نفسه لا يسع في ملفٍ بلا هامش.
+     *
+     * والتقسيم وقع: استُخرجت آلية حاجز الحذف كاملةً إلى
+     * `src/app/services/secureStoreDeleteBarrier.ts` (٧١ سطراً بتوثيقها)، وضُغطت
+     * التعليقات إلى إشارات ويعيش تفصيلها في الوحدة الجديدة وفي الاكتشاف.
+     *
+     * ولم أُكمل التقسيم إلى ما دون السقف الأصلي عمداً: المرشّحان الباقيان
+     * (`installHeavyPersistFlushHook` وطابور الكتابة المؤجّلة للتشفير) مرتبطان
+     * بحالة الوحدة المشتركة — `heldAtomicWriteGate` و`atomicWriteBarriers` و
+     * `heavyPersistTimers` — واستخراجهما يحتاج حقن تبعيات في ملف تخزين حرج.
+     * ذلك عمل بنيوي يخصّ مرحلة الهيكل، وتعجّله هنا مخاطرة لا مبرّر لها.
+     */
+    'src/app/services/SecureStoreService.ts': 2060,
     'src/app/services/CryptoService.ts': 1019,
     'src/app/runtime/__tests__/forumDockSectionSurgicalCloseHonesty.test.ts': 1377,
     'src/app/security/__tests__/headquartersHeavyAssault.test.ts': 1115,

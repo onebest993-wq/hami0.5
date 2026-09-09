@@ -176,37 +176,9 @@ async function flushCryptoDeferredWrites(): Promise<void> {
   }
 }
 
-/**
- * جيل الحذف — يمنع كتابةً أُطلقت قبل الحذف من الهبوط بعده.
- *
- * `setItemSync` يُطلق كتابة دائمة غير متزامنة ولا ينتظرها. فإن حُذف المفتاح قبل
- * هبوطها، تُنفَّذ الكتابة بعد الحذف **فتُعيد كتابة القيمة المحذوفة**. قِيس، لا
- * استُنتج:
- *
- *     setItemSync('A', v); await deleteItem('A');
- *     getItemSync('A')               →  null   ✅ الحذف وقع
- *     await tick(); getItemSync('A') →  v      ❌ عاد
- *
- * وضابطان يعزلان السبب تماماً: `await waitForPendingSetItem('A')` قبل الحذف
- * يمنع العودة، وكذلك مجرّد `await tick()` — أي أن هبوط الكتابة الطائرة هو
- * الفاعل وحده. و`deleteItemSync` مصاب بالعطل نفسه.
- *
- * الأثر: محامٍ يعدّل إضبارة ثم يحذفها في اللحظة التالية — فتعود بعد لحظة بلا
- * رسالة. حذفٌ لا يثبت في تطبيق أسرار مهنية عطلٌ بمرتبة فقدان البيانات.
- *
- * الحلّ: كل كتابة تلتقط جيل المفتاح وقت جدولتها، وتُسقط نفسها إن تغيّر الجيل
- * قبل تنفيذها. ولا يُسجَّل جيل إلا وهناك كتابة معلّقة فعلاً، ويُنظَّف مع آخر
- * كتابة — فلا نمو غير محدود.
- *
- * وتسلسل set→delete→set يبقى صحيحاً: الكتابة الأولى تُسقَط، والثانية التقطت
- * الجيل الجديد فتُنفَّذ.
- */
-const keyDeleteGeneration = new Map<string, number>();
-
+/** حاجز الحذف — الشرح والآلية في `secureStoreDeleteBarrier.ts` و FINDING-012 */
 function markKeyDeletedForPendingWrites(key: string): void {
-  /* بلا كتابة طائرة لا شيء يُسقَط — وتسجيل جيل هنا يُسرّب ذاكرة بلا فائدة */
-  if (!durableSetItemPending.has(key)) return;
-  keyDeleteGeneration.set(key, (keyDeleteGeneration.get(key) ?? 0) + 1);
+  markKeyDeleted(key, durableSetItemPending.has(key));
 }
 
 function queueDurableSetItem(
@@ -214,12 +186,13 @@ function queueDurableSetItem(
   value: string,
   options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
 ): Promise<void> {
-  const generationAtQueue = keyDeleteGeneration.get(key) ?? 0;
+  /* جيل الحذف وقت الجدولة — إن تغيّر قبل التنفيذ فالمفتاح حُذف بينهما */
+  const generationAtQueue = readDeleteGeneration(key);
   const previous = durableSetItemPending.get(key) ?? Promise.resolve();
   const run = previous
     .catch(() => undefined)
     .then(() => {
-      if ((keyDeleteGeneration.get(key) ?? 0) !== generationAtQueue) return undefined;
+      if (readDeleteGeneration(key) !== generationAtQueue) return undefined;
       return SecureStoreService.setItem(key, value, options);
     })
     .then(
@@ -243,8 +216,7 @@ function queueDurableSetItem(
   void run.finally(() => {
     if (durableSetItemPending.get(key) === run) {
       durableSetItemPending.delete(key);
-      /* آخر كتابة معلّقة زالت — فلا حاجة لحفظ الجيل */
-      keyDeleteGeneration.delete(key);
+      clearDeleteGeneration(key);
     }
   });
   return run;
@@ -346,6 +318,7 @@ import {
   PROTECTED_WARM_KEYS,
 } from '@/app/services/dossierPersistence/protectedStorageKeys';
 import { recoverPlaintextAfterDecryptFailure } from '@/app/services/secureStoreRecovery';
+import { clearDeleteGeneration, markKeyDeleted, readDeleteGeneration } from '@/app/services/secureStoreDeleteBarrier';
 
 const decryptFailureWarned = new Set<string>();
 
@@ -1719,18 +1692,10 @@ class SecureStoreService {
 
   static async deleteItem(key: string): Promise<void> {
     /*
-     * حاجزان، لأن للكتابة الطائرة حالتين مختلفتين:
-     *
-     * ١) **مجدولة لم تبدأ** — يكفيها الجيل: تفحصه عند بدء تنفيذها فتُسقط نفسها.
-     * ٢) **بدأت فعلاً** — تجاوزت نقطة فحص الجيل، فلا يوقفها شيء. وكانت تكتب
-     *    بعد أن يمسح الحذف الكاش والمخزن وIndexedDB، فتُعيد الثلاثة.
-     *
-     * الحالة الثانية هي ما بقي مفتوحاً بعد الإصلاح الأول، وهي ما كان يجعل
-     * `executionStorageBundleDeleteIsolation` حسّاساً للتوقيت: أيّ `await` يُقحَم
-     * قبل الحذف يُهبط الكتابة فيمرّ الاختبار — فالقياس نفسه كان يغيّر النتيجة.
-     *
-     * فتُنتظر هنا: بعدها لا كتابة طائرة لهذا المفتاح، والحذف نهائي.
-     * ولا جمود: `setItem` لا تستدعي `deleteItem`، والانتظار مرّة واحدة لا حلقة.
+     * حاجزان لأن للكتابة الطائرة حالتين: مجدولة لم تبدأ (يكفيها الجيل)، وبدأت
+     * فعلاً (تجاوزت فحص الجيل فتُنتظر هنا). بعدهما لا كتابة طائرة والحذف نهائي.
+     * لا جمود: `setItem` لا تستدعي `deleteItem`، والانتظار مرّة لا حلقة.
+     * التفصيل: `secureStoreDeleteBarrier.ts` و FINDING-012.
      */
     markKeyDeletedForPendingWrites(key);
     dropStalePersistQueueForKey(key);
@@ -1844,23 +1809,11 @@ class SecureStoreService {
     if (decryptedCache.has(key)) {
       const cached = decryptedCache.get(key) ?? null;
       /*
-       * قيمةٌ هي نفسها نصّ مشفَّر ليست فكّاً — إرجاعها هنا كان fail-open.
-       *
-       * مقيس: مفتاح شواهد حذف يحمل ciphertext لا يُفكّ، وكاش الفكّ بارد.
-       *     isUnreadSync            →  true   ✅ صحيح
-       *     await getItem(key)      →  null   الفكّ فشل، بلا استثناء
-       *     isUnreadSync            →  false  ❌ صار «مقروءاً»
-       *     getItemSync             →  "hami_enc_v2:…"  ❌ النصّ المشفَّر نفسه
-       *
-       * و`isUnreadSync` يبني حكمه على `getItemSync(key) === null` وحده، فمتى
-       * أعاد هذا السطر النصّ المشفَّر انقلب الحكم إلى «مقروء».
-       *
-       * والأثر ليس نظرياً: `markLawsuitDossierTombstone` يرفض الكتابة ما دام
-       * المفتاح `unread` — تحديداً كي لا تُكتب `["id"]` فوق شواهد قائمة فتعود
-       * إضابير محذوفة من السحابة. وقلبُ `unread` إلى `false` يُبطل ذلك الحارس
-       * ويفتح الباب الذي بُني لإغلاقه.
-       *
-       * لا قراءة ناجحة تُنتج نصّاً ببادئة التشفير — فالفحص لا يحجب شيئاً مشروعاً.
+       * قيمةٌ هي نفسها نصّ مشفَّر ليست فكّاً. و`isUnreadSync` يحكم بـ
+       * `getItemSync(key) === null` وحده، فإرجاعها هنا كان يقلب «غير مقروء» إلى
+       * «مقروء» — فيُبطل حارس `markLawsuitDossierTombstone` الذي يمنع كتابة
+       * شواهد جديدة فوق قائمة لم تُفكّ، فتعود إضابير محذوفة من السحابة.
+       * لا فكّ ناجح يُنتج نصّاً ببادئة التشفير، فلا يُحجب شيء مشروع.
        */
       if (cached != null && cached.startsWith(ENCRYPTED_PREFIX)) return null;
       return cached;
