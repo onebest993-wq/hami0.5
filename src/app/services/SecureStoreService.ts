@@ -1718,9 +1718,24 @@ class SecureStoreService {
   }
 
   static async deleteItem(key: string): Promise<void> {
-    /* كتابة طائرة أُطلقت قبل هذا الحذف كانت تهبط بعده فتُحيي المفتاح */
+    /*
+     * حاجزان، لأن للكتابة الطائرة حالتين مختلفتين:
+     *
+     * ١) **مجدولة لم تبدأ** — يكفيها الجيل: تفحصه عند بدء تنفيذها فتُسقط نفسها.
+     * ٢) **بدأت فعلاً** — تجاوزت نقطة فحص الجيل، فلا يوقفها شيء. وكانت تكتب
+     *    بعد أن يمسح الحذف الكاش والمخزن وIndexedDB، فتُعيد الثلاثة.
+     *
+     * الحالة الثانية هي ما بقي مفتوحاً بعد الإصلاح الأول، وهي ما كان يجعل
+     * `executionStorageBundleDeleteIsolation` حسّاساً للتوقيت: أيّ `await` يُقحَم
+     * قبل الحذف يُهبط الكتابة فيمرّ الاختبار — فالقياس نفسه كان يغيّر النتيجة.
+     *
+     * فتُنتظر هنا: بعدها لا كتابة طائرة لهذا المفتاح، والحذف نهائي.
+     * ولا جمود: `setItem` لا تستدعي `deleteItem`، والانتظار مرّة واحدة لا حلقة.
+     */
     markKeyDeletedForPendingWrites(key);
     dropStalePersistQueueForKey(key);
+    const inFlightWrite = durableSetItemPending.get(key);
+    if (inFlightWrite) await inFlightWrite.catch(() => undefined);
     deleteDecryptedCacheKey(key);
     if (isWebEnvironment()) {
       await this.ensureWebInfrastructureReady();
