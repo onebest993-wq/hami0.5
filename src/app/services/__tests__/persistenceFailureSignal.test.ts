@@ -8,7 +8,13 @@
  * الاختبار يُثبت أن الحالة صارت مقروءة، وأن التبليغ لا يغرق الرصد حين تُفشل
  * الحصّة الممتلئة كل كتابة.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const captured = vi.hoisted(() => vi.fn());
+vi.mock('@/app/observability/sentryClient', () => ({
+    sentryCaptureMessage: (...args: unknown[]) => captured(...args),
+}));
+
 import {
     getLastPersistenceFailure,
     hasPersistenceFailed,
@@ -16,9 +22,22 @@ import {
     __resetPersistenceFailureSignalForTests,
 } from '../persistenceFailureSignal';
 
+/**
+ * التبليغ يمرّ باستيراد ديناميّ، فيُنتظر هبوطه.
+ *
+ * ويُفصل بين البلاغين ببلوغ هذه الدورة عمداً: بلاغان في **نبضة واحدة** لا يلتقط
+ * المشغّل إلا أوّلهما (قِيس: استدعاءان لمفتاحين مختلفين ⇒ التقاط واحد؛ وبينهما
+ * `await` ⇒ التقاطان). وهو أثر تخزين الاستيراد الديناميّ في المشغّل لا أثر الشفرة،
+ * والإنتاج يفصل بينهما بعمليات قرص أصلاً — فالقياس هنا على الحالة الواقعية.
+ */
+const flushReport = () => new Promise((resolve) => setTimeout(resolve, 40));
+const reportedDetails = (): unknown[] =>
+    captured.mock.calls.map((call) => (call[1] as { detail?: unknown })?.detail);
+
 describe('إشارة فشل التثبيت', () => {
     beforeEach(() => {
         __resetPersistenceFailureSignalForTests();
+        captured.mockClear();
     });
 
     it('الجلسة السليمة: لا فشل مُسجَّل', () => {
@@ -52,5 +71,40 @@ describe('إشارة فشل التثبيت', () => {
         signalPersistenceFailure('key-a', 'db-unavailable');
         __resetPersistenceFailureSignalForTests();
         expect(hasPersistenceFailed()).toBe(false);
+    });
+
+    /*
+     * الحدث الأشدّ على مفتاحٍ سبق أن أخفق أخفّ منه: الاستسلام النهائي عن حمولته.
+     * بإزالة التكرار بالمفتاح وحده كان لا يصل الرصد أبداً — أي أن `reportGivingUp`
+     * الذي أُضيف ليكسر الصمت يُبتلع بالضبط للمفاتيح التي سبق أن تعثّرت.
+     */
+    it('الاستسلام يصل الرصد ولو سبقه فشلٌ أخفّ على المفتاح نفسه', async () => {
+        signalPersistenceFailure('lawyer_files', 'transaction-failed', 'first, minor');
+        await flushReport();
+        signalPersistenceFailure('lawyer_files', 'encrypt-or-write-failed', 'master key never arrived');
+        await flushReport();
+
+        expect(captured).toHaveBeenCalledTimes(2);
+        expect(reportedDetails()).toContain('master key never arrived');
+    });
+
+    /* والضابط: السبب نفسه لا يُبلَّغ مرّتين — الحصّة الممتلئة تُفشل كل كتابة */
+    it('ضابط — تكرار السبب نفسه على المفتاح نفسه بلاغٌ واحد', async () => {
+        signalPersistenceFailure('lawyer_files', 'transaction-failed', 'QuotaExceededError');
+        await flushReport();
+        signalPersistenceFailure('lawyer_files', 'transaction-failed', 'QuotaExceededError');
+        await flushReport();
+
+        expect(captured).toHaveBeenCalledTimes(1);
+    });
+
+    /* وضابط ثانٍ: مفتاح آخر بالسبب نفسه بلاغٌ مستقلّ — الإزالة بالزوج لا بالسبب */
+    it('ضابط — مفتاحان بالسبب نفسه بلاغان', async () => {
+        signalPersistenceFailure('key-a', 'db-unavailable');
+        await flushReport();
+        signalPersistenceFailure('key-b', 'db-unavailable');
+        await flushReport();
+
+        expect(captured).toHaveBeenCalledTimes(2);
     });
 });
