@@ -1841,7 +1841,30 @@ class SecureStoreService {
         }
       }
     }
-    if (decryptedCache.has(key)) return decryptedCache.get(key) ?? null;
+    if (decryptedCache.has(key)) {
+      const cached = decryptedCache.get(key) ?? null;
+      /*
+       * قيمةٌ هي نفسها نصّ مشفَّر ليست فكّاً — إرجاعها هنا كان fail-open.
+       *
+       * مقيس: مفتاح شواهد حذف يحمل ciphertext لا يُفكّ، وكاش الفكّ بارد.
+       *     isUnreadSync            →  true   ✅ صحيح
+       *     await getItem(key)      →  null   الفكّ فشل، بلا استثناء
+       *     isUnreadSync            →  false  ❌ صار «مقروءاً»
+       *     getItemSync             →  "hami_enc_v2:…"  ❌ النصّ المشفَّر نفسه
+       *
+       * و`isUnreadSync` يبني حكمه على `getItemSync(key) === null` وحده، فمتى
+       * أعاد هذا السطر النصّ المشفَّر انقلب الحكم إلى «مقروء».
+       *
+       * والأثر ليس نظرياً: `markLawsuitDossierTombstone` يرفض الكتابة ما دام
+       * المفتاح `unread` — تحديداً كي لا تُكتب `["id"]` فوق شواهد قائمة فتعود
+       * إضابير محذوفة من السحابة. وقلبُ `unread` إلى `false` يُبطل ذلك الحارس
+       * ويفتح الباب الذي بُني لإغلاقه.
+       *
+       * لا قراءة ناجحة تُنتج نصّاً ببادئة التشفير — فالفحص لا يحجب شيئاً مشروعاً.
+       */
+      if (cached != null && cached.startsWith(ENCRYPTED_PREFIX)) return null;
+      return cached;
+    }
     if (storedRaw === null) return null;
     if (storedRaw.startsWith(ENCRYPTED_PREFIX)) return null;
     if (
