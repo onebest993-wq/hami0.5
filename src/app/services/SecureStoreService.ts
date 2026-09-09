@@ -759,27 +759,24 @@ class SecureStoreService {
       return;
     }
     const db = await this.openWebDatabase();
-    if (!db) return;
+    /* حذفٌ لا يبلغ القرص يعود عند الإقلاع — ويُبلَّغ كما تُبلَّغ الكتابة تماماً */
+    if (!db) {
+      signalPersistenceFailure(key, 'db-unavailable');
+      return;
+    }
     await new Promise<void>((resolve) => {
+      const done = (detail?: string) => {
+        db.close();
+        if (detail) signalPersistenceFailure(key, 'transaction-failed', detail);
+        resolve();
+      };
       const tx = this.beginWebDbTransaction(db, 'readwrite');
-      if (!tx) {
-        db.close();
-        resolve();
-        return;
-      }
+      if (!tx) return done('delete transaction could not begin');
       tx.objectStore(WEB_STORE).delete(key);
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onabort = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve();
-      };
+      /* الإتمام وحده حذف — والإجهاض يترك المفتاح على القرص */
+      tx.oncomplete = () => done();
+      tx.onabort = () => done(tx.error?.name ?? 'delete aborted');
+      tx.onerror = () => done(tx.error?.name ?? 'delete errored');
     });
   }
 
