@@ -1209,13 +1209,13 @@ class SecureStoreService {
                * `warmPersistedKeys` يتجاوز `getItem` تفادياً لقفل الإقلاع، فبلا
                * هذا الفرع يبقى ciphertext الإقلاع بلا ترحيل.
                */
-              void this.setItem(key, decrypted);
+              void queueDurableSetItem(key, decrypted);
             } else if (
               !raw.startsWith(ENCRYPTED_PREFIX) &&
               isSensitiveKey(key) &&
               shouldEncryptValue(key, decrypted)
             ) {
-              void this.setItem(key, decrypted);
+              void queueDurableSetItem(key, decrypted);
             }
           }
         } catch {
@@ -1616,12 +1616,12 @@ class SecureStoreService {
    */
   static applyVerifiedEmptyOverwrite(key: string, value: string): void {
     if (!isEmptyingPayload(key, value)) {
-      void this.setItem(key, value);
+      void queueDurableSetItem(key, value);
       return;
     }
     touchDecryptedCache(key, value);
     webFallbackStore.set(key, value);
-    void this.setItem(key, value, { allowVerifiedEmptyOverwrite: true });
+    void queueDurableSetItem(key, value, { allowVerifiedEmptyOverwrite: true });
   }
 
   static async getItem(key: string): Promise<SecureStoreValue> {
@@ -1679,13 +1679,13 @@ class SecureStoreService {
     }
     touchDecryptedCache(key, decrypted, { diskVerified });
     if (raw.startsWith(ENCRYPTED_PREFIX) && !isSensitiveKey(key)) {
-      void this.setItem(key, decrypted);
+      void queueDurableSetItem(key, decrypted);
     } else if (
       !raw.startsWith(ENCRYPTED_PREFIX) &&
       isSensitiveKey(key) &&
       shouldEncryptValue(key, decrypted)
     ) {
-      void this.setItem(key, decrypted);
+      void queueDurableSetItem(key, decrypted);
     }
     return decrypted;
   }
