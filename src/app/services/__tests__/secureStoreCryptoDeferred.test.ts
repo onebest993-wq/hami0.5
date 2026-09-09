@@ -13,6 +13,7 @@ import {
     dropCryptoDeferredWrite,
     flushCryptoDeferredWrites,
     queueCryptoDeferredWrite,
+    resetCryptoDeferredAttempts,
     resetCryptoDeferredForTests,
     type CryptoDeferredHost,
 } from '@/app/services/secureStoreCryptoDeferred';
@@ -20,29 +21,33 @@ import {
 /** مضيفٌ مزيَّف يسجّل ما جرى ويحتفظ بالجولة المؤجَّلة ليقودها الاختبار */
 function makeHost(overrides: Partial<CryptoDeferredHost> = {}) {
     const persisted: Array<[string, string]> = [];
-    const scheduled: Array<() => void> = [];
+    const gaveUp: Array<[string, string]> = [];
+    /*
+     * تُرجع false — أي «لم أجدول» — فيقود الاختبار الجولات بنفسه بلا مؤقتات، وهو
+     * ما صُمّم `schedule` ليُرجعه. والعدّ هنا هو عدّ **طلبات** إعادة المحاولة.
+     */
+    let retryRequests = 0;
     const host: CryptoDeferredHost = {
         persist: async (key, value) => {
             persisted.push([key, value]);
         },
         shouldDropStaleWrite: () => false,
         atomicGateHeld: () => false,
-        schedule: (run) => {
-            scheduled.push(run);
-            return true;
+        schedule: () => {
+            retryRequests += 1;
+            return false;
         },
         reportError: () => undefined,
+        reportGivingUp: (key, reason) => {
+            gaveUp.push([key, reason]);
+        },
         ...overrides,
     };
     configureCryptoDeferred(host);
-    /** يشغّل الجولة المجدولة الأخيرة كما لو انقضى مؤقّتها */
-    const runScheduled = async () => {
-        const next = scheduled.shift();
-        if (next) next();
-        await Promise.resolve();
-        await flushCryptoDeferredWrites();
+    const drive = async (rounds: number) => {
+        for (let i = 0; i < rounds; i += 1) await flushCryptoDeferredWrites();
     };
-    return { persisted, scheduled, runScheduled };
+    return { persisted, gaveUp, drive, retries: () => retryRequests };
 }
 
 describe('طابور الكتابات المؤجَّلة', () => {
@@ -64,14 +69,14 @@ describe('طابور الكتابات المؤجَّلة', () => {
     it('ينتظر ولا يكتب ما دام المفتاح غائباً', async () => {
         vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
         vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined as never);
-        const { persisted, scheduled } = makeHost();
+        const { persisted, retries } = makeHost();
 
         queueCryptoDeferredWrite('k2', '{"a":1}');
         await flushCryptoDeferredWrites();
 
         expect(persisted).toEqual([]);
         /* جولةٌ أولى عند الإدراج وأخرى لإعادة المحاولة */
-        expect(scheduled.length).toBeGreaterThan(0);
+        expect(retries()).toBeGreaterThan(0);
     });
 
     it('الحمولة المسقَطة لا تُكتب بعد إسقاطها', async () => {
@@ -112,5 +117,70 @@ describe('طابور الكتابات المؤجَّلة', () => {
         const second = makeHost();
         await flushCryptoDeferredWrites();
         expect(second.persisted).toEqual([['k4', '{"a":1}']]);
+    });
+
+    /* ما يلي هو ما لم يكن يُختبَر — ولذلك عاش فيه العطلان */
+
+    it('يكفّ عن إعادة المحاولة حين يبقى التشفير فاشلاً والمفتاح حاضر', async () => {
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(true);
+        const { drive, retries } = makeHost({
+            persist: async () => {
+                throw new StorageEncryptionError('loop', 'encrypt failed');
+            },
+        });
+
+        queueCryptoDeferredWrite('loop', '{"a":1}');
+        await drive(40);
+
+        /*
+         * كان عدّادٌ واحد يخدم ميزانيتين: وصولُ المفتاح يُصفّره في كل جولة، فلا
+         * يبلغ سقفه أبداً في مسار فشل الكتابة. فيبقى مؤقّتٌ يوقظ الهاتف كل ١٫٢
+         * ثانية ما دام التطبيق حياً — استنزافُ بطارية لا نهاية له.
+         */
+        expect(retries()).toBeLessThanOrEqual(10);
+    });
+
+    it('يُبلّغ حين يستسلم بدل أن تموت الحمولة صامتة', async () => {
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(true);
+        const { drive, gaveUp } = makeHost({
+            persist: async () => {
+                throw new StorageEncryptionError('quiet', 'encrypt failed');
+            },
+        });
+
+        queueCryptoDeferredWrite('quiet', '{"a":1}');
+        await drive(40);
+
+        expect(gaveUp.map(([key]) => key)).toContain('quiet');
+    });
+
+    it('ينتظر المفتاح بميزانيته ثم يستسلم مُبلِّغاً', async () => {
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
+        vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined as never);
+        const { drive, gaveUp, retries } = makeHost();
+
+        queueCryptoDeferredWrite('waiting', '{"a":1}');
+        await drive(40);
+
+        expect(retries()).toBeLessThanOrEqual(26);
+        expect(gaveUp.map(([key]) => key)).toContain('waiting');
+    });
+
+    it('الاستسلام لا يُتلف الحمولة — وصولُ المفتاح متأخراً ما زال يُنقذها', async () => {
+        const keyPresent = vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
+        vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined as never);
+        const first = makeHost();
+
+        queueCryptoDeferredWrite('late', '{"saved":true}');
+        await first.drive(40);
+        expect(first.gaveUp.length).toBeGreaterThan(0);
+
+        /* ثم يصل wrap الجلسة متأخراً — وهو ما يستدعي rewarmSensitiveAfterWrapChange */
+        keyPresent.mockReturnValue(true);
+        const second = makeHost();
+        resetCryptoDeferredAttempts();
+        await flushCryptoDeferredWrites();
+
+        expect(second.persisted).toEqual([['late', '{"saved":true}']]);
     });
 });

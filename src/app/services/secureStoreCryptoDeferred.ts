@@ -32,15 +32,21 @@ export interface CryptoDeferredHost {
     /** يُرجع true إن جُدولت فعلاً؛ الاختبار يقود بنفسه فيُرجع false */
     schedule(run: () => void, delayMs: number): boolean;
     reportError(message: string, error: unknown): void;
+    /** نفدت المحاولات وهذه الحمولة لم تُكتب — أبلغ ولا تبتلع */
+    reportGivingUp(key: string, reason: string): void;
 }
 
-const MAX_ATTEMPTS = 24;
+/** انتظار وصول المفتاح: ٢٤ × ١٫٢ث ≈ ٢٩ ثانية */
+const MAX_KEY_WAIT_ATTEMPTS = 24;
+/** فشل الكتابة نفسها والمفتاح حاضر — أقصر، فالسبب لا يُرجى زواله بمجرّد الانتظار */
+const MAX_WRITE_FAILURE_ATTEMPTS = 8;
 const RETRY_DELAY_MS = 1_200;
 const FIRST_FLUSH_DELAY_MS = 400;
 
 const deferredWrites = new Map<string, string>();
 let flushScheduled = false;
-let attempts = 0;
+let keyWaitAttempts = 0;
+let writeFailureAttempts = 0;
 let host: CryptoDeferredHost | null = null;
 
 export function configureCryptoDeferred(next: CryptoDeferredHost): void {
@@ -66,9 +72,10 @@ export function dropCryptoDeferredWrite(key: string): void {
     deferredWrites.delete(key);
 }
 
-/** وصل wrap الجلسة: ابدأ ميزانية المحاولات من جديد */
+/** وصل wrap الجلسة: ابدأ الميزانيتين من جديد فتُعاد محاولةُ ما استُسلم عنه */
 export function resetCryptoDeferredAttempts(): void {
-    attempts = 0;
+    keyWaitAttempts = 0;
+    writeFailureAttempts = 0;
 }
 
 export async function flushCryptoDeferredWrites(): Promise<void> {
@@ -84,14 +91,17 @@ export async function flushCryptoDeferredWrites(): Promise<void> {
     }
 
     if (!CryptoService.hasMasterKey()) {
-        if (attempts < MAX_ATTEMPTS) {
-            attempts += 1;
+        if (keyWaitAttempts < MAX_KEY_WAIT_ATTEMPTS) {
+            keyWaitAttempts += 1;
             scheduleFlush(RETRY_DELAY_MS);
+            return;
         }
+        giveUp(active, 'master key never arrived');
         return;
     }
 
-    attempts = 0;
+    /* وصل المفتاح فانتهى انتظاره — ولا شأن لذلك بميزانية فشل الكتابة */
+    keyWaitAttempts = 0;
     const batch = [...deferredWrites.entries()];
     deferredWrites.clear();
     for (const [key, value] of batch) {
@@ -107,15 +117,34 @@ export async function flushCryptoDeferredWrites(): Promise<void> {
         }
     }
 
-    if (deferredWrites.size > 0 && attempts < MAX_ATTEMPTS) {
-        attempts += 1;
-        scheduleFlush(RETRY_DELAY_MS);
+    if (deferredWrites.size === 0) {
+        writeFailureAttempts = 0;
+        return;
     }
+    if (writeFailureAttempts < MAX_WRITE_FAILURE_ATTEMPTS) {
+        writeFailureAttempts += 1;
+        scheduleFlush(RETRY_DELAY_MS);
+        return;
+    }
+    giveUp(active, 'encryption kept failing while the key was present');
+}
+
+/**
+ * نفدت الميزانية. يُبلَّغ صاحب الشأن — **ولا تُمسح الحمولة**.
+ *
+ * فالإبقاء عليها هو ما يجعل `rewarmSensitiveAfterWrapChange` قادراً على إنقاذها
+ * حين يصل wrap الجلسة متأخراً. ومسحُها هنا كان سيحوّل تأخّراً إلى فقدان — وهو
+ * الخطأ نفسه المُصلَح في `CryptoService` (FINDING-015): لا تُتلف ما عجزتَ عن
+ * كتابته الآن، فقد تكتبه بعد قليل.
+ */
+function giveUp(active: CryptoDeferredHost, reason: string): void {
+    for (const key of deferredWrites.keys()) active.reportGivingUp(key, reason);
 }
 
 /** للاختبار وحده: يعيد الوحدة إلى حالتها الأولى بين الحالات */
 export function resetCryptoDeferredForTests(): void {
     deferredWrites.clear();
     flushScheduled = false;
-    attempts = 0;
+    keyWaitAttempts = 0;
+    writeFailureAttempts = 0;
 }

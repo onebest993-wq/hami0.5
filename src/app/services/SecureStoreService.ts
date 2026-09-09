@@ -118,17 +118,17 @@ let heldAtomicWriteGate: {
   promise: Promise<void>;
   resolve: () => void;
 } | null = null;
-/* الآلية في `secureStoreCryptoDeferred.ts` — تُوصَل هنا لأن الكتابة الفعلية عندنا */
 configureCryptoDeferred({
   persist: (key, value) => SecureStoreService.setItem(key, value),
   shouldDropStaleWrite: (key) => shouldDropStaleAtomicWrite(key),
   atomicGateHeld: () => heldAtomicWriteGate != null,
   schedule: (run, delayMs) => {
-    if (import.meta.env.VITEST) return false;
+    if (import.meta.env.VITEST) return false; /* الاختبار يقود الجولات بنفسه */
     setTimeout(run, delayMs);
     return true;
   },
   reportError: (message, error) => { _err(message, error); },
+  reportGivingUp: (key, reason) => signalPersistenceFailure(key, 'encrypt-or-write-failed', reason),
 });
 
 function queueDurableSetItem(
