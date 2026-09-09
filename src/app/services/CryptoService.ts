@@ -1,4 +1,5 @@
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
+import { signalPersistenceFailure } from '@/app/services/persistenceFailureSignal';
 import { getBffCryptoWrapCredential } from '@/app/utils/bffCryptoSession';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { resolveLiveAuthUserIdForStorage } from '@/app/utils/liveAuthUserId';
@@ -407,30 +408,26 @@ export class CryptoService {
     const payload = this.buildPersistPayload(recordId);
     if (!payload) return;
     const db = await this.openCryptoDatabase();
-    if (!db) return;
+    /* مفتاح لم يبلغ القرص: كل ما يُشفَّر به يصير غير مقروء عند الإقلاع التالي */
+    if (!db) {
+      signalPersistenceFailure(recordId, 'db-unavailable', 'master key not persisted');
+      return;
+    }
     await new Promise<void>((resolve) => {
+      const done = (detail?: string) => {
+        try { db.close(); } catch { /* قد تكون أُغلقت */ }
+        if (detail) signalPersistenceFailure(recordId, 'transaction-failed', detail);
+        resolve();
+      };
       try {
         const tx = db.transaction(CRYPTO_KEY_STORE, 'readwrite');
         tx.objectStore(CRYPTO_KEY_STORE).put(payload);
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => {
-          db.close();
-          resolve();
-        };
-        tx.onabort = () => {
-          db.close();
-          resolve();
-        };
-      } catch {
-        try {
-          db.close();
-        } catch {
-          /* ignore */
-        }
-        resolve();
+        /* الإتمام وحده حفظ — والإجهاض غالب سببه امتلاء الحصّة */
+        tx.oncomplete = () => done();
+        tx.onerror = () => done(tx.error?.name ?? 'master key write errored');
+        tx.onabort = () => done(tx.error?.name ?? 'master key write aborted');
+      } catch (error) {
+        done(error instanceof Error ? error.name : 'master key put threw');
       }
     });
   }
@@ -457,26 +454,25 @@ export class CryptoService {
 
   private static async deleteMasterKeyRecord(recordId: string): Promise<void> {
     const db = await this.openCryptoDatabase();
-    if (!db) return;
+    /* سجلٌّ مشترك لم يُمحَ قد يرثه حساب لاحق على الجهاز نفسه — الصمت هنا أمنيّ */
+    if (!db) {
+      signalPersistenceFailure(recordId, 'db-unavailable', 'key record not deleted');
+      return;
+    }
     await new Promise<void>((resolve) => {
+      const done = (detail?: string) => {
+        try { db.close(); } catch { /* قد تكون أُغلقت */ }
+        if (detail) signalPersistenceFailure(recordId, 'transaction-failed', detail);
+        resolve();
+      };
       try {
         const tx = db.transaction(CRYPTO_KEY_STORE, 'readwrite');
         tx.objectStore(CRYPTO_KEY_STORE).delete(recordId);
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => {
-          db.close();
-          resolve();
-        };
-        tx.onabort = () => {
-          db.close();
-          resolve();
-        };
-      } catch {
-        db.close();
-        resolve();
+        tx.oncomplete = () => done();
+        tx.onerror = () => done(tx.error?.name ?? 'key record delete errored');
+        tx.onabort = () => done(tx.error?.name ?? 'key record delete aborted');
+      } catch (error) {
+        done(error instanceof Error ? error.name : 'key record delete threw');
       }
     });
   }
