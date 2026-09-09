@@ -127,6 +127,32 @@ describe('عزل مفتاح المحامي عن محامٍ آخر على الج�
         await expect(canRead(cipherA)).resolves.toBe(true);
     });
 
+    /*
+     * الضابط الذي يحرس الحذف نفسه. `tryRestoreClaimedMasterKeyWhenTransient` كانت
+     * تخدم جهازاً إرثياً عليه `claimed-by`: تُعطي الجلسة العابرة مفتاح صاحب الادّعاء.
+     * وحُذفت لأن ذلك هو التسريب حين يكون الداخل شخصاً آخر. وما كانت تشتريه — أن يقرأ
+     * صاحب الجهاز مفتاحه قبل أن تُحلّ الهوية — يشتريه الرابط الأوّل من السلسلة بمجرّد
+     * أن تستقرّ. وهذا يُقاس هنا لا يُفترض.
+     */
+    it('ضابط — جهازٌ عليه claimed-by: صاحبه يعود ويقرأ، والآخر لا', async () => {
+        await resetDevice();
+        const cipherA = await workAs('lawyer-A');
+        localStorage.setItem('hami-crypto-legacy-key-claimed-by', 'lawyer-A');
+
+        CryptoService.destroy();
+        setLiveAuthUserId(null);
+        await CryptoService.initialize();
+        expect(CryptoService.hasMasterKey()).toBe(false);
+
+        setLiveAuthUserId('lawyer-A');
+        await CryptoService.initialize();
+        await expect(canRead(cipherA)).resolves.toBe(true);
+
+        CryptoService.destroy();
+        await signInThroughIdentityWindow('lawyer-B');
+        await expect(canRead(cipherA)).resolves.toBe(false);
+    });
+
     it('ضابط — عودة الأوّل بعد أن دخل الثاني وخرج', async () => {
         await resetDevice();
         const cipherA = await workAs('lawyer-A');
