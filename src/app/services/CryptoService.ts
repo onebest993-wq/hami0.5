@@ -346,6 +346,7 @@ export class CryptoService {
       );
       if (!restored) continue;
       await this.persistKeyToPersistentStore();
+      await this.deleteMasterKeyRecord(recordId);
       this.writeLegacyKeyClaimedBy(uid);
       return true;
     }
@@ -368,6 +369,9 @@ export class CryptoService {
     this.sessionWrapCredential = incomingWrap;
     this.isInitialized = true;
     await this.persistKeyToPersistentStore();
+    /* لا يُترك السجلّ العابر خلفه: محامٍ لاحق على الجهاز نفسه يرثه عبر نافذة الهوية */
+    const priorTransient = String(previousUid ?? '').trim();
+    if (priorTransient) await this.deleteMasterKeyRecord(scopedMasterKeyRecordId(priorTransient));
     const claimed = String(nextUid ?? '').trim();
     if (claimed) this.writeLegacyKeyClaimedBy(claimed);
     return true;

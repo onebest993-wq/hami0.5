@@ -86,6 +86,24 @@ describe('عزل مفتاح المحامي عن محامٍ آخر على الج�
         expect(rows.map((r) => String(r?.id ?? '')).sort()).toEqual(['master-key-v3:u:lawyer-A']);
     });
 
+    /*
+     * وسجلّ الضيافة لا يُترك خلفه بعد أن يتبنّاه حسابٌ حقيقيّ: كان يبقى على القرص
+     * حاملاً ما صار مفتاح الأوّل، فيرثه الثاني عبر النافذة نفسها. والقاعدة مطبَّقة
+     * أصلاً على السجلّ المشترك الإرثيّ في `initializeInner` — وهذه هي هي.
+     */
+    it('ولا يرث الثاني مفتاحاً عبر سجلّ ضيافةٍ تبنّاه الأوّل', async () => {
+        await resetDevice();
+        const cipherGuest = await workAs(GUEST_LAWYER_ID);
+
+        CryptoService.destroy();
+        await signInThroughIdentityWindow('lawyer-A');
+        await expect(canRead(cipherGuest)).resolves.toBe(true);
+
+        CryptoService.destroy();
+        await signInThroughIdentityWindow('lawyer-B');
+        await expect(canRead(cipherGuest)).resolves.toBe(false);
+    });
+
     /* ضوابط — ما كان السلوك القائم يحميه، ويجب أن يبقى عاملاً */
 
     it('ضابط — ضيفٌ ثم حساب لنفس الشخص: المفتاح ينتقل ولا يضيع عمل الضيافة', async () => {
