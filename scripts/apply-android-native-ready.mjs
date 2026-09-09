@@ -77,6 +77,11 @@ cp('xml/network_security_config.xml', 'android/app/src/main/res/xml/network_secu
  * بلا مستعمل واحد في المشروع.
  */
 cp('xml/file_paths.xml', 'android/app/src/main/res/xml/file_paths.xml');
+/*
+ * قواعد R8: بلا `-keepattributes SourceFile,LineNumberTable` تصل أعطال نسخة
+ * الإصدار بلا اسم ملف ولا رقم سطر. قالب Capacitor يتركهما معطَّلين.
+ */
+cp('app/proguard-rules.pro', 'android/app/proguard-rules.pro');
 
 const patch = spawnSync(process.execPath, ['scripts/patch-android-proguard-compat.mjs'], {
   cwd: ROOT,
