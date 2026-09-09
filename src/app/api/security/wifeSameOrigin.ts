@@ -41,7 +41,23 @@ function isViteLoopbackPortOmission(requestUrl: URL, browserOrigin: URL): boolea
     return requestIsDefaultHttp && DEV_LOOPBACK_PORTS.has(originPort(browserOrigin));
 }
 
-export function originsAreSameSite(requestOrigin: string, browserOrigin: string): boolean {
+/**
+ * **نفس الأصل** لا نفس الموقع — رغم ما كان يقوله الاسم.
+ *
+ * كانت `originsAreSameSite` مُصدَّرة، وجسمها يشترط تطابق البروتوكول والمنفذ
+ * و**المضيف حرفياً** (السطر أدناه). وفحصُ same-site الحقيقي يقارن النطاق
+ * المسجَّل، فيقبل `app.example.com ↔ api.example.com`؛ وهذه ترفضه.
+ *
+ * الاسم كلّف مراجعةً فعلية استنتاجاً خاطئاً كاملاً عن معمار التطبيق الأصلي، ولم
+ * يكن أول اسم يفعلها في هذا المستودع (FINDING-009). فالاسم يتبع الدلالة.
+ *
+ * ولم تعد مُصدَّرة: صفر مستورد خارج هذا الملف، وقاعدة حارس التصديرات صريحة —
+ * صِل بمستهلك أو لا تُصدّر.
+ *
+ * الاستثناء الوحيد للتطابق الحرفي هو loopback في التطوير، وهو مقيَّد بـ
+ * `!isWifeProduction()` أدناه.
+ */
+function isSameOriginPair(requestOrigin: string, browserOrigin: string): boolean {
     if (requestOrigin === browserOrigin) return true;
     const requestUrl = parseHttpOrigin(requestOrigin);
     const browserUrl = parseHttpOrigin(browserOrigin);
@@ -71,12 +87,12 @@ export function assertSameOriginRequest(request: Request): boolean {
     const requestOrigin = new URL(request.url).origin;
     const origin = request.headers.get('origin')?.trim();
     if (origin) {
-        return originsAreSameSite(requestOrigin, origin);
+        return isSameOriginPair(requestOrigin, origin);
     }
     const referer = request.headers.get('referer')?.trim();
     if (referer) {
         try {
-            return originsAreSameSite(requestOrigin, new URL(referer).origin);
+            return isSameOriginPair(requestOrigin, new URL(referer).origin);
         } catch {
             return false;
         }
