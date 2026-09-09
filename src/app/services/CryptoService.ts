@@ -806,8 +806,8 @@ export class CryptoService {
       if (uid) this.writeLegacyKeyClaimedBy(uid);
       return true;
     } catch (error) {
+      /* لا محو هنا: فشلٌ عابر ليس عطباً، وهذا آخر مسار استعادة — التعليل في FINDING-015 */
       _warn('[CryptoService] Legacy device key restore failed:', error);
-      this.purgeLegacyDeviceWrappedKey();
       return false;
     }
   }
@@ -853,8 +853,8 @@ export class CryptoService {
       const bits = await crypto.subtle.exportKey('raw', unwrapped);
       return this.adoptMasterKeyFromBits(bits);
     } catch (error) {
-      _warn('[CryptoService] Session key restore failed, will generate a new key:', error);
-      sessionStorage.removeItem(SESSION_KEY_STORAGE_KEY);
+      /* لا محو هنا كذلك — والسكّ ليس النتيجة: السلسلة ترفضه إن وُجد ciphertext */
+      _warn('[CryptoService] Session key restore failed:', error);
       return false;
     }
   }
