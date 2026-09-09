@@ -176,23 +176,18 @@ async function flushCryptoDeferredWrites(): Promise<void> {
   }
 }
 
-/** حاجز الحذف — الشرح والآلية في `secureStoreDeleteBarrier.ts` و FINDING-012 */
-function markKeyDeletedForPendingWrites(key: string): void {
-  markKeyDeleted(key, durableSetItemPending.has(key));
-}
-
 function queueDurableSetItem(
   key: string,
   value: string,
   options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
 ): Promise<void> {
-  /* جيل الحذف وقت الجدولة — إن تغيّر قبل التنفيذ فالمفتاح حُذف بينهما */
+  /* جيل الحذف وقت الجدولة — إن صار أكبر قبل التنفيذ فالمفتاح حُذف بينهما */
   const generationAtQueue = readDeleteGeneration(key);
   const previous = durableSetItemPending.get(key) ?? Promise.resolve();
   const run = previous
     .catch(() => undefined)
     .then(() => {
-      if (readDeleteGeneration(key) !== generationAtQueue) return undefined;
+      if (readDeleteGeneration(key) > generationAtQueue) return undefined;
       return SecureStoreService.setItem(key, value, options);
     })
     .then(
@@ -214,10 +209,7 @@ function queueDurableSetItem(
     );
   durableSetItemPending.set(key, run);
   void run.finally(() => {
-    if (durableSetItemPending.get(key) === run) {
-      durableSetItemPending.delete(key);
-      clearDeleteGeneration(key);
-    }
+    if (durableSetItemPending.get(key) === run) durableSetItemPending.delete(key);
   });
   return run;
 }
@@ -318,7 +310,7 @@ import {
   PROTECTED_WARM_KEYS,
 } from '@/app/services/dossierPersistence/protectedStorageKeys';
 import { recoverPlaintextAfterDecryptFailure } from '@/app/services/secureStoreRecovery';
-import { clearDeleteGeneration, markKeyDeleted, readDeleteGeneration } from '@/app/services/secureStoreDeleteBarrier';
+import { markKeyDeleted, readDeleteGeneration } from '@/app/services/secureStoreDeleteBarrier';
 
 const decryptFailureWarned = new Set<string>();
 
@@ -1418,6 +1410,8 @@ class SecureStoreService {
     value: string,
     options: { allowVerifiedEmptyOverwrite?: boolean; allowShrink?: boolean } = {},
   ): Promise<void> {
+    /* جيل الحذف عند البدء — يُقارَن قبل الالتزام أدناه. `secureStoreDeleteBarrier.ts` */
+    const generationAtEntry = readDeleteGeneration(key);
     const atomicBarrier = atomicWriteBarriers.get(key);
     if (atomicBarrier) {
       await atomicBarrier.catch(() => undefined);
@@ -1534,6 +1528,12 @@ class SecureStoreService {
         return;
       }
       await this.ensureWebInfrastructureReady();
+      if (readDeleteGeneration(key) > generationAtEntry) {
+        /* حُذف المفتاح أثناء تحضير هذه الكتابة — لا تُحيِه، ولا تُعِد سابقه */
+        deleteDecryptedCacheKey(key);
+        webFallbackStore.delete(key);
+        return;
+      }
       webFallbackStore.set(key, encrypted);
       const wrote = await this.webDbSetItem(key, encrypted);
       if (!wrote) {
@@ -1697,7 +1697,7 @@ class SecureStoreService {
      * لا جمود: `setItem` لا تستدعي `deleteItem`، والانتظار مرّة لا حلقة.
      * التفصيل: `secureStoreDeleteBarrier.ts` و FINDING-012.
      */
-    markKeyDeletedForPendingWrites(key);
+    markKeyDeleted(key);
     dropStalePersistQueueForKey(key);
     const inFlightWrite = durableSetItemPending.get(key);
     if (inFlightWrite) await inFlightWrite.catch(() => undefined);
@@ -1988,7 +1988,7 @@ class SecureStoreService {
 
   static deleteItemSync(key: string): void {
     /* المتزامن مصاب بالعطل نفسه — قِيس: setItemSync ثم deleteItemSync ثم tick ⇒ يعود */
-    markKeyDeletedForPendingWrites(key);
+    markKeyDeleted(key);
     dropStalePersistQueueForKey(key);
     if (isWebEnvironment()) {
       this.ensureWebMigrationSync();
