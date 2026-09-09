@@ -36,7 +36,7 @@ export interface CryptoDeferredHost {
     reportGivingUp(key: string, reason: string): void;
 }
 
-/** انتظار وصول المفتاح: ٢٤ × ١٫٢ث ≈ ٢٩ ثانية */
+/** انتظار وصول المفتاح: حالٌ عامّة (لا مفتاح أصلاً) فميزانيتها عامّة */
 const MAX_KEY_WAIT_ATTEMPTS = 24;
 /** فشل الكتابة نفسها والمفتاح حاضر — أقصر، فالسبب لا يُرجى زواله بمجرّد الانتظار */
 const MAX_WRITE_FAILURE_ATTEMPTS = 8;
@@ -44,9 +44,25 @@ const RETRY_DELAY_MS = 1_200;
 const FIRST_FLUSH_DELAY_MS = 400;
 
 const deferredWrites = new Map<string, string>();
+/**
+ * محاولات فشل الكتابة — **لكل مفتاح**، وكان عدّاداً واحداً للجلسة كلّها.
+ *
+ * العدّاد العام كان يخطئ في اتجاهين، وكلاهما مقيس:
+ *
+ *   - **يُجوّع اللاحق:** مفتاحٌ عالق يستنفد الثمانية، فأوّل فشلٍ لمفتاحٍ جديد
+ *     بعده يُستسلم عنه فوراً — محاولة واحدة حيث يَعِد الثابت بثمانٍ.
+ *   - **ولا يحدّ العالق:** الثمانية كانت تحدّ **إعادة الجدولة الذاتية** لا
+ *     المحاولات؛ فحمولةٌ عالقة تُعاد محاولتها في كل جولة يُطلقها أيّ مفتاحٍ آخر.
+ *     قِيس: عشرون محاولة لمفتاحٍ واحد عبر عشرين جولة — كلفةُ تشفيرٍ مهدورة في
+ *     كل حفظة لاحقة، وهي على هاتف استنزافُ بطارية.
+ *
+ * فالميزانية الآن ملكُ صاحبها: تُصفَّر بنجاح كتابته، وتنفد عليه وحده.
+ */
+const writeFailureAttempts = new Map<string, number>();
+/** استُنفدت ميزانيته وأُبلغ عنه — يُحفظ ولا يُحاوَل حتى يصل wrap فيُصفَّر */
+const givenUpKeys = new Set<string>();
 let flushScheduled = false;
 let keyWaitAttempts = 0;
-let writeFailureAttempts = 0;
 let host: CryptoDeferredHost | null = null;
 
 export function configureCryptoDeferred(next: CryptoDeferredHost): void {
@@ -70,12 +86,15 @@ export function queueCryptoDeferredWrite(key: string, value: string): void {
 /** يُسقط كتابةً مؤجَّلة بطلت — حذفٌ للمفتاح أو معاملة ذرّية أحدث */
 export function dropCryptoDeferredWrite(key: string): void {
     deferredWrites.delete(key);
+    writeFailureAttempts.delete(key);
+    givenUpKeys.delete(key);
 }
 
 /** وصل wrap الجلسة: ابدأ الميزانيتين من جديد فتُعاد محاولةُ ما استُسلم عنه */
 export function resetCryptoDeferredAttempts(): void {
     keyWaitAttempts = 0;
-    writeFailureAttempts = 0;
+    writeFailureAttempts.clear();
+    givenUpKeys.clear();
 }
 
 export async function flushCryptoDeferredWrites(): Promise<void> {
@@ -104,38 +123,53 @@ export async function flushCryptoDeferredWrites(): Promise<void> {
     keyWaitAttempts = 0;
     const batch = [...deferredWrites.entries()];
     deferredWrites.clear();
+    let anyRetryable = false;
     for (const [key, value] of batch) {
-        if (active.shouldDropStaleWrite(key)) continue;
+        if (active.shouldDropStaleWrite(key)) {
+            writeFailureAttempts.delete(key);
+            continue;
+        }
+        /* استُنفدت ميزانيته: تُحفظ حمولته ولا تُستهلك دورة تشفيرٍ أخرى عليها */
+        if (givenUpKeys.has(key)) {
+            deferredWrites.set(key, value);
+            continue;
+        }
         try {
             await active.persist(key, value);
+            writeFailureAttempts.delete(key);
         } catch (error) {
             if (error instanceof StorageEncryptionError) {
                 deferredWrites.set(key, value);
+                const attempts = (writeFailureAttempts.get(key) ?? 0) + 1;
+                writeFailureAttempts.set(key, attempts);
+                if (attempts >= MAX_WRITE_FAILURE_ATTEMPTS) {
+                    givenUpKeys.add(key);
+                    active.reportGivingUp(key, 'encryption kept failing while the key was present');
+                } else {
+                    anyRetryable = true;
+                }
                 continue;
             }
             active.reportError(`Deferred persist failed for "${key}":`, error);
         }
     }
 
-    if (deferredWrites.size === 0) {
-        writeFailureAttempts = 0;
-        return;
-    }
-    if (writeFailureAttempts < MAX_WRITE_FAILURE_ATTEMPTS) {
-        writeFailureAttempts += 1;
-        scheduleFlush(RETRY_DELAY_MS);
-        return;
-    }
-    giveUp(active, 'encryption kept failing while the key was present');
+    if (anyRetryable) scheduleFlush(RETRY_DELAY_MS);
 }
 
 /**
- * نفدت الميزانية. يُبلَّغ صاحب الشأن — **ولا تُمسح الحمولة**.
+ * نفدت ميزانية **انتظار المفتاح** — وهي حالٌ عامّة تخصّ الطابور كلّه، فلا مفتاح
+ * أصلاً. يُبلَّغ عن كل حمولة — **ولا تُمسح واحدة**.
  *
  * فالإبقاء عليها هو ما يجعل `rewarmSensitiveAfterWrapChange` قادراً على إنقاذها
  * حين يصل wrap الجلسة متأخراً. ومسحُها هنا كان سيحوّل تأخّراً إلى فقدان — وهو
  * الخطأ نفسه المُصلَح في `CryptoService` (FINDING-015): لا تُتلف ما عجزتَ عن
  * كتابته الآن، فقد تكتبه بعد قليل.
+ *
+ * أمّا فشل الكتابة والمفتاح حاضر فحالٌ خاصّة بكل مفتاح، ويُبلَّغ عنها في موضعها.
+ *
+ * ولا يُوسَم شيء هنا بـ`givenUpKeys`: غياب المفتاح حالٌ تزول من تلقائها، فمتى وصل
+ * وأطلق مفتاحٌ آخر جولةً وجب أن تُحاوَل هذه الحمولات — ووسمُها كان يمنع ذلك.
  */
 function giveUp(active: CryptoDeferredHost, reason: string): void {
     for (const key of deferredWrites.keys()) active.reportGivingUp(key, reason);
@@ -146,5 +180,6 @@ export function resetCryptoDeferredForTests(): void {
     deferredWrites.clear();
     flushScheduled = false;
     keyWaitAttempts = 0;
-    writeFailureAttempts = 0;
+    writeFailureAttempts.clear();
+    givenUpKeys.clear();
 }

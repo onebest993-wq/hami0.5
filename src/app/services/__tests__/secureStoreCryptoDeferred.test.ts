@@ -166,6 +166,53 @@ describe('طابور الكتابات المؤجَّلة', () => {
         expect(gaveUp.map(([key]) => key)).toContain('waiting');
     });
 
+    /*
+     * الميزانية لكل مفتاح لا للجلسة. كان عدّاداً واحداً، فمفتاحٌ عالق يستنفده ثم
+     * **يُجوّع كل مفتاحٍ يليه**: أوّل فشلٍ لحمولة جديدة يُستسلم عنها فوراً، بينما
+     * يَعِد الثابت بثمانِ محاولات.
+     */
+    it('مفتاحٌ جديد يأخذ ميزانيته كاملة ولو استنفدها عالقٌ قبله', async () => {
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(true);
+        const attempts = new Map<string, number>();
+        const { drive, gaveUp } = makeHost({
+            persist: async (key) => {
+                attempts.set(key, (attempts.get(key) ?? 0) + 1);
+                throw new StorageEncryptionError(key, 'encrypt failed');
+            },
+        });
+
+        queueCryptoDeferredWrite('stuck', '{"a":1}');
+        await drive(20);
+        expect(gaveUp.map(([key]) => key)).toContain('stuck');
+
+        queueCryptoDeferredWrite('fresh', '{"b":2}');
+        await drive(1);
+
+        /* محاولة واحدة فقط جرت للجديد حتى الآن، ولم يُستسلم عنه */
+        expect(attempts.get('fresh')).toBe(1);
+        expect(gaveUp.map(([key]) => key)).not.toContain('fresh');
+    });
+
+    /*
+     * والوجه الآخر للعدّاد العام: الثمانية كانت تحدّ إعادة الجدولة لا المحاولات،
+     * فحمولةٌ عالقة تُعاد محاولتها في كل جولة يُطلقها غيرها — قِيس عشرون محاولة.
+     */
+    it('العالق لا يُحاوَل بعد نفاد ميزانيته مهما جرت جولات لغيره', async () => {
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(true);
+        const attempts = new Map<string, number>();
+        const { drive } = makeHost({
+            persist: async (key) => {
+                attempts.set(key, (attempts.get(key) ?? 0) + 1);
+                throw new StorageEncryptionError(key, 'encrypt failed');
+            },
+        });
+
+        queueCryptoDeferredWrite('stuck', '{"a":1}');
+        await drive(30);
+
+        expect(attempts.get('stuck')).toBe(8);
+    });
+
     it('الاستسلام لا يُتلف الحمولة — وصولُ المفتاح متأخراً ما زال يُنقذها', async () => {
         const keyPresent = vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
         vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined as never);
