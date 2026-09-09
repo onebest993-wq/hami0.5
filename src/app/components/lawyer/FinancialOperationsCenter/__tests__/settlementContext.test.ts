@@ -96,7 +96,23 @@ describe('settlementContext', () => {
         expect(ctx.showSettlementEntryButton).toBe(false);
         expect(ctx.showPendingSummary).toBe(true);
         expect(ctx.showSettlementDueActions).toBe(false);
-        expect(ctx.showAmountGuarantorRequest).toBe(true);
+        /*
+         * تسوية معلّقة لم تُخلَّ ⇒ **لا شارة كفيل**.
+         *
+         * كان هذا الادّعاء `true` ويفشل منذ commit e076ee1f الذي أزال عمداً
+         * `if (input.pendingSettlement) return true;` من
+         * `resolveAmountGuarantorRequestVisible`، برسالة صريحة: «Guarantor now
+         * shows ONLY when settlementBreachTriggeredAt actually recorded —
+         * standby/awaiting-due/new-settlement scenarios correctly HIDE guarantor».
+         *
+         * والقرار صحيح موضوعياً: طلب الكفيل تصعيد، والمدين الملتزم بتسوية لم
+         * يُخلّ بها في وضع سليم. ويؤكّده اختبار مخصَّص **ناجح**:
+         * settlementGuarantorGate.test.ts → «hides amount guarantor … while
+         * settlement is in standby (no breach)».
+         *
+         * فالكود هو الصحيح، وهذا الملف بقي على السلوك الملغى ولم يُقرأ منذئذٍ.
+         */
+        expect(ctx.showAmountGuarantorRequest).toBe(false);
     });
 
     it('shows pending summary when panel is open', () => {
@@ -115,10 +131,11 @@ describe('settlementContext', () => {
         expect(ctx.showSettlementEntryButton).toBe(false);
         expect(ctx.showPendingSummary).toBe(true);
         expect(ctx.showSettlementDueActions).toBe(false);
-        expect(ctx.showAmountGuarantorRequest).toBe(true);
+        /* السبب نفسه أعلاه: تسوية معلّقة بلا إخلال ⇒ لا شارة كفيل (e076ee1f) */
+        expect(ctx.showAmountGuarantorRequest).toBe(false);
     });
 
-    it('shows due actions on due date and keeps guarantor badge while settlement pending', () => {
+    it('shows due actions on due date and hides guarantor until an actual breach', () => {
         const pending = {
             id: 'stl-2',
             amount: 500_000,
@@ -134,6 +151,21 @@ describe('settlementContext', () => {
         expect(ctx.showSettlementDueActions).toBe(true);
         expect(ctx.showSettlementEntryButton).toBe(false);
         expect(ctx.pendingSettlementDuePhase).toBe('due');
+        /*
+         * بلوغ تاريخ الاستحقاق ليس إخلالاً — الإخلال يُسجَّل بـ
+         * `applySettlementBreachCancellation` بعد «لم يتم التسديد». فالإجراءات
+         * المستحقّة تظهر، والكفيل لا. وكان اسم الاختبار نفسه يَعِد بعكس ذلك.
+         */
+        expect(ctx.showAmountGuarantorRequest).toBe(false);
+    });
+
+    /* والوجه المقابل: بعد إخلال مسجَّل تظهر الشارة فعلاً — كي لا يمرّ الملف بحذف الشرط */
+    it('shows the guarantor badge once a breach is actually recorded', () => {
+        const ctx = baseContext({
+            panelOpen: true,
+            pendingSettlement: null,
+            settlementBreachTriggeredAt: '2026-06-05T09:00:00.000Z',
+        });
         expect(ctx.showAmountGuarantorRequest).toBe(true);
     });
 
@@ -283,6 +315,15 @@ describe('settlement lifecycle sync with ledger remaining', () => {
                 financialCenterTotalIqd: 5_000_000,
                 settlementBreachTriggeredAt: reg.store.settlementBreachTriggeredAt,
             }).showAmountGuarantorRequest
-        ).toBe(true);
+            /*
+             * «back to standby» في عنوان الاختبار تعني عودة الشارة **مخفيّة** —
+             * وهو ما يقوله تعليق `applyNewSettlementRegistration` نفسه: «يعيد
+             * الكفيل إلى وضع الترقب». والسطر أعلاه يؤكّد للتوّ أن
+             * `settlementBreachTriggeredAt` صار `null`، فلا إخلال قائم.
+             *
+             * فكان الادّعاء `true` يناقض عنوان الاختبار وتوثيق الدالّة والتنفيذ
+             * معاً — بقيّة من السلوك الملغى في e076ee1f (انظر التعليق أعلى الملف).
+             */
+        ).toBe(false);
     });
 });
