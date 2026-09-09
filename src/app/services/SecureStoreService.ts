@@ -328,6 +328,21 @@ function touchDecryptedCache(
   }
 }
 
+/**
+ * قيمة كاش الفكّ إن كانت **قراءةً ناجحة** فعلاً، وإلا `null`.
+ *
+ * نصٌّ ببادئة التشفير ليس فكّاً، و`isUnreadSync` يحكم بـ`getItemSync(key) === null`
+ * وحده — فإرجاعه يقلب «غير مقروء» إلى «مقروء» فيُبطل حارس
+ * `markLawsuitDossierTombstone`، فتعود إضابير محذوفة من السحابة. أُصلح في
+ * `getItemSync` وحدها (71fd49b1) وبقي توأمها `getItem` يُرجعه بيانات — قِيس،
+ * والثابت لا يقبل التنصيف. ولا فكّ ناجح يُنتج هذه البادئة فلا يُحجب مشروع.
+ */
+function readableCachedPlain(key: string): string | null {
+  const cached = decryptedCache.get(key) ?? null;
+  if (cached == null || cached.startsWith(ENCRYPTED_PREFIX)) return null;
+  return cached;
+}
+
 function deleteDecryptedCacheKey(key: string): void {
   decryptedCache.delete(key);
   diskVerifiedDecryptedCacheKeys.delete(key);
@@ -1580,14 +1595,9 @@ class SecureStoreService {
   }
 
   static async getItem(key: string): Promise<SecureStoreValue> {
-    if (decryptedCache.has(key)) {
-      const cached = decryptedCache.get(key);
-      if (
-        cached != null &&
-        !(key.includes('lawyer_files') && isEmptyingPayload(key, cached))
-      ) {
-        return cached;
-      }
+    const cachedPlain = readableCachedPlain(key);
+    if (cachedPlain != null && !(key.includes('lawyer_files') && isEmptyingPayload(key, cachedPlain))) {
+      return cachedPlain;
     }
     let raw: string | null = null;
     if (isWebEnvironment()) {
@@ -1769,18 +1779,8 @@ class SecureStoreService {
         }
       }
     }
-    if (decryptedCache.has(key)) {
-      const cached = decryptedCache.get(key) ?? null;
-      /*
-       * قيمةٌ هي نفسها نصّ مشفَّر ليست فكّاً. و`isUnreadSync` يحكم بـ
-       * `getItemSync(key) === null` وحده، فإرجاعها هنا كان يقلب «غير مقروء» إلى
-       * «مقروء» — فيُبطل حارس `markLawsuitDossierTombstone` الذي يمنع كتابة
-       * شواهد جديدة فوق قائمة لم تُفكّ، فتعود إضابير محذوفة من السحابة.
-       * لا فكّ ناجح يُنتج نصّاً ببادئة التشفير، فلا يُحجب شيء مشروع.
-       */
-      if (cached != null && cached.startsWith(ENCRYPTED_PREFIX)) return null;
-      return cached;
-    }
+    /* الكاش أولاً — والمشفَّر فيه ليس قراءة. `readableCachedPlain` أعلاه */
+    if (decryptedCache.has(key)) return readableCachedPlain(key);
     if (storedRaw === null) return null;
     if (storedRaw.startsWith(ENCRYPTED_PREFIX)) return null;
     if (
