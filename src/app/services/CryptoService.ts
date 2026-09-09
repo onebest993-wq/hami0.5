@@ -722,17 +722,14 @@ export class CryptoService {
       const hasCipher = await SecureStoreService.hasEncryptedCiphertextOnDisk([...probeKeys]);
       if (this.restorePinnedMasterKey()) return;
       if (hasCipher) {
-        _err(
-          '[CryptoService] Encrypted dossier data on disk but master key restore failed — refusing to mint a new key',
-        );
+        _err('[CryptoService] Encrypted data on disk but key restore failed — refusing to mint');
+        this.reportKeylessSession('ciphertext on disk and no key could be restored');
         return;
       }
     } catch (error) {
-      /*
-       * فشل الفحص ≠ «لا بيانات». سكّ مفتاح جديد هنا يُعمي ciphertext قائماً.
-       * نرفض السكّ؛ المستخدم يُبقي بياناته حتى تُستعاد الجلسة/المفتاح.
-       */
+      /* فشل الفحص ≠ «لا بيانات»: السكّ هنا يُعمي ciphertext قائماً، فيُرفض ويُبلَّغ */
       _err('[CryptoService] Ciphertext probe failed — refusing to mint a new key:', error);
+      this.reportKeylessSession('ciphertext probe failed, minting refused');
       return;
     }
 
@@ -740,6 +737,12 @@ export class CryptoService {
     await this.generateMasterKey();
     if (this.restorePinnedMasterKey()) return;
     await this.persistKeyToPersistentStore();
+  }
+
+  /** جلسة بلا مفتاح فوق ciphertext تصير مرصودة. **إبلاغ لا علاج** — العلاج في hami-audit */
+  private static reportKeylessSession(detail: string): void {
+    const id = scopedMasterKeyRecordId(resolveLiveAuthUserIdForStorage());
+    signalPersistenceFailure(id, 'encrypt-or-write-failed', detail);
   }
 
   private static purgeLegacyDeviceWrappedKey(): void {
