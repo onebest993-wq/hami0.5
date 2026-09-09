@@ -733,8 +733,14 @@ export class CryptoService {
 
   /** جلسة بلا مفتاح فوق ciphertext تصير مرصودة. **إبلاغ لا علاج** — العلاج في hami-audit */
   private static reportKeylessSession(detail: string): void {
-    const id = scopedMasterKeyRecordId(resolveLiveAuthUserIdForStorage());
-    signalPersistenceFailure(id, 'encrypt-or-write-failed', detail);
+    const uid = resolveLiveAuthUserIdForStorage();
+    /*
+     * بلا هوية لا يُنسب فشلٌ إلى أحد. نافذة الدخول تمرّ من هنا قبل أن تُحلّ الهوية،
+     * و`hasPersistenceFailed()` رايةُ جلسةٍ واحدة — فبلاغٌ فيها يجعل عودةً سليمة تماماً
+     * تبدو فشلاً. والحالة الحقيقية تُبلَّغ في النداء التالي بعد أن تستقرّ الهوية.
+     */
+    if (!uid) return;
+    signalPersistenceFailure(scopedMasterKeyRecordId(uid), 'encrypt-or-write-failed', detail);
   }
 
   private static purgeLegacyDeviceWrappedKey(): void {
