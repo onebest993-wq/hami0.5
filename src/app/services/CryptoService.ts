@@ -256,9 +256,6 @@ export class CryptoService {
     if (await this.tryRestoreTransientScopedMasterKey()) {
       return true;
     }
-    if (await this.tryRestoreClaimedMasterKeyWhenTransient()) {
-      return true;
-    }
     return this.tryRestoreSolePersistentMasterKey();
   }
 
@@ -295,29 +292,20 @@ export class CryptoService {
   }
 
   /**
-   * ضيف/فارغ بعد قفزة الحساب: `claimedBy` يشير إلى سجل uid الحقيقي.
-   */
-  private static async tryRestoreClaimedMasterKeyWhenTransient(): Promise<boolean> {
-    if (!isTransientStorageUserId(this.boundStorageUserId)) return false;
-    const claimedBy = this.readLegacyKeyClaimedBy();
-    if (!claimedBy || isTransientStorageUserId(claimedBy)) return false;
-    const restored = await this.adoptMasterKeyFromRecord(
-      await this.readMasterKeyRecord(scopedMasterKeyRecordId(claimedBy)),
-    );
-    if (!restored) return false;
-    await this.persistRestoredKeyForTransientUid();
-    return true;
-  }
-
-  /**
    * ضيف الشِل بعد أن نُقل السجل إلى uid الحساب — سجل واحد على الجهاز = نفس المفتاح.
+   *
+   * والسجلّ يجب أن يكون **عابر المالك** (ضيف/تجريبي) أو إرثياً بلا نطاق. فالجلسة
+   * العابرة تقع على مسار الدخول العادي — `initialize()` تسبق ضبط الهوية بسطر — وبعد
+   * خروج محامٍ يكون سجلّه هو الوحيد على الجهاز. فتبنّيه يسلّم مفتاحه للمحامي التالي.
+   * `FINDING-022`.
    */
   private static async tryRestoreSolePersistentMasterKey(): Promise<boolean> {
     if (!isTransientStorageUserId(this.boundStorageUserId)) return false;
     const usable = (await this.readAllMasterKeyRecords()).filter(
       (row) =>
-        (typeof row.raw === 'string' && row.raw.trim().length > 0) ||
-        (typeof CryptoKey !== 'undefined' && row.key instanceof CryptoKey),
+        isTransientStorageUserId(String(row.id ?? '').split(':u:')[1]) &&
+        ((typeof row.raw === 'string' && row.raw.trim().length > 0) ||
+          (typeof CryptoKey !== 'undefined' && row.key instanceof CryptoKey)),
     );
     if (usable.length !== 1) return false;
     const restored = await this.adoptMasterKeyFromRecord(usable[0]);
