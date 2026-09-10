@@ -81,21 +81,31 @@ function isRepoSessionStale(targetSurfaceId?: number): boolean {
 
 function p1BlurAllFocusSurfaces(): void {
     if (typeof document === 'undefined') return;
+
+    const roots: HTMLElement[] = [];
+    for (const group of [REPOSITORY_SHELL_SELECTORS, DOSSIER_NOTES_VAULT_SELECTORS, VAULT_PDF_OVERLAY_SELECTORS]) {
+        const root = queryFirst(group);
+        if (root) roots.push(root);
+    }
+
     try {
         /*
-         * activeElement نوعه Element، وblur معرَّفة على HTMLOrSVGElement.
-         * الفحص على الدالة لا على الصنف: `instanceof HTMLElement` كان
+         * مقصور على ما هو **داخل** أسطح المستودع. كان هذا السطر ينزع التركيز عن
+         * أيّ عنصرٍ نشط في الوثيقة، فيسرقه من حقلٍ في شاشةٍ أخرى كلّما أُغلق
+         * المستودع — والغاية المقصودة (ألّا يبقى التركيز داخل سطحٍ يُغلَق)
+         * يحقّقها الفحص المقيَّد وحده.
+         *
+         * والفحص على الدالة لا على الصنف: `instanceof HTMLElement` كان
          * سيتخطّى عنصر SVG مركَّزاً، وهو يملك blur في المتصفّحات الحديثة.
-         * السلوك وقت التشغيل مطابق للأصل حرفياً.
          */
-        (document.activeElement as { blur?: () => void } | null)?.blur?.();
+        const active = document.activeElement;
+        if (active && roots.some((root) => root.contains(active))) {
+            (active as { blur?: () => void }).blur?.();
+        }
     } catch {
         /* ignore */
     }
-    for (const group of [REPOSITORY_SHELL_SELECTORS, DOSSIER_NOTES_VAULT_SELECTORS, VAULT_PDF_OVERLAY_SELECTORS]) {
-        const root = queryFirst(group);
-        if (root) blurFocusWithin(root);
-    }
+    for (const root of roots) blurFocusWithin(root);
     try {
         const iframes = Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe'));
         for (const iframe of iframes) {
