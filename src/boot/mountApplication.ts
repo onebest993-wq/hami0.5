@@ -36,9 +36,28 @@ function reportFatalBootError(e: unknown, errText: string): void {
         .catch(() => undefined);
 }
 
+/**
+ * شاشة الخطأ لا تُرى خلف غطاء الإقلاع الأصلي.
+ *
+ * `removeStaticBootShell` تُزيل قشرة الويب، أمّا الغطاء **الأصلي** فلا يُحرَّر إلا
+ * بـ`HamiBoot.notifyReady` — ومساره الوحيد `markBootRevealDone`، وهو لا يُبلَغ في
+ * الإقلاع الفاشل. فكانت الرسالة تُرسم تحت غطاءٍ معتم حتى يرفعه المُنقذ الزمني في
+ * `MainActivity`. ولمّا صار المُنقذ ٢٩ ثانية (c29e16d2 — وهو الصواب للإقلاع البطيء
+ * المشروع) اتّسعت هذه الفجوة بدل أن تضيق: تسع ثوانٍ إضافية أمام شاشةٍ سوداء.
+ *
+ * والتحرير هنا لا ينتظر: الدالّة تُعيد المحاولة وتُعلن فشلها بنفسها، وسقوطها لا
+ * يجوز أن يمنع رسم الخطأ.
+ */
+function releaseNativeBootOverlayForFatalError(): void {
+    void import('@/app/runtime/nativeBootSplash')
+        .then((m) => m.notifyNativeBootReady())
+        .catch(() => false);
+}
+
 function renderFatalBootError(e: unknown): void {
     console.error('❌ [System] Fatal Boot Error:', e);
     removeStaticBootShell({ force: true });
+    releaseNativeBootOverlayForFatalError();
 
     const wrap = document.createElement('div');
     wrap.setAttribute('data-testid', 'app-boot-fatal-error');
