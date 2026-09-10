@@ -8,7 +8,20 @@ import {
 
 export const E2E_EXEC_PERSIST_ID = 'e2e-exec-storage-persist-1';
 export const EXECUTION_FILES_KEY = 'executionFiles';
-export const E2E_OWNER_ID = 'dev-user-uuid-1';
+/**
+ * هوية جلسة `VITE_SHELL_AUTH_OPEN` — لا `dev-user-uuid-1`.
+ *
+ * البذرة كانت تكتب فهرس التنفيذ تحت مالكٍ لا يملكه أحد في هذا البناء: الجلسة
+ * الحيّة هي الضيف، فيقرأ التطبيق `executionFiles:guest-lawyer-1` ويجده فارغاً.
+ * والأسوأ أنّ وجود مفتاح حسابٍ آخر على الجهاز يُشغّل حجر الفهرس متعدّد الحسابات
+ * (`deviceHasOtherOwnedExecutionIndexes`) — وهو تصرّفٌ صحيح — فيمتنع الاستيراد
+ * التلقائي للفهرس العام أيضاً، ويبقى الصفّ محجوراً لا يراه أحد. فكان الفشل
+ * سلوكاً سليماً فوق بذرةٍ كاذبة.
+ *
+ * نفس الفخّ أُغلق قبلاً في `notificationFixtures` و`vaultFixtures`
+ * و`PHASE_CALENDAR_CHROME_UNIFY_CLOSURE`.
+ */
+export const E2E_OWNER_ID = 'guest-lawyer-1';
 
 const SECURE_KV_STORE = HAMI_SECURE_KV_STORE;
 
