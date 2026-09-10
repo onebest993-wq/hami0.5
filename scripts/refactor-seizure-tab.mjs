@@ -21,7 +21,7 @@ import {
 import type { SeizureMatrixButtonKey, SeizureMatrixResult } from '@/app/utils/seizureMatrix';
 import { resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
 import { SeizureMatrixExpandLink } from '@/app/components/lawyer/execution/SeizureMatrixExpandLink';
-import { shouldShowGuarantorRequestInSeizureTab } from './hiddenFollowupRequestsUtils';
+import { shouldShowGuarantorRequestInSeizureTab } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
 import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
 import { isFollowupRequestKindAllowed } from '@/app/utils/executionDomainIsolation';
