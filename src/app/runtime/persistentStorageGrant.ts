@@ -68,6 +68,29 @@ function publish(report: PersistentStorageReport): PersistentStorageReport {
 }
 
 /**
+ * التحذير أعلاه يعيش في وحدة تحكّم جهازٍ لا يفتحها أحد في الميدان، ومفتاح النافذة
+ * لا يُقرأ إلا بتنقيح WebView عن بُعد على جهازٍ بعينه. فالرفض اليوم مسجَّل ولا
+ * يُبلَّغ — ولا سبيل لمعرفة كم من أجهزة المحامين يقع عليها.
+ *
+ * وهو ليس حدثاً محلياً: يعني أن `hami-crypto-keystore` على ذلك الجهاز قابل
+ * للإخلاء، ومعه القدرة على فكّ الأرشيف السحابي إلى الأبد.
+ *
+ * الاستيراد ديناميّ عمداً: عميل الرصد لا يدخل مسار الإقلاع لأجل فرعٍ نادر.
+ * ولا يرمي ولا يُنتظَر — الوحدة كلّها مسار إقلاع.
+ */
+function reportOutcome(report: PersistentStorageReport): void {
+    void import('@/app/observability/sentryClient')
+        .then((m) =>
+            m.sentryCaptureMessage(`storage-persistence:${report.outcome}`, {
+                outcome: report.outcome,
+                usageBytes: report.usageBytes,
+                quotaBytes: report.quotaBytes,
+            }),
+        )
+        .catch(() => undefined);
+}
+
+/**
  * يُطلب مرة واحدة لكل جلسة صفحة. لا يرمي أبداً — مسار إقلاع.
  *
  * `persist()` في WebView لا يعرض حواراً للمستخدم؛ يمنحه المحرّك أو يرفضه بمعاييره.
@@ -103,6 +126,7 @@ export function ensurePersistentStorage(): Promise<PersistentStorageReport> {
                         ? ` (المستعمَل ${Math.round(used / 1048576)}MB من ${Math.round(quota / 1048576)}MB)`
                         : ''),
             );
+            reportOutcome(report);
             return report;
         } catch (error) {
             /*
@@ -112,7 +136,9 @@ export function ensurePersistentStorage(): Promise<PersistentStorageReport> {
              * (مسار إقلاع)، لكنها لا تصمت بعد اليوم.
              */
             console.warn('[hami:storage] تعذّر طلب التخزين الدائم:', error);
-            return publish({ outcome: 'error' });
+            const report = publish({ outcome: 'error' });
+            reportOutcome(report);
+            return report;
         }
     })();
 

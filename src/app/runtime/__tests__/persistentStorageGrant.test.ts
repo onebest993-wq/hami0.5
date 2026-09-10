@@ -11,6 +11,11 @@ import {
     resetPersistentStorageGrantForTests,
 } from '../persistentStorageGrant';
 
+const captureMessage = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock('@/app/observability/sentryClient', () => ({
+    sentryCaptureMessage: captureMessage,
+}));
+
 type StorageStub = {
     persist?: () => Promise<boolean>;
     persisted?: () => Promise<boolean>;
@@ -30,6 +35,7 @@ describe('ensurePersistentStorage', () => {
 
     beforeEach(() => {
         resetPersistentStorageGrantForTests();
+        captureMessage.mockClear();
         warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     });
 
@@ -97,6 +103,53 @@ describe('ensurePersistentStorage', () => {
         await expect(ensurePersistentStorage()).resolves.toEqual({ outcome: 'error' });
         expect(warn).toHaveBeenCalledTimes(1);
         expect(String(warn.mock.calls[0]?.[0])).toContain('تعذّر طلب التخزين الدائم');
+    });
+
+    /*
+     * console.warn يعيش في وحدة تحكّم جهازٍ لا يفتحها أحد في الميدان. فرفضٌ لا
+     * يُبلَّغ يعني أنّ أحداً لن يعرف كم من أجهزة المحامين تحمل مفتاح فكّ أرشيفٍ
+     * قابلاً للإخلاء — وهو ما يجعل القرار في شأنه مستحيلاً أصلاً.
+     */
+    it('يُبلّغ عن الرفض بالحصّة لا يكتفي بوحدة تحكّم الجهاز', async () => {
+        stubStorage({
+            persist: async () => false,
+            persisted: async () => false,
+            estimate: async () => ({ usage: 52_428_800, quota: 104_857_600 }),
+        });
+
+        await ensurePersistentStorage();
+        await vi.waitFor(() => expect(captureMessage).toHaveBeenCalledTimes(1));
+
+        expect(captureMessage.mock.calls[0]?.[0]).toBe('storage-persistence:denied');
+        expect(captureMessage.mock.calls[0]?.[1]).toMatchObject({
+            outcome: 'denied',
+            usageBytes: 52_428_800,
+            quotaBytes: 104_857_600,
+        });
+    });
+
+    it('يُبلّغ عن الخطأ أيضاً — أسوأ الحالات لا يُعرف فيها الحكم', async () => {
+        stubStorage({
+            persist: async () => {
+                throw new Error('quota subsystem down');
+            },
+            persisted: async () => false,
+        });
+
+        await ensurePersistentStorage();
+        await vi.waitFor(() => expect(captureMessage).toHaveBeenCalledTimes(1));
+
+        expect(captureMessage.mock.calls[0]?.[0]).toBe('storage-persistence:error');
+    });
+
+    /* المنح ليس حدثاً يُبلَّغ — الضوضاء تُفقد الإشارة قيمتها */
+    it('لا يُبلّغ حين يُمنح الدوام', async () => {
+        stubStorage({ persist: async () => true, persisted: async () => false });
+
+        await ensurePersistentStorage();
+        await new Promise((r) => setTimeout(r, 0));
+
+        expect(captureMessage).not.toHaveBeenCalled();
     });
 
     it('لا يرمي حين تغيب الواجهة كلياً', async () => {
