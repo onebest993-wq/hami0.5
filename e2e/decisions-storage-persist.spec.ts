@@ -16,9 +16,14 @@ async function openPersistedExecutionDossier(page: Page, fromHome = false) {
     if (fromHome) {
         await openExecutionArchiveFromHome(page);
     } else {
+        /*
+         * المهلة إلزامية: المشروع لا يضبط actionTimeout فقيمته صفر — أي بلا مهلة.
+         * وعلى الرئيسية لا وجود لـexecution-archive-shell، فكان getAttribute ينتظر
+         * عنصراً لا يظهر أبداً ولا يرفض، فلا يُبلَغ .catch أدناه ولا تنتهي الدالة.
+         */
         const archiveOpen = await page
             .getByTestId('execution-archive-shell')
-            .getAttribute('aria-hidden')
+            .getAttribute('aria-hidden', { timeout: 2_000 })
             .then((v) => v === 'false')
             .catch(() => false);
         if (!archiveOpen) {
