@@ -18,7 +18,7 @@ import { Shield } from '@/app/components/ui/icons/Shield';
 import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 import {
     formatGuarantorIqdForDisplay,
-} from '@/app/components/lawyer/ExecutionDashboard/components/guarantorExternalUtils';
+} from '@/app/domain/execution/followup/guarantorExternalUtils';
 import {
     isExecutiveDetentionBadgeSuppressed,
     isExecutiveDetentionPathEnforceable,

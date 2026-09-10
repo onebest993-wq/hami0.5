@@ -18,7 +18,7 @@ import {
     HIDDEN_BREAK_INVENTORY_REQUEST_TITLE,
     resolveHiddenBreakInventoryRequest,
     type HiddenFollowupVisibilityInput,
-} from './hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import {
     HIDDEN_FOLLOWUP_PENDING_REASON,
     HiddenFollowupDecisionsFollowupButton,

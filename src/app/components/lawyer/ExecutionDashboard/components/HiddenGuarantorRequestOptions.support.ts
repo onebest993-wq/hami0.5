@@ -9,7 +9,7 @@ import type {
     HiddenFollowupVisibilityInput,
     HiddenGuarantorContext,
     HiddenGuarantorRequestKey,
-} from './hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolation';
 
 export const GUARANTOR_ICONS: Record<

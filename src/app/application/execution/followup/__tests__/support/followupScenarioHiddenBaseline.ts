@@ -1,7 +1,7 @@
 import type {
     HiddenGuarantorRequestKey,
     HiddenPersonalCoerciveRequestKey,
-} from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 
 export type FollowupScenarioHiddenBaselineEntry = {
     hiddenToggleVisible: boolean;

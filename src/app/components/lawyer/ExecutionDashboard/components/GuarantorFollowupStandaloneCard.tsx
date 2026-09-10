@@ -5,7 +5,7 @@ import {
     formatGuarantorIqdForDisplay,
     hasActiveFinancialGuarantorFollowup,
     readGuarantorIqd,
-} from './guarantorExternalUtils';
+} from '@/app/domain/execution/followup/guarantorExternalUtils';
 import { GuarantorConfirmDialog, GuarantorOverflowMenu } from './GuarantorOverflowMenu';
 import { GuarantorCollapsedSummary } from './GuarantorCollapsedSummary';
 import { GuarantorCardExpandButton } from './GuarantorCardExpandButton';

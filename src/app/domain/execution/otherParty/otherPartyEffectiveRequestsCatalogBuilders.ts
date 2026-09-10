@@ -24,7 +24,7 @@ import {
     type HiddenFollowupVisibilityInput,
     type HiddenGuarantorContext,
     type HiddenPersonalCoerciveRequestKey,
-} from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 import type { CatalogEntry, OtherPartyCatalogInput } from './otherPartyEffectiveRequestsTypes';
 import {

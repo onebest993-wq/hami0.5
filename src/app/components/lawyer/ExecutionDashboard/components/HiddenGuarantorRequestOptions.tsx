@@ -4,7 +4,7 @@ import {
     listHiddenGuarantorCatalog,
     resolveHiddenGuarantorRequests,
     type HiddenGuarantorRequestKey,
-} from './hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { InlineActionGateKey } from '../types';
 import {
     GUARANTOR_ICONS,
@@ -16,7 +16,7 @@ import {
     findGuarantorSeizureRowFromDecisions,
     findOpenGuarantorRequestDecisionRow,
     hasActiveFinancialGuarantorFollowup,
-} from './guarantorExternalUtils';
+} from '@/app/domain/execution/followup/guarantorExternalUtils';
 import { isSalarySeizureAsset } from '@/app/utils/execution/isSalarySeizureAsset';
 import { resolveSalarySeizureSubject } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils';
 import {

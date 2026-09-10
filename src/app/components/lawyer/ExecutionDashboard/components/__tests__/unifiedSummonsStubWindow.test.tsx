@@ -10,7 +10,7 @@ vi.mock('motion/react', () => ({
     },
 }));
 
-vi.mock('../guarantorExternalUtils', () => ({
+vi.mock('@/app/domain/execution/followup/guarantorExternalUtils', () => ({
     isGuarantorSummonsEligible: vi.fn(() => false),
 }));
 

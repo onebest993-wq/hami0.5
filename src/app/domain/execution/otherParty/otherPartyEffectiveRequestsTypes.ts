@@ -3,7 +3,7 @@ import type {
     HiddenFollowupVisibilityInput,
     HiddenGuarantorContext,
     HiddenPersonalCoerciveRequestKey,
-} from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { CreditorMirrorWorkflowContext } from './creditorOtherPartyMirrorVisibility';
 
 export type OtherPartyRequestOutcome = 'none' | 'available' | 'effective' | 'pending' | 'rejected' | 'alternative';

@@ -22,7 +22,7 @@ import {
     listHiddenPersonalCoerciveCatalog,
     resolveHiddenPersonalCoerciveRequests,
     type HiddenPersonalCoerciveRequestKey,
-} from './hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import {
     HIDDEN_FOLLOWUP_PENDING_REASON,
     HiddenFollowupBackButton,
@@ -146,10 +146,10 @@ export function HiddenPersonalCoerciveRequestViews(props: {
     resolved: ReturnType<typeof resolveHiddenPersonalCoerciveRequests>;
     selectedCatalog: NonNullable<ReturnType<typeof listHiddenPersonalCoerciveCatalog>[number]>;
     selectedResolved: ReturnType<typeof resolveHiddenPersonalCoerciveRequests>[number] | null | undefined;
-    selectedKey: import('./hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey | null;
-    setSelectedKey: (k: import('./hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey | null) => void;
-    embeddedSelectedKey?: import('./hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey;
-    effectiveKey: import('./hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey | null;
+    selectedKey: import('@/app/domain/execution/followup/hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey | null;
+    setSelectedKey: (k: import('@/app/domain/execution/followup/hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey | null) => void;
+    embeddedSelectedKey?: import('@/app/domain/execution/followup/hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey;
+    effectiveKey: import('@/app/domain/execution/followup/hiddenFollowupRequestsUtils').HiddenPersonalCoerciveRequestKey | null;
     governingRow: Record<string, unknown> | null;
     steps: import('./ExecutionInlineAccordion').ExecutionInlineStep[];
     submitDisabledReason: string;

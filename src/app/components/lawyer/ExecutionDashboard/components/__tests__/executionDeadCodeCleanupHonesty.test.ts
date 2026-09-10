@@ -32,7 +32,11 @@ describe('Execution dead-code cleanup honesty', () => {
         expect(header).not.toMatch(/export\s+function\s+isHeaderFieldsLike\b/);
         expect(header).not.toMatch(/export\s+function\s+mergeHeaderFields\b/);
 
-        const guarantor = read('guarantorExternalUtils.ts');
+        /* انتقل إلى طبقة النطاق — منطقٌ نقيّ بلا واجهة (T21) */
+        const guarantor = fs.readFileSync(
+            path.join(root, 'src/app/domain/execution/followup/guarantorExternalUtils.ts'),
+            'utf8',
+        );
         expect(guarantor).not.toContain('resolveGuarantorIdentity');
 
         const comm = read('communicationDecisionModel.ts');

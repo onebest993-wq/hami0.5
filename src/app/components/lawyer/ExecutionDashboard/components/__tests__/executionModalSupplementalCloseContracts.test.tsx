@@ -29,7 +29,7 @@ vi.mock('@/app/utils/executorSeizureDecisionQueue', () => ({
     patchExecutorDecisionRow: vi.fn(),
 }));
 
-vi.mock('../guarantorExternalUtils', () => ({
+vi.mock('@/app/domain/execution/followup/guarantorExternalUtils', () => ({
     isGuarantorSummonsEligible: vi.fn(() => false),
 }));
 

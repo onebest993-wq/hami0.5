@@ -22,7 +22,7 @@ import {
     type HiddenGuarantorContext,
     type HiddenGuarantorRequestKey,
     type HiddenPersonalCoerciveRequestKey,
-} from './hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { HiddenGuarantorRequestOptionsProps } from './HiddenGuarantorRequestOptions';
 import type { HiddenPersonalCoerciveRequestOptionsProps } from './HiddenPersonalCoerciveRequestOptions';
 import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolation';

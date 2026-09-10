@@ -15,7 +15,7 @@ import {
     resolveHiddenPersonalCoerciveRequests,
     type HiddenFollowupVisibilityInput,
     type HiddenPersonalCoerciveRequestKey,
-} from './hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolation';
 import {

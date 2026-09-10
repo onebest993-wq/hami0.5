@@ -3,7 +3,7 @@ import type { CreditorMirrorWorkflowContext } from '@/app/utils/creditorOtherPar
 import type {
     HiddenFollowupVisibilityInput,
     HiddenGuarantorContext,
-} from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { SettlementGuarantorGateSlice } from './executionDashboardFollowupSeizureTabs';
 import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 

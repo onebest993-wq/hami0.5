@@ -1,5 +1,5 @@
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
-import type { HiddenPersonalCoerciveRequestKey } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+import type { HiddenPersonalCoerciveRequestKey } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 
 export interface PersonalCoerciveFollowupPanelProps {
     executionId: string | undefined;

@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeizureRequestsTab } from '../SeizureRequestsTab';
 import type { SeizureMatrixResult } from '@/app/utils/seizureMatrix';
-import { shouldShowGuarantorRequestInSeizureTab } from '../hiddenFollowupRequestsUtils';
+import { shouldShowGuarantorRequestInSeizureTab } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
 
 vi.mock('@/app/components/ui/SmartDialog', () => ({
@@ -53,7 +53,7 @@ vi.mock('@/app/utils/executorRequestAppealSync', () => ({
     isExecutorRowApprovedWorkflowActive: vi.fn(() => false),
 }));
 
-vi.mock('../hiddenFollowupRequestsUtils', () => ({
+vi.mock('@/app/domain/execution/followup/hiddenFollowupRequestsUtils', () => ({
     shouldShowGuarantorRequestInSeizureTab: vi.fn(() => false),
 }));
 

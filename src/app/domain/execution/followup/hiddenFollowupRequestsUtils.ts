@@ -69,9 +69,11 @@ export function shouldShowGuarantorRequestInSeizureTab(
     return false;
 }
 
-export type HiddenRequestStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'alternative';
+/* داخليّ — لا مستهلك خارج هذا الملفّ */
+type HiddenRequestStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'alternative';
 
-export interface ResolvedHiddenPersonalRequest {
+/* داخليّ */
+interface ResolvedHiddenPersonalRequest {
     key: HiddenPersonalCoerciveRequestKey;
     label: string;
     status: HiddenRequestStatus;
@@ -80,7 +82,8 @@ export interface ResolvedHiddenPersonalRequest {
     decisionTitle: string | null;
 }
 
-export interface ResolvedHiddenGuarantorRequest {
+/* داخليّ */
+interface ResolvedHiddenGuarantorRequest {
     key: import('./hiddenFollowupRequestsUtils.types').HiddenGuarantorRequestKey;
     label: string;
     statusLabel: string;

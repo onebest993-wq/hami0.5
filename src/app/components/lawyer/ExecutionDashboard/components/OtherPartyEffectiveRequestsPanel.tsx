@@ -7,7 +7,7 @@ import {
     resolveOtherPartyRequestOptionBadges,
 } from '@/app/utils/otherPartyEffectiveRequestsUtils';
 import type { CreditorMirrorWorkflowContext } from '@/app/utils/creditorOtherPartyMirrorVisibility';
-import type { HiddenFollowupVisibilityInput, HiddenGuarantorContext } from './hiddenFollowupRequestsUtils';
+import type { HiddenFollowupVisibilityInput, HiddenGuarantorContext } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { OtherPartyActionLogEntry, OtherPartyRequestTrackEntry } from '@/app/types/execution';
 import {
     mergeExternalTracksPreferLocalAdvance,

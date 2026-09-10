@@ -4,7 +4,7 @@ import {
     hasActiveFinancialGuarantorFollowup,
     shouldShowGuarantorExternalHub,
     isGuarantorSummonsEligible,
-} from '../guarantorExternalUtils';
+} from '@/app/domain/execution/followup/guarantorExternalUtils';
 
 describe('guarantorExternalUtils', () => {
     it('does not show hub without approved financial guarantor followup', () => {

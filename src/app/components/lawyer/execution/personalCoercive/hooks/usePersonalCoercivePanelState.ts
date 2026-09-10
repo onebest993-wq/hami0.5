@@ -72,7 +72,7 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/decisionCardPresentation';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import { applyWaiveCassationAfterDebtorGrievanceForExecution } from '@/app/utils/waiveCassationAfterDebtorGrievance';
-import type { HiddenPersonalCoerciveRequestKey } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+import type { HiddenPersonalCoerciveRequestKey } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import { appealSyncForRequestSubtype } from '../utils/appealSyncMap';
 import { coerciveOutcomeFromDecisionRow } from '../utils/coerciveOutcomeFromDecisionRow';

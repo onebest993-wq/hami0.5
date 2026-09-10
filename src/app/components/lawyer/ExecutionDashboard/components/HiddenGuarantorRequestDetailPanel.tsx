@@ -12,7 +12,7 @@ import {
     openHiddenFollowupSubmitOrWarn,
 } from './hiddenFollowup/shared';
 import { gateKeyForGuarantor } from './HiddenGuarantorRequestOptions.support';
-import type { HiddenGuarantorRequestKey } from './hiddenFollowupRequestsUtils';
+import type { HiddenGuarantorRequestKey } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { InlineActionGateKey } from '../types';
 
 export function HiddenGuarantorRequestDetailPanel({

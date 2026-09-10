@@ -4,7 +4,7 @@ import type {
     HiddenGuarantorContext,
     HiddenGuarantorRequestKey,
     HiddenPersonalCoerciveRequestKey,
-} from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import {
     hasAnyHiddenFollowupContent,
     listHiddenGuarantorCatalog,
@@ -12,7 +12,7 @@ import {
     shouldAlwaysShowHiddenRequestsToggle,
     shouldShowGuarantorRequestInSeizureTab,
     shouldShowHiddenBreakInventoryRequest,
-} from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import {
     isCustodyRemovalClaim,
     isPersonalStatusCourtDecisionsDossier,

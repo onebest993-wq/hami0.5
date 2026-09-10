@@ -3,7 +3,7 @@ import { Eye } from '@/app/components/ui/icons/Eye';
 import { EyeOff } from '@/app/components/ui/icons/EyeOff';
 import { Send } from '@/app/components/ui/icons/Send';
 import type { InlineActionGateKey } from '../types';
-import { shouldAlwaysShowHiddenRequestsToggle, hasAnyHiddenFollowupContent } from './hiddenFollowupRequestsUtils';
+import { shouldAlwaysShowHiddenRequestsToggle, hasAnyHiddenFollowupContent } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import { SPECIAL_REQUEST_MANUAL_MODE } from './requestsTabConstants';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { HiddenFollowupRequestOptionsProps } from './HiddenFollowupRequestOptions';

@@ -3,7 +3,7 @@ import { debug } from '@/app/utils/debug';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { syncRollingCalendarSessions } from '@/app/utils/visitationScheduleEngine';
-import { shouldShowGuarantorExternalHub } from '../../components/guarantorExternalUtils';
+import { shouldShowGuarantorExternalHub } from '@/app/domain/execution/followup/guarantorExternalUtils';
 import { mergeSimilarRecentTimelineEvent } from '@/app/utils/timelineDedup';
 import type { ExecutionFile } from '@/app/types/execution';
 import { guarantorFollowupAwaitingDetailsSave } from '@/app/types/execution';

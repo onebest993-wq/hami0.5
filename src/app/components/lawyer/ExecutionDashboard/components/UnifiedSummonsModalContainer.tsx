@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '../executionDashboardLazyShellUi';
-import { isGuarantorSummonsEligible } from './guarantorExternalUtils';
+import { isGuarantorSummonsEligible } from '@/app/domain/execution/followup/guarantorExternalUtils';
 import {
     buildGuarantorNotificationFeature,
     buildUnifiedSummonsSafeHandlers,

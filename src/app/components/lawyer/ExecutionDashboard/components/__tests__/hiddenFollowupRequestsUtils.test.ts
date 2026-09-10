@@ -7,7 +7,7 @@ import {
     listHiddenPersonalCoerciveCatalog,
     shouldAlwaysShowHiddenRequestsToggle,
     shouldShowGuarantorRequestInSeizureTab,
-} from '../hiddenFollowupRequestsUtils';
+} from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 
 const baseFlags = {
     isFinancialDebtCollection: false,

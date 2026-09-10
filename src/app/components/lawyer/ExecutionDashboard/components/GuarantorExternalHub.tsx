@@ -3,7 +3,7 @@ import {
     GuarantorFollowupStandaloneCard,
     type GuarantorFollowupStandaloneCardProps,
 } from './GuarantorFollowupStandaloneCard';
-import { hasActiveFinancialGuarantorFollowup, shouldShowGuarantorExternalHub } from './guarantorExternalUtils';
+import { hasActiveFinancialGuarantorFollowup, shouldShowGuarantorExternalHub } from '@/app/domain/execution/followup/guarantorExternalUtils';
 
 export type GuarantorExternalHubProps = Omit<
     GuarantorFollowupStandaloneCardProps,
