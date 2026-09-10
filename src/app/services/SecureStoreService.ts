@@ -48,6 +48,13 @@ let executionIndexReadyPromise: Promise<void> | null = null;
 const webFallbackStore = new Map<string, string>();
 /** Vitest: قرص وهمي منفصل عن المرآة — يثبت create→reload دون IndexedDB حقيقي */
 const vitestDiskStore = new Map<string, string>();
+/**
+ * القرص الوهميّ هو الأصل تحت الاختبار، ويُرفع **بالاشتراك لملفٍ واحد** لا للمجموعة.
+ * فمسارات IndexedDB الحقيقية — وأخطرها `onabort`، وهو طريق `QuotaExceededError` على
+ * جهاز حقيقي — كانت غير قابلة للتشغيل أصلاً، فشُحنت إصلاحاتها باستثناءٍ معلن.
+ */
+let realDiskForTests = false;
+const usesTestDisk = (): boolean => Boolean(import.meta.env.VITEST) && !realDiskForTests;
 const decryptedCache = new Map<string, string>();
 /** يميّز [] المفكوكة فعلياً من القرص عن [] متفائلة/مسمّمة في الذاكرة. */
 const diskVerifiedDecryptedCacheKeys = new Set<string>();
@@ -556,7 +563,7 @@ class SecureStoreService {
   }
 
   private static async webDbGetAllKeys(): Promise<string[]> {
-    if (import.meta.env.VITEST) {
+    if (usesTestDisk()) {
       return [...vitestDiskStore.keys()];
     }
     const db = await this.openWebDatabase();
@@ -588,7 +595,7 @@ class SecureStoreService {
    * بلا أثر يدلّ عليها.
    */
   private static async webDbSetItem(key: string, value: string): Promise<boolean> {
-    if (import.meta.env.VITEST) {
+    if (usesTestDisk()) {
       vitestDiskStore.set(key, value);
       return true;
     }
@@ -635,7 +642,7 @@ class SecureStoreService {
     entries: readonly { key: string; value: string }[],
   ): Promise<boolean> {
     if (entries.length === 0) return true;
-    if (import.meta.env.VITEST) {
+    if (usesTestDisk()) {
       for (const entry of entries) vitestDiskStore.set(entry.key, entry.value);
       return true;
     }
@@ -691,7 +698,7 @@ class SecureStoreService {
   }
 
   private static async webDbGetItem(key: string): Promise<string | null> {
-    if (import.meta.env.VITEST) {
+    if (usesTestDisk()) {
       return vitestDiskStore.get(key) ?? null;
     }
     const db = await this.openWebDatabase();
@@ -716,7 +723,7 @@ class SecureStoreService {
   }
 
   private static async webDbDeleteItem(key: string): Promise<void> {
-    if (import.meta.env.VITEST) {
+    if (usesTestDisk()) {
       vitestDiskStore.delete(key);
       return;
     }
@@ -1506,6 +1513,19 @@ class SecureStoreService {
   /**
    * اختبارات فقط: امسح مرآة الذاكرة دون مسح IndexedDB — محاكاة إعادة تحميل الصفحة.
    */
+  /**
+   * اختبارات فقط: يوجّه الكتابات الدائمة إلى IndexedDB الحقيقية بدل القرص الوهميّ،
+   * ويُعيد ما يُغلق الاشتراك. **يُشترك فيه ملفٌ ملفاً** — قلبه للمجموعة يُبدّل بيئة
+   * اثني عشر ألف اختبار دفعةً، وذلك يُقاس على حدة لا يُمرَّر ضمناً.
+   */
+  static useRealIndexedDbForTests(): () => void {
+    if (!import.meta.env.VITEST) return () => undefined;
+    realDiskForTests = true;
+    return () => {
+      realDiskForTests = false;
+    };
+  }
+
   static dropMemoryMirrorsForTests(keys?: readonly string[]): void {
     if (!import.meta.env.VITEST) return;
     const list = keys && keys.length > 0 ? keys : [...webFallbackStore.keys()];
