@@ -1,11 +1,11 @@
-export const REPOSITORY_ESCAPE_L0_SHELL_BACK = 0;
-export const REPOSITORY_ESCAPE_L1_VAULTPDF_DISMISS = 1;
-export const REPOSITORY_ESCAPE_L2_DOSSIER_COMPOSER_CLOSE = 2;
-export const REPOSITORY_ESCAPE_L3_SMARTLAW_POPOVER_DISMISS = 3;
+const REPOSITORY_ESCAPE_L0_SHELL_BACK = 0;
+const REPOSITORY_ESCAPE_L1_VAULTPDF_DISMISS = 1;
+const REPOSITORY_ESCAPE_L2_DOSSIER_COMPOSER_CLOSE = 2;
+const REPOSITORY_ESCAPE_L3_SMARTLAW_POPOVER_DISMISS = 3;
 
-export type RepositoryEscapePriority = 0 | 1 | 2 | 3;
+type RepositoryEscapePriority = 0 | 1 | 2 | 3;
 
-export interface RepositoryEscapeEntry {
+interface RepositoryEscapeEntry {
     priority: RepositoryEscapePriority;
     handler: () => void | boolean | Promise<void | boolean>;
     surface?: string;
@@ -14,7 +14,7 @@ export interface RepositoryEscapeEntry {
 
 const escapeStack: RepositoryEscapeEntry[] = [];
 
-export function pushRepositoryEscapeLayer(
+function pushRepositoryEscapeLayer(
     handler: RepositoryEscapeEntry['handler'],
     priority: RepositoryEscapePriority = REPOSITORY_ESCAPE_L1_VAULTPDF_DISMISS,
     surface?: string,
@@ -30,13 +30,13 @@ export function pushRepositoryEscapeLayer(
     return escapeStack.indexOf(entry);
 }
 
-export function popRepositoryEscapeLayer(token: number): boolean {
+function popRepositoryEscapeLayer(token: number): boolean {
     if (token < 0 || token >= escapeStack.length) return false;
     const removed = escapeStack.splice(token, 1);
     return removed.length === 1;
 }
 
-export function peekRepositoryEscapeTopLayer(): RepositoryEscapeEntry | null {
+function peekRepositoryEscapeTopLayer(): RepositoryEscapeEntry | null {
     return escapeStack[0] ?? null;
 }
 
@@ -57,7 +57,7 @@ export function unblockAllRepositoryOverlayEscape(): void {
     }
 }
 
-export const repositoryEscapeStackPublicApi = {
+const repositoryEscapeStackPublicApi = {
     push: pushRepositoryEscapeLayer,
     pop: popRepositoryEscapeLayer,
     peek: peekRepositoryEscapeTopLayer,

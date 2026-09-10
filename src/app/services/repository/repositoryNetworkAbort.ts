@@ -2,22 +2,6 @@ const repoVaultTextExtractionAbort = new AbortController();
 const repoDossierSyncAbort = new AbortController();
 const repoStorageOpsAbort = new AbortController();
 
-export {
-    repoVaultTextExtractionAbort,
-    repoDossierSyncAbort,
-    repoStorageOpsAbort,
-};
-
-export function getRepoVaultExtractionSignal(): AbortSignal {
-    return repoVaultTextExtractionAbort.signal;
-}
-export function getRepoDossierSyncSignal(): AbortSignal {
-    return repoDossierSyncAbort.signal;
-}
-export function getRepoStorageOpsSignal(): AbortSignal {
-    return repoStorageOpsAbort.signal;
-}
-
 function abortRepoVaultTextExtraction(): void {
     try { repoVaultTextExtractionAbort.abort(); } catch { /* noop */ }
 }
@@ -27,7 +11,7 @@ function abortRepoDossierSync(): void {
 function abortRepoStorageOps(): void {
     try { repoStorageOpsAbort.abort(); } catch { /* noop */ }
 }
-export function abortRepositoryNetworkAll(): void {
+function abortRepositoryNetworkAll(): void {
     abortRepoVaultTextExtraction();
     abortRepoDossierSync();
     abortRepoStorageOps();

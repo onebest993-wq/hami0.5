@@ -1,11 +1,11 @@
-export const LITIGATION_ESCAPE_L0_MODAL_FIRST_RESPONDER = 0;
-export const LITIGATION_ESCAPE_L1_OVERLAY_DISMISS = 1;
-export const LITIGATION_ESCAPE_L2_FRAGMENT_BACK = 2;
-export const LITIGATION_ESCAPE_L3_DEEP_NAV_BACK = 3;
+const LITIGATION_ESCAPE_L0_MODAL_FIRST_RESPONDER = 0;
+const LITIGATION_ESCAPE_L1_OVERLAY_DISMISS = 1;
+const LITIGATION_ESCAPE_L2_FRAGMENT_BACK = 2;
+const LITIGATION_ESCAPE_L3_DEEP_NAV_BACK = 3;
 
-export type LitigationEscapePriority = 0 | 1 | 2 | 3;
+type LitigationEscapePriority = 0 | 1 | 2 | 3;
 
-export interface LitigationEscapeEntry {
+interface LitigationEscapeEntry {
     priority: LitigationEscapePriority;
     handler: () => void | boolean | Promise<void | boolean>;
     surface?: string;
@@ -14,7 +14,7 @@ export interface LitigationEscapeEntry {
 
 const escapeStack: LitigationEscapeEntry[] = [];
 
-export function pushLitigationEscapeHandler(
+function pushLitigationEscapeHandler(
     handler: LitigationEscapeEntry['handler'],
     priority: LitigationEscapePriority = LITIGATION_ESCAPE_L1_OVERLAY_DISMISS,
     surface?: string,
@@ -30,13 +30,13 @@ export function pushLitigationEscapeHandler(
     return escapeStack.indexOf(entry);
 }
 
-export function popLitigationEscapeHandler(token: number): boolean {
+function popLitigationEscapeHandler(token: number): boolean {
     if (token < 0 || token >= escapeStack.length) return false;
     const removed = escapeStack.splice(token, 1);
     return removed.length === 1;
 }
 
-export function peekLitigationEscapeStack(): LitigationEscapeEntry | null {
+function peekLitigationEscapeStack(): LitigationEscapeEntry | null {
     return escapeStack[0] ?? null;
 }
 
@@ -57,7 +57,7 @@ export function unblockAllLitigationOverlayEscape(): void {
     }
 }
 
-export const litigationEscapeStackPublicApi = {
+const litigationEscapeStackPublicApi = {
     push: pushLitigationEscapeHandler,
     pop: popLitigationEscapeHandler,
     peek: peekLitigationEscapeStack,

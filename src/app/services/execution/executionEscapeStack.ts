@@ -1,11 +1,11 @@
-export const EXECUTION_ESCAPE_L0_SHELL_BACK = 0;
-export const EXECUTION_ESCAPE_L1_FOLLOWUP_MODAL_DISMISS = 1;
-export const EXECUTION_ESCAPE_L2_DOSSIER_COMPOSER_CLOSE = 2;
-export const EXECUTION_ESCAPE_L3_POPOVER_DISMISS = 3;
+const EXECUTION_ESCAPE_L0_SHELL_BACK = 0;
+const EXECUTION_ESCAPE_L1_FOLLOWUP_MODAL_DISMISS = 1;
+const EXECUTION_ESCAPE_L2_DOSSIER_COMPOSER_CLOSE = 2;
+const EXECUTION_ESCAPE_L3_POPOVER_DISMISS = 3;
 
-export type ExecutionEscapePriority = 0 | 1 | 2 | 3;
+type ExecutionEscapePriority = 0 | 1 | 2 | 3;
 
-export interface ExecutionEscapeEntry {
+interface ExecutionEscapeEntry {
     priority: ExecutionEscapePriority;
     handler: () => void | boolean | Promise<void | boolean>;
     surface?: string;
@@ -14,7 +14,7 @@ export interface ExecutionEscapeEntry {
 
 const escapeStack: ExecutionEscapeEntry[] = [];
 
-export function pushExecutionEscapeLayer(
+function pushExecutionEscapeLayer(
     handler: ExecutionEscapeEntry['handler'],
     priority: ExecutionEscapePriority = EXECUTION_ESCAPE_L1_FOLLOWUP_MODAL_DISMISS,
     surface?: string,
@@ -30,13 +30,13 @@ export function pushExecutionEscapeLayer(
     return escapeStack.indexOf(entry);
 }
 
-export function popExecutionEscapeLayer(token: number): boolean {
+function popExecutionEscapeLayer(token: number): boolean {
     if (token < 0 || token >= escapeStack.length) return false;
     const removed = escapeStack.splice(token, 1);
     return removed.length === 1;
 }
 
-export function peekExecutionEscapeTopLayer(): ExecutionEscapeEntry | null {
+function peekExecutionEscapeTopLayer(): ExecutionEscapeEntry | null {
     return escapeStack[0] ?? null;
 }
 
@@ -57,7 +57,7 @@ export function unblockAllExecutionOverlayEscape(): void {
     }
 }
 
-export const executionEscapeStackPublicApi = {
+const executionEscapeStackPublicApi = {
     push: pushExecutionEscapeLayer,
     pop: popExecutionEscapeLayer,
     peek: peekExecutionEscapeTopLayer,

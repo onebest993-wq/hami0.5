@@ -2,22 +2,6 @@ const execFilesHydrateAbortCtl = new AbortController();
 const execFinancialSyncAbortCtl = new AbortController();
 const execSummonsFollowupAbortCtl = new AbortController();
 
-export {
-    execFilesHydrateAbortCtl,
-    execFinancialSyncAbortCtl,
-    execSummonsFollowupAbortCtl,
-};
-
-export function getExecFilesHydrateSignal(): AbortSignal {
-    return execFilesHydrateAbortCtl.signal;
-}
-export function getExecFinancialSyncSignal(): AbortSignal {
-    return execFinancialSyncAbortCtl.signal;
-}
-export function getExecSummonsFollowupSignal(): AbortSignal {
-    return execSummonsFollowupAbortCtl.signal;
-}
-
 function abortExecFilesHydrateAll(): void {
     try { execFilesHydrateAbortCtl.abort(); } catch { /* noop */ }
 }
@@ -27,7 +11,7 @@ function abortExecFinancialSyncAll(): void {
 function abortExecSummonsFollowupAll(): void {
     try { execSummonsFollowupAbortCtl.abort(); } catch { /* noop */ }
 }
-export function abortExecutionNetworkAll(): void {
+function abortExecutionNetworkAll(): void {
     abortExecFilesHydrateAll();
     abortExecFinancialSyncAll();
     abortExecSummonsFollowupAll();
