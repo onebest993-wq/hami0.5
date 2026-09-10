@@ -35,7 +35,7 @@ function makeHost(overrides: Partial<CryptoDeferredHost> = {}) {
         atomicGateHeld: () => false,
         schedule: () => {
             retryRequests += 1;
-            return false;
+            return null;
         },
         reportError: () => undefined,
         reportGivingUp: (key, reason) => {

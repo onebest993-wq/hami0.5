@@ -130,9 +130,9 @@ configureCryptoDeferred({
   shouldDropStaleWrite: (key) => shouldDropStaleAtomicWrite(key),
   atomicGateHeld: () => heldAtomicWriteGate != null,
   schedule: (run, delayMs) => {
-    if (import.meta.env.VITEST) return false; /* الاختبار يقود الجولات بنفسه */
-    setTimeout(run, delayMs);
-    return true;
+    if (import.meta.env.VITEST) return null; /* الاختبار يقود الجولات بنفسه */
+    const timer = setTimeout(run, delayMs);
+    return () => clearTimeout(timer);
   },
   reportError: (message, error) => { _err(message, error); },
   reportGivingUp: (key, reason) => signalPersistenceFailure(key, 'encrypt-or-write-failed', reason),

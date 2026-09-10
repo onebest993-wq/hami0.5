@@ -29,8 +29,11 @@ export interface CryptoDeferredHost {
     shouldDropStaleWrite(key: string): boolean;
     /** بوّابة الكتابة الذرّية ممسوكة — لا تُهيّئ التشفير الآن */
     atomicGateHeld(): boolean;
-    /** يُرجع true إن جُدولت فعلاً؛ الاختبار يقود بنفسه فيُرجع false */
-    schedule(run: () => void, delayMs: number): boolean;
+    /**
+     * يُرجع ما يُلغي الجولة إن جُدولت فعلاً، و`null` إن لم تُجدوَل (الاختبار يقود بنفسه).
+     * والإلغاء لازم لأن الجولة الأطول يجب أن تُزيح الأقصر — انظر `scheduleFlush`.
+     */
+    schedule(run: () => void, delayMs: number): (() => void) | null;
     reportError(message: string, error: unknown): void;
     /** نفدت المحاولات وهذه الحمولة لم تُكتب — أبلغ ولا تبتلع */
     reportGivingUp(key: string, reason: string): void;
@@ -41,19 +44,19 @@ const MAX_KEY_WAIT_ATTEMPTS = 24;
 /** فشل الكتابة نفسها والمفتاح حاضر — أقصر، فالسبب لا يُرجى زواله بمجرّد الانتظار */
 const MAX_WRITE_FAILURE_ATTEMPTS = 8;
 /**
- * ⚠️ **وهذا ليس الفاصل الفعليّ لكل مفتاح.** قِيس على مسار `setItem` الحقيقي:
+ * الفاصل بين الجولات — **وقد صار هو الفاصل الفعليّ فعلاً.**
  *
- *     lawyer_notes (ليس encrypt-or-fail)   →  [400, 400]     ⇒ الوتيرة ٤٠٠
- *     lawyer_files (encrypt-or-fail)       →  [400, 1200]    ⇒ كما هو موثَّق
+ * كان ليس كذلك لمفاتيح ليست `encrypt-or-fail`. قِيس على مسار `setItem` الحقيقي:
  *
- * السبب أن `setItem` عند `StorageEncryptionError` على مفتاحٍ ليس encrypt-or-fail
- * **تُعيد الإدراج بنفسها** (SecureStoreService: `queueCryptoDeferredWrite` داخل
- * `catch`)، فتسبق `scheduleFlush(400)` نداءَ هذه الوحدة بـ1200، و`flushScheduled`
- * يجعل الثاني بلا أثر. فميزانية الثماني جولات تنقضي في ~٣٫٢ث لا ~٩٫٦ث لذلك الصنف.
+ *     قبل:  lawyer_notes  →  [400 × 13]  ·  صفر بلاغ استسلام
+ *     بعد:  الوتيرة ١٢٠٠  ·  الاستسلام عند المحاولة الثامنة
  *
- * لم يُغيَّر هنا: إصلاحه إمّا أن تمرّر `setItem` فشلها للطابور بدل إعادة الإدراج،
- * وإمّا جدولةٌ تُلغي الأقصر لصالح الأطول — وكلاهما مسٌّ بأخطر دالّة في المخزن،
- * فيُذكر بصدق حتى يُعالَج بدل أن يبقى الثابت يَعِد بما لا يفعل.
+ * لأن `setItem` تُعيد إدراج ما ليس `encrypt-or-fail` بنفسها من داخل `catch` الخاص بها
+ * ثم تعود بنجاح، فكانت تطلب ٤٠٠ قبل أن يطلب هذا الطابور ١٢٠٠، و`flushScheduled` يجعل
+ * الثاني بلا أثر — ولا يُعدّ إخفاقٌ أصلاً فلا تنفد ميزانية ولا يقع بلاغ.
+ *
+ * فأُصلح الأمران حيث وقعا، بلا مسٍّ بـ`setItem`: **عدُّ الإعادة إخفاقاً** في حلقة
+ * التنفيذ، و**الأطولُ يُزيح الأقصر** في `scheduleFlush`.
  */
 const RETRY_DELAY_MS = 1_200;
 const FIRST_FLUSH_DELAY_MS = 400;
@@ -77,6 +80,8 @@ const writeFailureAttempts = new Map<string, number>();
 /** استُنفدت ميزانيته وأُبلغ عنه — يُحفظ ولا يُحاوَل حتى يصل wrap فيُصفَّر */
 const givenUpKeys = new Set<string>();
 let flushScheduled = false;
+let cancelPendingFlush: (() => void) | null = null;
+let pendingFlushDelayMs = 0;
 let keyWaitAttempts = 0;
 let host: CryptoDeferredHost | null = null;
 
@@ -84,13 +89,32 @@ export function configureCryptoDeferred(next: CryptoDeferredHost): void {
     host = next;
 }
 
+/**
+ * **الأطول يُزيح الأقصر، والأقصر لا يُزيح الأطول.**
+ *
+ * كان أيّ طلبٍ يسقط إن كانت جولةٌ مجدولة — فحكمت أوّلُ مدّةٍ تُطلب الوتيرةَ كلّها. و
+ * `setItem` تُعيد إدراج ما ليس `encrypt-or-fail` بنفسها فتطلب ٤٠٠ قبل أن يطلب هذا
+ * الطابور ١٢٠٠، فيصير الثاني بلا أثر: الوتيرة ٤٠٠ وميزانية الثماني جولات تنقضي في
+ * ~٣٫٢ث لا ~٩٫٦ث، والثابت `RETRY_DELAY_MS` يَعِد بما لا يملك.
+ */
 function scheduleFlush(delayMs: number): void {
-    if (flushScheduled || !host) return;
-    const started = host.schedule(() => {
+    if (!host) return;
+    if (flushScheduled) {
+        /* بالمدّة لا بالساعة: فمدّةٌ مساوية تُطلب لاحقاً لا تُزيح شيئاً ولا تُؤجّل الجولة */
+        if (delayMs <= pendingFlushDelayMs) return;
+        cancelPendingFlush?.();
         flushScheduled = false;
+        cancelPendingFlush = null;
+    }
+    const cancel = host.schedule(() => {
+        flushScheduled = false;
+        cancelPendingFlush = null;
         void flushCryptoDeferredWrites();
     }, delayMs);
-    if (started) flushScheduled = true;
+    if (!cancel) return;
+    flushScheduled = true;
+    cancelPendingFlush = cancel;
+    pendingFlushDelayMs = delayMs;
 }
 
 export function queueCryptoDeferredWrite(key: string, value: string): void {
@@ -210,6 +234,9 @@ function giveUp(active: CryptoDeferredHost, reason: string): void {
 /** للاختبار وحده: يعيد الوحدة إلى حالتها الأولى بين الحالات */
 export function resetCryptoDeferredForTests(): void {
     deferredWrites.clear();
+    cancelPendingFlush?.();
+    cancelPendingFlush = null;
+    pendingFlushDelayMs = 0;
     flushScheduled = false;
     keyWaitAttempts = 0;
     writeFailureAttempts.clear();

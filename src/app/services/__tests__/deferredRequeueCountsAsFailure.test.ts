@@ -39,7 +39,7 @@ function installRealPersistHost() {
         atomicGateHeld: () => false,
         schedule: (_run, delayMs) => {
             delays.push(delayMs);
-            return false;
+            return null;
         },
         reportError: () => undefined,
         reportGivingUp: (key, reason) => {
