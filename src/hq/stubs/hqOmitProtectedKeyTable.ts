@@ -23,3 +23,16 @@ export function isProtectedStorageKey(_key: string): boolean {
 export function backupDomainForStorageKey(_key: string): null {
     return null;
 }
+
+/*
+ * شواهد الحذف — يستوردهما `SecureStoreService` منذ `3fb8c029` ولم يلحقهما البديل،
+ * فكان `vite build --mode hq` يسقط عليهما. والمقر بلا إضابير محامٍ فلا مفتاح شاهدٍ
+ * فيه: `false` هو الجواب الصادق، كبقيّة مُسنَدات هذا الملفّ.
+ */
+export function isDossierTombstonesStorageKey(_key: string): boolean {
+    return false;
+}
+
+export function isDeletedIdsTombstoneStorageKey(_key: string): boolean {
+    return false;
+}
