@@ -59,7 +59,18 @@ describe('overlay motion isolation honesty', () => {
             'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardGlobalSearchOverlayEntry.tsx',
         );
 
-        expect(config).toContain('loadOverlayMotion');
+        /*
+         * المزوّد ثابتٌ من أوّل رسم، والمحرّك يبقى كسولاً.
+         * كان جسراً يُركّب الأبناء عارية ثم يلفّها متى وصل المقطع — وتغيّر الغلاف
+         * بعد التركيب يُغيّر عمق الشجرة فيُبيد React كلّ ما تحته: التطبيق بأسره
+         * يُعاد تركيبه بعد نحو ١.٤ ثانية (FINDING-025، وجذر FINDING-023).
+         */
+        expect(config).not.toContain('loadOverlayMotion');
+        expect(config).toContain('@/app/motion/motionConfigContext');
+        expect(config).toContain('MotionConfigContext.Provider');
+        expect(config, 'المزوّد غير مشروط — أيّ شرطٍ حوله يُبيد حالة التطبيق').not.toMatch(
+            /if\s*\(\s*!\s*MotionConfig\s*\)/,
+        );
         expect(config).not.toContain("from 'motion/react'");
         expect(config).not.toContain("import('motion/react')");
 
@@ -90,6 +101,19 @@ describe('overlay motion isolation honesty', () => {
             const rel = file.slice(root.length + 1).replace(/\\/g, '/');
             if (rel === 'src/app/motion/overlayMotionRuntime.ts') continue;
             const text = readFileSync(file, 'utf8');
+            if (rel === 'src/app/motion/motionConfigContext.ts') {
+                /*
+                 * استثناءٌ واحدٌ موثَّق: سياق الإعداد وحده — وحدته `createContext` واحد،
+                 * مفرودةٌ في مقطع `vendor-motion-config-context` (١٤٨ بايت) فلا تسحب
+                 * المحرّك إلى الإقلاع. ويُحرَس ضيقه هنا: رمزٌ واحد لا غير.
+                 */
+                expect(text).toContain("export { MotionConfigContext } from 'motion/react';");
+                expect(text.match(/from 'motion\/react'/g) ?? [], rel).toHaveLength(1);
+                expect(text, 'الاستثناء لا يتّسع إلى مكوّنات').not.toMatch(
+                    /export \{[^}]*\b(motion|AnimatePresence|MotionConfig|LayoutGroup|animate)\b/,
+                );
+                continue;
+            }
             if (text.includes("from 'motion/react'") || text.includes('from "motion/react"')) {
                 leaks.push(rel);
             }

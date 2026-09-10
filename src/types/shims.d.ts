@@ -3,6 +3,17 @@ declare module 'motion/react' {
     export const AnimatePresence: any;
     export const LayoutGroup: any;
     export const MotionConfig: any;
+    /**
+     * سياق الإعداد وحده — يُستورد ساكناً من `@/app/motion/motionConfigContext`.
+     * نوعه مكتوبٌ بدقّة (لا `any`) لأنّ قيمة المزوّد عقدٌ مع المكتبة: أيّ حقلٍ
+     * ناقص يُسقط سلوك الحركة صامتاً.
+     */
+    export const MotionConfigContext: import('react').Context<{
+        transformPagePoint: (point: { x: number; y: number }) => { x: number; y: number };
+        isStatic: boolean;
+        reducedMotion: 'always' | 'never' | 'user';
+        nonce?: string;
+    }>;
     export function useReducedMotion(): boolean | null;
     export function useMotionValue<T>(initial: T): any;
     export function useDragControls(): {

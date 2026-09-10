@@ -390,6 +390,18 @@ function resolveVendorChunk(id: string): string | undefined {
   if (normalized.includes('/@supabase/') || normalized.includes('/supabase-js/')) {
     return 'vendor-supabase'
   }
+  /*
+   * سياق إعداد الحركة وحده — مقطع مستقلّ بمئات البايتات.
+   *
+   * وحدته `createContext` واحد لا غير. وفرْدُها يجعل مزوّد السياق قابلاً للاستيراد
+   * الساكن من قشرة التشغيل **بلا** أن يُسحب `vendor-motion` (١٣٣ ك.ب) إلى مسار
+   * الإقلاع. وهو شرطٌ لأن يكون المزوّد حاضراً من أوّل رسم: غلافٌ يظهر بعد التركيب
+   * يُغيّر عمق الشجرة فيُبيد React كلّ ما تحته — وهو ما كان يُعيد تركيب التطبيق
+   * بأسره بعد نحو ١.٤ ثانية (FINDING-025). والمقطع واحد فلا تتكرّر نسخة السياق.
+   */
+  if (normalized.includes('/framer-motion/dist/es/context/MotionConfigContext')) {
+    return 'vendor-motion-config-context'
+  }
   if (
     normalized.includes('/framer-motion/') ||
     normalized.includes('/node_modules/motion/') ||
