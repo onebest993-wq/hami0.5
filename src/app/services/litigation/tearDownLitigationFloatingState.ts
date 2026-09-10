@@ -228,12 +228,13 @@ function p7ChromeSnap(): void {
                 }
             }
         }
-        const root = document.documentElement;
-        if (root instanceof HTMLElement) {
-            root.style.pointerEvents = 'none';
-        }
+        /*
+         * لا pointer-events:none على <html>. الحلقة أعلاه تُحيّد قشرة الدعاوى الراكدة
+         * بعينها، وهو تمام الغرض؛ أمّا كتمُ الجذر فيُخمد التطبيق كلّه ولا يُستردّ،
+         * فيموت كل تراكب لا يُعيد تفعيل pointer-events لنفسه — ومنه محضر المتابعة.
+         */
     } catch {
-        /* P7 no-throw — Chrome classes + pointer events snap */
+        /* P7 no-throw — Chrome classes snap */
     }
 }
 
