@@ -14,11 +14,15 @@ import {
 } from '@/boot/plainDocumentPath';
 import { APP_RUNTIME_READY_EVENT } from '@/app/runtime/eventConstants';
 
-const LazyGlobalErrorBoundary = React.lazy(() =>
-    import('./components/shared/GlobalErrorBoundary').then((m) => ({
-        default: m.GlobalErrorBoundary,
-    })),
-);
+/*
+ * ساكن عمداً — ١٩٧ سطراً وتبعيّاته في الرسم أصلاً.
+ *
+ * كان كسولاً داخل Suspense **بديلُه شجرة التطبيق نفسها**، أي أنّ التطبيق كلّه
+ * يُركَّب مرّةً كبديلٍ مؤقّت ومرّةً كأبناء. فمتى وصل مقطع الحدّ بدّل Suspense إلى
+ * الأبناء: تُفكَّك الشجرة الأولى بأسرها وتُركَّب نسخة ثانية، فتعود كل `useState` إلى
+ * قيمتها الأولى بلا استدعاء أيّ setter (FINDING-025).
+ */
+import { GlobalErrorBoundary } from './components/shared/GlobalErrorBoundary';
 
 /** يبدأ عند تقييم الوحدة — يطوي انتظار React.lazy الأول */
 const appRuntimeShellPromise = loadAppRuntimeShellModule().then((m) => ({
@@ -136,10 +140,8 @@ export function AppResolvedRuntime(): ReactElement {
     }, []);
 
     return (
-        <Suspense fallback={<AppRuntimeTree />}>
-            <LazyGlobalErrorBoundary>
-                <AppRuntimeTree />
-            </LazyGlobalErrorBoundary>
-        </Suspense>
+        <GlobalErrorBoundary>
+            <AppRuntimeTree />
+        </GlobalErrorBoundary>
     );
 }

@@ -79,8 +79,18 @@ describe('warm TTFI LD preload scheduling honesty', () => {
             path.join(root, 'src/app/AppResolvedRuntime.tsx'),
             'utf8',
         );
-        expect(resolved).toContain('LazyGlobalErrorBoundary');
-        expect(resolved).not.toMatch(/import \{ GlobalErrorBoundary \}/);
+        /*
+         * حدّ الأخطاء ساكنٌ عمداً — والشرط المحروس هو ما بعده:
+         * كان كسولاً داخل `<Suspense fallback={<AppRuntimeTree />}>`، أي أنّ شجرة
+         * التطبيق تُركَّب مرّةً كبديلٍ مؤقّت ومرّةً كأبناء. فمتى وصل مقطع الحدّ بدّل
+         * Suspense إلى الأبناء: تُفكَّك الشجرة الأولى وتُركَّب ثانية، فتعود كل
+         * `useState` إلى قيمتها الأولى بلا استدعاء أيّ setter (FINDING-025).
+         */
+        expect(resolved).toMatch(/import \{ GlobalErrorBoundary \}/);
+        expect(resolved).not.toContain('LazyGlobalErrorBoundary');
+        expect(resolved, 'شجرة التطبيق لا تُستعمل بديلاً لـSuspense').not.toMatch(
+            /fallback=\{<AppRuntimeTree/,
+        );
         const shell = fs.readFileSync(path.join(root, 'src/app/AppRuntimeShell.tsx'), 'utf8');
         expect(resolved).toContain('loadAppRuntimeShellModule');
         expect(resolved).toContain('getAppRuntimeShellModuleSync');
