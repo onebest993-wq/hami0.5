@@ -53,3 +53,13 @@ export function __resetExecutionWarmCoordinatorForTests(): void {
     lastWorkspaceWarmAt = 0;
     lastDossierWarmAt = 0;
 }
+
+/*
+ * HMR: ما سخّنته هذه الوحدة يُحرَّر عند استبدالها — وإلا بقيت حالةٌ عائمة ومعرّفُ
+ * جلسةٍ قديم بعد كل تعديل. وهو الوصل نفسه الذي يفعله `lawsuitWorkspaceWarm`.
+ */
+if (typeof import.meta !== 'undefined' && import.meta.hot && typeof import.meta.hot.dispose === 'function') {
+    import.meta.hot.dispose(() => {
+        cleanupExecutionWarmCoordinator();
+    });
+}
