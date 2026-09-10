@@ -107,6 +107,95 @@ for (const abs of files) {
 
 console.log(`[source-path-refs] scanned ${files.length} files, ${broken.size} broken reference(s)`);
 
+/*
+ * وثائق حاكمة — تُحرَس كما يُحرَس المصدر.
+ *
+ * `CLAUDE.md` هو السجلّ الرسمي للحرّاس وخطوط الأساس والمسارات الحرجة، ولم يكن
+ * يمسحه أحد: نطاق هذا الحارس `src·e2e·scripts·api` وامتداداته شفرة لا markdown.
+ * فحملت الوثيقة ثلاثة مراجع ميتة — `vite.config.ts` وهو `.mts` ·
+ * `guard-dead-exports-ratchet.mjs` وهو `guard-dead-exports.mjs` ·
+ * `.audit/tsc-baseline.json` وهو `tsc-ratchet-baseline.json` — أي أنّ الوثيقة
+ * التي تُبنى عليها المراجعة كانت تُحيل على ملفّاتٍ لا وجود لها، ولا شيء يكشفه.
+ *
+ * **ولا خطّ أساس هنا:** الانقطاع في المصدر إرثٌ يُخفَّض تدريجياً، أمّا وثيقةٌ
+ * حاكمة فلا يجوز أن تحمل مرجعاً ميتاً واحداً.
+ */
+const GOVERNING_DOCS = ['CLAUDE.md'];
+
+const DOC_FILE_URL_RE = /\]\(file:\/\/\/([^)\s]+)\)/g;
+const DOC_BACKTICK_PATH_RE =
+    /`((?:src|scripts|\.audit|supabase|public|android|api|e2e|\.github)\/[A-Za-z0-9_\-./]*)`/g;
+
+/*
+ * ونظير `ASSERTS_ABSENCE` للوثائق: مرجعٌ يُذكر **ليُقال إنّه غير موجود** ليس
+ * انقطاعاً بل تصحيحاً مكتوباً. وأوّل ما أمسكه هذا الحارس كان جملةً من هذا الصنف
+ * في §٤ تشرح أنّ `tsc-baseline.json` لا وجود له — فكان سيطالب بإصلاح شرحٍ صحيح.
+ */
+const DOC_ASSERTS_ABSENCE = /غير موجود|لا وجود|لا يوجد|أُزيل|حُذف|does not exist|no longer exists/;
+
+const rootPosix = toPosix(ROOT);
+
+/** يُرجع مساراً نسبياً إلى جذر المستودع، أو `null` إن كان الرابط خارجه */
+function docUrlToRepoRelative(rawUrl) {
+    const decoded = decodeURIComponent(rawUrl).split('#')[0];
+    const abs = /^[A-Za-z]:\//.test(decoded) ? decoded : `/${decoded.replace(/^\/+/, '')}`;
+    const prefix = `${rootPosix}/`;
+    if (abs.toLowerCase().startsWith(prefix.toLowerCase())) return abs.slice(prefix.length);
+    return null;
+}
+
+const docBroken = [];
+const docOutsideRoot = [];
+let docRefCount = 0;
+
+for (const rel of GOVERNING_DOCS) {
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) {
+        docBroken.push({ doc: rel, ref: '(الوثيقة نفسها مفقودة)' });
+        continue;
+    }
+    const text = fs.readFileSync(abs, 'utf8');
+
+    for (const m of text.matchAll(DOC_FILE_URL_RE)) {
+        const target = docUrlToRepoRelative(m[1]);
+        if (target === null) {
+            docOutsideRoot.push({ doc: rel, ref: m[1] });
+            continue;
+        }
+        docRefCount += 1;
+        if (!fs.existsSync(path.join(ROOT, target))) docBroken.push({ doc: rel, ref: target });
+    }
+
+    for (const m of text.matchAll(DOC_BACKTICK_PATH_RE)) {
+        const target = m[1];
+        if (target.includes('*')) continue; // نمطٌ لا مسار
+        docRefCount += 1;
+        if (fs.existsSync(path.join(ROOT, target))) continue;
+        const window = text.slice(Math.max(0, m.index - 200), m.index + 200);
+        if (DOC_ASSERTS_ABSENCE.test(window)) continue;
+        docBroken.push({ doc: rel, ref: target });
+    }
+}
+
+console.log(
+    `[source-path-refs] وثائق حاكمة: ${GOVERNING_DOCS.length} · ${docRefCount} مرجعاً · ${docBroken.length} ميتاً`,
+);
+
+if (docOutsideRoot.length) {
+    console.log(
+        `[source-path-refs] تنبيه — ${docOutsideRoot.length} رابطاً يشير خارج جذر المستودع فلا يُتحقَّق منه`,
+    );
+}
+
+if (docBroken.length) {
+    console.error('');
+    console.error('[source-path-refs] FAIL — مراجع ميتة في وثيقة حاكمة:');
+    for (const b of docBroken) console.error(`  ${b.doc}  ->  ${b.ref}`);
+    console.error('');
+    console.error('  الوثيقة التي تُبنى عليها المراجعة لا تُحيل على ما لا وجود له.');
+    process.exit(1);
+}
+
 const BASELINE = path.join(ROOT, '.audit', 'source-path-refs-baseline.json');
 const current = [...broken.keys()].sort();
 
