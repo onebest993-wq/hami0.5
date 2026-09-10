@@ -9,8 +9,15 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST_HQ = path.join(ROOT, 'dist-hq');
 
+/*
+ * مُثبَّت بـ`^` كنظيره أدناه — وبدونه كان يتّهم **البدائل نفسها**:
+ * `excludedCriminalStore-*.js` يُطابق `criminalStore`، و`excludedExecutionDashboardStore-*.js`
+ * يُطابق `executionDashboardStore`. ووجودهما في `dist-hq` مطلوبٌ لا محظور — هما ما يحلّ
+ * محلّ الحقيقي. بقي السهو مستوراً لأنّ البناء نفسه كان يسقط قبل الحارس اثني عشر يوماً
+ * (FINDING-026)، فما بلغه أحدٌ ليراه.
+ */
 const FORBIDDEN_ASSET_NAMES =
-    /(LawyerDashboardInner|LawyerDashboardGate|LawyerHomeHub|ExecutionDashboard|CommunityScreenHost|CriminalDashboard|DecisionsScopeFilterBar|HamiSettingsHost|caseLinkCriminalPeers|settingsInstantPaint|criminalStore|executionDashboardStore)[-.]/i;
+    /^(LawyerDashboardInner|LawyerDashboardGate|LawyerHomeHub|ExecutionDashboard|CommunityScreenHost|CriminalDashboard|DecisionsScopeFilterBar|HamiSettingsHost|caseLinkCriminalPeers|settingsInstantPaint|criminalStore|executionDashboardStore)[-.]/i;
 
 /** أسماء وحدات عمل المحامي — تطابق بداية اسم الملف لا البدائل hqOmit* */
 const FORBIDDEN_LAWYER_WORK_ASSETS =
