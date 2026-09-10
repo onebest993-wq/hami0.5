@@ -2,7 +2,7 @@ import { debug } from '@/app/utils/debug';
 
 const MARK_PREFIX = 'hami:tasks-manager:';
 
-export type TasksManagerPerfPhase = 'open-request' | 'first-paint' | 'interactive';
+type TasksManagerPerfPhase = 'open-request' | 'first-paint' | 'interactive';
 
 export function markTasksManagerPerfPhase(phase: TasksManagerPerfPhase): void {
     if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;

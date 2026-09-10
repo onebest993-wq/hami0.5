@@ -40,16 +40,6 @@ function markVaultSessionBoot(): void {
     vaultPdfActiveSessionIdRef.current = vaultPdfOpenSessionCounter;
 }
 
-export function resetVaultActiveSessionForTests(): void {
-    vaultPdfActiveSessionIdRef.current = 0;
-    try {
-        void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
-            tearDownRepoFloatingState({ targetSurface: 'vault-pdf-overlay', reason: 'tearDown' });
-        });
-    } catch {
-        /* never throw test reset */
-    }
-}
 
 
 async function loadLocalVaultDocs(): Promise<SmartVaultDoc[]> {

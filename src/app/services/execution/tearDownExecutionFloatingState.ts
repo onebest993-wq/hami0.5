@@ -125,7 +125,7 @@ function queryFirst(selectors: readonly string[]): HTMLElement | null {
     return null;
 }
 
-export function isExecSessionStale(targetSurfaceId?: number): boolean {
+function isExecSessionStale(targetSurfaceId?: number): boolean {
     if (typeof window === 'undefined') return false;
     try {
         const winAny = window as unknown as Record<string, unknown>;
@@ -345,7 +345,7 @@ function p8SettleClearTimers(): void {
     }
 }
 
-export type TearDownExecutionFloatingStateOptions = {
+type TearDownExecutionFloatingStateOptions = {
     targetSurface?: ExecutionTeardownSurface;
     targetSurfaceSessionId?: number;
     reason?: 'tearDown' | 'navigate-away' | 'idle-release' | 'reduced-motion' | 'unmount';
@@ -462,18 +462,3 @@ export function tearDownExecutionFloatingState(options: TearDownExecutionFloatin
     }
 }
 
-export function resetLastTeardownExecutionActiveIdForTests(): void {
-    lastTeardownExecutionActiveId = 0;
-}
-
-export function getExecutionTeardownTransientKeyCount(): number {
-    return TRANSIENT_HAMI_EXEC_KEYS.length;
-}
-
-export function getExecutionTeardownTimerHandleCount(): number {
-    return EXECUTION_TIMER_HANDLES.length;
-}
-
-export function getExecutionTeardownSurfaceGroupCount(): number {
-    return ALL_EXECUTION_SURFACE_GROUPS.length;
-}

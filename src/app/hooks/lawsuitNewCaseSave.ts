@@ -82,12 +82,6 @@ function markLawsuitNewCaseSaveSessionBoot(): void {
     activeLawsuitNewCaseSaveSessionIdRef.current = lawsuitNewCaseSaveOpenCounter;
 }
 
-export function resetLawsuitNewCaseSaveSessionForTests(): void {
-    lawsuitNewCaseSaveOpenCounter = 0;
-    lastActiveNewCaseSaveId = 0;
-    lawsuitNewCaseSaveSessionIdRef.current = 0;
-    activeLawsuitNewCaseSaveSessionIdRef.current = 0;
-}
 
 /** خلفية فقط — تسخين محدود ثم دمج المعلّق وتثبيت القرص */
 function scheduleCreatedFileDiskCommit(fileId: string | number): void {

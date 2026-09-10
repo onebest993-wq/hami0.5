@@ -12,7 +12,7 @@ export function stripCalendarHtml(input: unknown): string {
     return safe;
 }
 
-export type CalendarInputGuardResult = {
+type CalendarInputGuardResult = {
     title: string;
     description: string;
     location: string;

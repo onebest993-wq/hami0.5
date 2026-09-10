@@ -1,6 +1,6 @@
 const EXECUTION_MARK_PREFIX = 'hami:execution:';
 
-export type ExecutionPerfPhase =
+type ExecutionPerfPhase =
     | 'open-request'
     | 'dashboard-first-paint'
     | 'dashboard-interactive'

@@ -261,7 +261,7 @@ function p8SettleClear(): void {
     }
 }
 
-export type TearDownLitigationFloatingStateOptions = {
+type TearDownLitigationFloatingStateOptions = {
     targetSurface?: LitigationTeardownSurface;
     targetSurfaceSessionId?: number;
     reason?: 'tearDown' | 'navigate-away' | 'idle-release' | 'reduced-motion' | 'unmount' | 'commit-failed' | 'contract-open' | 'linking-runtime-load' | 'hot-dispose';
@@ -373,11 +373,3 @@ export function tearDownLitigationFloatingState(options: TearDownLitigationFloat
     }
 }
 
-/** للاختبارات فقط */
-export function resetLastTeardownLitActiveIdForTests(): void {
-    lastTeardownLitActiveId = 0;
-}
-
-export function getLitigationTeardownTransientKeyCount(): number {
-    return TRANSIENT_HAMI_LIT_KEYS.length;
-}

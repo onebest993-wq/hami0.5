@@ -45,7 +45,7 @@ export function abortCalendarNativeSyncBridge(): void {
     }
 }
 
-export function attachCalendarAbortGlobals(): void {
+function attachCalendarAbortGlobals(): void {
     if (calendarAbortGlobalsAttached) return;
     try {
         if (typeof window === 'undefined') return;

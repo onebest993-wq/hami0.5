@@ -3,7 +3,7 @@ import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 import { isProfileStudioChromeVisible } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 import { blurFocusWithin } from '@/app/utils/inertProps';
 
-export const PROFILE_TEARDOWN_EVENT = 'hami:profile-teardown-requested';
+const PROFILE_TEARDOWN_EVENT = 'hami:profile-teardown-requested';
 
 const CLOSING_ATTR = 'data-hami-profile-closing';
 const OPEN_ATTR = 'data-hami-profile-open';

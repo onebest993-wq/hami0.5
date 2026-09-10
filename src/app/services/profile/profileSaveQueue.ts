@@ -4,9 +4,7 @@
  */
 import { PROFILE_SAVE_TIMEOUT_MS, withProfileSaveTimeout } from '@/app/services/profile/profileSaveTimeout';
 
-export type ProfileSaveQueueEnqueue = <T = void>(task: () => Promise<T>) => Promise<T>;
-
-export interface ProfileSaveQueueHandle {
+interface ProfileSaveQueueHandle {
     (task: () => Promise<void>): Promise<void>;
     <T>(task: () => Promise<T>): Promise<T>;
     dispose: () => void;

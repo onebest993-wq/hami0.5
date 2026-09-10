@@ -40,12 +40,6 @@ function markLawsuitWorkspaceWarmSessionBoot(): void {
     activeLawsuitWorkspaceWarmSessionIdRef.current = lawsuitWorkspaceWarmOpenCounter;
 }
 
-export function resetLawsuitWorkspaceWarmSessionForTests(): void {
-    lawsuitWorkspaceWarmOpenCounter = 0;
-    _lastActiveWorkspaceWarmId = 0;
-    lawsuitWorkspaceWarmSessionIdRef.current = 0;
-    activeLawsuitWorkspaceWarmSessionIdRef.current = 0;
-}
 
 /* `import.meta.hot` مُنمَّط أصلاً عبر "vite/client" في tsconfig.app.json،
    فالتوجيهان اللذان كانا هنا يقمعان لا شيء — وقامعٌ فارغ اليوم يبتلع خطأً

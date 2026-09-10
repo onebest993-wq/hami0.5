@@ -240,7 +240,7 @@ function p8SettleClear(): void {
     }
 }
 
-export type TearDownRepoFloatingStateOptions = {
+type TearDownRepoFloatingStateOptions = {
     targetSurface?: RepositoryTeardownSurface;
     targetSurfaceSessionId?: number;
     reason?: 'tearDown' | 'navigate-away' | 'idle-release' | 'reduced-motion' | 'unmount';
@@ -336,11 +336,3 @@ export function tearDownRepoFloatingState(options: TearDownRepoFloatingStateOpti
     }
 }
 
-/** للاختبارات فقط */
-export function resetLastTeardownRepoActiveIdForTests(): void {
-    lastTeardownRepoActiveId = 0;
-}
-
-export function getRepoTeardownTransientKeyCount(): number {
-    return TRANSIENT_HAMI_REPO_KEYS.length;
-}

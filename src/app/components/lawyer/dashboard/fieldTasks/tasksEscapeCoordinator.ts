@@ -28,19 +28,6 @@ function classifyKey(key: string): EscapeLayer {
     return 'L0-surface';
 }
 
-function currentTopLayer(): EscapeLayer | null {
-    let top: EscapeLayer | null = null;
-    let topPrio = -1;
-    for (const layer of activeLayerKeys.values()) {
-        const prio = ESCAPE_LAYER_PRIORITY[layer];
-        if (prio > topPrio) {
-            topPrio = prio;
-            top = layer;
-        }
-    }
-    return top;
-}
-
 export function blockTasksOverlayEscape(key: string): void {
     activeLayerKeys.set(key, classifyKey(key));
 }
@@ -51,14 +38,6 @@ export function unblockTasksOverlayEscape(key: string): void {
 
 export function isTasksOverlayEscapeBlocked(): boolean {
     return activeLayerKeys.size > 0;
-}
-
-/**
- * يُرجع طبقة الهروب الحالية الأعلى أولوية (لإرشادي لأعلى L3)
- * يُستخدم في Close Handler للسماح الإغلاق الصحيح لأعلى نافذة فقط.
- */
-export function peekTasksEscapeTopLayer(): EscapeLayer | null {
-    return currentTopLayer();
 }
 
 export function unblockAllTasksOverlayEscape(): void {

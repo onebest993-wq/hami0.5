@@ -232,7 +232,7 @@ export function isGracePeriodExpired(
 
 const CHRONO_MARK_PREFIX = 'hami:execution:chrono:';
 
-export type ChronoPerfTransition =
+type ChronoPerfTransition =
     | 'parse-start'
     | 'parse-done'
     | 'grace-calc-start'
