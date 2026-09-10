@@ -235,13 +235,28 @@ export function paintRepositoryInstantChrome(): boolean {
     return false;
 }
 
-/** إخفاء فوري للطبقة الدافئة والقشرة */
-export function concealRepositoryWarmShell(): void {
+/**
+ * إخفاء القشرة وحدها — بلا تفكيك الحالة الطافية.
+ *
+ * تفكيك الحالة يستدعي في مرحلته السابعة إخفاءَ القشرة، فلو أخفتِ القشرةُ
+ * بدورها استدعت التفكيك لانعقدت حلقة: تفكيك ⇄ إخفاء. وهي حلقةٌ لا تنكسر
+ * لأن الاستدعاء العائد غير متزامن (import().then)، فلا تُفجّر المكدّس بل
+ * تدور بلا نهاية، وكلّ دورةٍ تبدأ بـ p1BlurAllFocusSurfaces أي **نزع
+ * التركيز من أيّ حقل**. فيصير التطبيق كلّه لا يقبل الكتابة، بلا خطأ واحد.
+ * ونظيرها في المنتدى (`concealForumWarmShell`) قشرةٌ خالصة — وهذا هو الشكل الصحيح.
+ */
+export function concealRepositoryWarmShellChrome(): void {
     if (typeof document === 'undefined') return;
     clearHubLayerEnter(REPOSITORY_HUB_LAYER);
     hideRepositoryOverlayLayer();
     removeRepositoryInstantChrome();
     applyOverlayThemeChrome(REPOSITORY_THEME, false);
+}
+
+/** إخفاء فوري للطبقة الدافئة والقشرة */
+export function concealRepositoryWarmShell(): void {
+    if (typeof document === 'undefined') return;
+    concealRepositoryWarmShellChrome();
     try {
         void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
             tearDownRepoFloatingState({ targetSurface: 'repository-hub', reason: 'tearDown' });

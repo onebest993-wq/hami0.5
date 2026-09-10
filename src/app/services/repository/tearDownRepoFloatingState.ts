@@ -5,7 +5,7 @@ import {
     unblockAllRepositoryOverlayEscape,
     type RepositoryTeardownSurface,
 } from '@/app/services/repository/repositoryCloseEvents';
-import { concealRepositoryWarmShell } from '@/app/runtime/repositoryInstantPaint';
+import { concealRepositoryWarmShellChrome } from '@/app/runtime/repositoryInstantPaint';
 import { clearRepositoryPerfMarks } from '@/app/services/repository/repositoryPerfMetrics';
 
 const REPOSITORY_SHELL_SELECTORS = [
@@ -189,7 +189,8 @@ function p6ClosingAttrSnap(): void {
 
 function p7ChromeSnap(): void {
     try {
-        concealRepositoryWarmShell?.();
+        /* القشرة وحدها: الغلاف الكامل يُعيد استدعاء هذا التفكيك فتنعقد حلقةٌ لا تنتهي */
+        concealRepositoryWarmShellChrome?.();
     } catch {
         /* P7 no-throw — Instant Paint chrome classes removal */
     }
