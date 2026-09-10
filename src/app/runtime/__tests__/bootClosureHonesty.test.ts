@@ -386,7 +386,7 @@ describe('boot closure honesty', () => {
         expect(vite).toContain('/src/app/services/settings/localOnlyUrlPolicy');
         expect(vite).toContain('/src/app/services/settings/localOnlyBootArm');
         expect(vite).toContain("return 'dossier-storage-keys'");
-        expect(vite).toContain('/src/app/services/dossierPersistence/dossierStorageKeys');
+        expect(vite).toContain('/src/app/domain/dossier/dossierStorageKeys');
         expect(vite).toContain("return 'lawyer-quantum-lite'");
         expect(vite).toContain("return 'lawyer-persist'");
         expect(vite).toContain("return 'lawyer-dashboard-canvas'");

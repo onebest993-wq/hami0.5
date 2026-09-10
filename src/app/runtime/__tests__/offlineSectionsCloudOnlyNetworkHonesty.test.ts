@@ -281,7 +281,7 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(lawsuitReady).not.toContain('PROTECTED_WARM_KEYS');
         expect(lawsuitReady).not.toContain('hami:criminal:store');
 
-        const keys = read('src/app/services/dossierPersistence/dossierStorageKeys.ts');
+        const keys = read('src/app/domain/dossier/dossierStorageKeys.ts');
         expect(keys).toContain('EXECUTION_INDEX_WARM_KEYS');
         expect(keys).not.toMatch(
             /EXECUTION_INDEX_WARM_KEYS = \[[\s\S]*hami:execution:dossier-tombstones:v1/,

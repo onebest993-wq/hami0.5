@@ -8,7 +8,7 @@ import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossi
 import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { readSecureOrDrainLegacySync, clearLegacyPlaintextMirror } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import { isCanonicalEmptyDossierPrimary } from '@/app/services/dossierPersistence/dossierPrimaryEmpty';
 import {
@@ -19,7 +19,7 @@ import {
 export {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 
 function readJsonArray(key: string): unknown[] | null {
     try {

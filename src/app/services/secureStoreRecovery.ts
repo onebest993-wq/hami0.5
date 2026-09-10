@@ -15,7 +15,7 @@ import {
     EXECUTION_FILES_STORAGE_KEYS_LEGACY,
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { debug } from '@/app/utils/debug';
 
 const LAWYER_NOTES_STORAGE_KEY = 'lawyer_notes';

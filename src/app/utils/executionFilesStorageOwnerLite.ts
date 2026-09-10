@@ -2,7 +2,7 @@
  * ربط مالك فهرس التنفيذ — بلا SecureStore / wipe / load/save الثقيل.
  * مصدر واحد لمعرّف المالك حتى لا تنفصل حالة الـ lite عن executionFilesStorage.
  */
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { EXECUTION_FILES_STORAGE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 
 let activeStorageOwnerId: string | null = null;
 

@@ -3,7 +3,7 @@ import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { CryptoService } from '@/app/services/CryptoService';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
-import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
+import { probeSameOriginApi } from '@/app/services/network/sameOriginApiProbe';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 
 function scheduleWorkCheckpointAfterCloudWrite(): void {

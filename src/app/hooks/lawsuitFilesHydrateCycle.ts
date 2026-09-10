@@ -157,7 +157,7 @@ export async function runLawsuitFilesHydrateCycle(
                         LAWSUIT_FILES_ACTIVE_KEY,
                         LAWSUIT_FILES_INDEX_KEY,
                     } = await import(
-                        '@/app/services/dossierPersistence/dossierStorageKeys'
+                        '@/app/domain/dossier/dossierStorageKeys'
                     );
                     await awaitWithBudget(
                         SecureStoreService.ensureLawsuitKeysReady(),

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileData } from '../lawsuitFileTypes';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import {
     clearLawsuitPendingCreatesForTests,
     listPendingLawsuitCreates,

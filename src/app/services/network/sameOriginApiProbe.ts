@@ -20,7 +20,8 @@
  * الثابتة كـ unavailable بعد المسبار، لا قبله.
  */
 
-export type SameOriginApiState = 'pending' | 'available' | 'unavailable';
+/* داخليّ — لا مستهلك خارج هذا الملفّ، ولا يُصدَّر «للاستعمال لاحقاً» */
+type SameOriginApiState = 'pending' | 'available' | 'unavailable';
 
 /** healthz عام — لا يعتمد على جلسة؛ يميّز Vite/BFF عن استضافة SPA الثابتة */
 const PROBE_PATH = '/api/public/healthz';
@@ -37,10 +38,6 @@ export function getSameOriginApiState(): SameOriginApiState {
 
 export function isSameOriginApiBlocked(): boolean {
     return state === 'unavailable';
-}
-
-export function isSameOriginApiAvailable(): boolean {
-    return state === 'available';
 }
 
 function isAbortError(error: unknown): boolean {
@@ -109,12 +106,6 @@ export async function probeSameOriginApi(): Promise<SameOriginApiState> {
     });
 
     return probePromise;
-}
-
-export async function whenSameOriginApiReady(): Promise<boolean> {
-    if (state === 'available') return true;
-    if (state === 'unavailable') return false;
-    return (await probeSameOriginApi()) === 'available';
 }
 
 /** للاختبارات فقط */

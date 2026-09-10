@@ -8,7 +8,7 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     EXECUTION_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { debug } from '@/app/utils/debug';
 import { loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
 import { CRIMINAL_STORE_KEY } from '@/app/utils/criminalCasesStorageHelpers';

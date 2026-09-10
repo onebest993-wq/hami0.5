@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import {
     LAWSUIT_PENDING_CREATES_KEY,
     clearLawsuitPendingCreatesForTests,

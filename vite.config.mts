@@ -1305,7 +1305,7 @@ function resolveSharedRuntimeLeafChunk(id: string): string | undefined {
     /\/src\/app\/services\/kvProxyGuard\.(ts|js)$/.test(normalized) ||
     /\/src\/app\/utils\/bffWifeSign\.(ts|js)$/.test(normalized) ||
     /\/src\/app\/security\/wifePublicApi\.(ts|js)$/.test(normalized) ||
-    /\/src\/app\/runtime\/sameOriginApiProbe\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/network\/sameOriginApiProbe\.(ts|js)$/.test(normalized) ||
     /\/src\/app\/services\/auth\/localSigningToken\.(ts|js)$/.test(normalized)
   ) {
     return 'secure-api-client'
@@ -1377,7 +1377,7 @@ function resolveBootRuntimeChunk(id: string): string | undefined {
   if (normalized.includes('/src/app/infrastructure/persistence/storageDomains')) {
     return 'storage-domain-keys'
   }
-  if (normalized.includes('/src/app/services/dossierPersistence/dossierStorageKeys')) {
+  if (normalized.includes('/src/app/domain/dossier/dossierStorageKeys')) {
     return 'dossier-storage-keys'
   }
   /**
@@ -1572,7 +1572,7 @@ function hamiHqOmitLawyerWorkPlugin(enabled: boolean) {
     '@/app/utils/storageCache': 'hqOmitWorkCache.ts',
     '@/app/utils/executionWipeRegistry': 'hqOmitExecPurge.ts',
     '@/app/services/dossierPersistence/dossierBackupStore': 'hqOmitDossierSnap.ts',
-    '@/app/services/dossierPersistence/dossierStorageKeys': 'hqOmitDossierKeyTable.ts',
+    '@/app/domain/dossier/dossierStorageKeys': 'hqOmitDossierKeyTable.ts',
     '@/app/services/dossierPersistence/protectedStorageKeys': 'hqOmitProtectedKeyTable.ts',
     '@/app/services/dossierPersistence/protectedBackupService': 'hqOmitProtectedCopy.ts',
     '@/app/services/dossierPersistence/dossierWipeGuard': 'hqOmitWipeGuard.ts',
@@ -1669,7 +1669,7 @@ function hqPhoneUiExclusionAliases() {
     ...omit('@/app/utils/storageCache', 'hqOmitWorkCache.ts'),
     ...omit('@/app/utils/executionWipeRegistry', 'hqOmitExecPurge.ts'),
     ...omit('@/app/services/dossierPersistence/dossierBackupStore', 'hqOmitDossierSnap.ts'),
-    ...omit('@/app/services/dossierPersistence/dossierStorageKeys', 'hqOmitDossierKeyTable.ts'),
+    ...omit('@/app/domain/dossier/dossierStorageKeys', 'hqOmitDossierKeyTable.ts'),
     ...omit('@/app/services/dossierPersistence/protectedStorageKeys', 'hqOmitProtectedKeyTable.ts'),
     ...omit('@/app/services/dossierPersistence/protectedBackupService', 'hqOmitProtectedCopy.ts'),
     ...omit('@/app/services/dossierPersistence/dossierWipeGuard', 'hqOmitWipeGuard.ts'),

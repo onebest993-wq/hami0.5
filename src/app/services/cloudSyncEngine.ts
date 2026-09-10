@@ -9,7 +9,7 @@ import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { EXECUTION_FILES_STORAGE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
 import { filterTombstonedExecutionSyncRows } from '@/app/services/executionCloudSyncFilter';

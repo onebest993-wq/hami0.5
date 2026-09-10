@@ -102,7 +102,7 @@ function renderFatalBootError(e: unknown): void {
 function runBackgroundBootTasks(): void {
     void Promise.all([
         import('@/app/services/SecureStoreService'),
-        import('@/app/runtime/sameOriginApiProbe'),
+        import('@/app/services/network/sameOriginApiProbe'),
         import('@/app/bootstrap/deferredBoot'),
     ]).then(([secureStoreModule, sameOriginApiProbeModule, deferredBootModule]) => {
         const SecureStoreService = secureStoreModule.default;

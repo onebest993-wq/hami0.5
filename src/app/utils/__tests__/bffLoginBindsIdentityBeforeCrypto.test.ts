@@ -30,7 +30,7 @@ vi.mock('@/app/security/wifeNativeFetch', () => ({
 import { CryptoService } from '@/app/services/CryptoService';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { getLiveAuthUserId, setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
-import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 
 const SECRET = 'ملف-موكّل-سرّي';
 const boundUserId = (): string =>

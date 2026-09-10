@@ -93,7 +93,7 @@ describe('recoverLawsuitWorkspaceFromLocalDisk', () => {
             LAWSUIT_FILES_ACTIVE_KEY,
             LAWSUIT_FILES_INDEX_KEY,
             LAWSUIT_FILES_TRASH_KEY,
-        } = await import('@/app/services/dossierPersistence/dossierStorageKeys');
+        } = await import('@/app/domain/dossier/dossierStorageKeys');
         const { buildLawsuitLifecycleIndex } = await import(
             '@/app/domain/lawsuit/lawsuitLifecycleIndex'
         );
@@ -169,7 +169,7 @@ describe('recoverLawsuitWorkspaceFromLocalDisk', () => {
 
     it('يمحو leftover الدعاوى من localStorage عند الاستعادة', async () => {
         const { LAWSUIT_FILES_STORAGE_KEY } = await import(
-            '@/app/services/dossierPersistence/dossierStorageKeys'
+            '@/app/domain/dossier/dossierStorageKeys'
         );
         localStorage.setItem(LAWSUIT_FILES_STORAGE_KEY, JSON.stringify([file(7)]));
         const { recoverLawsuitWorkspaceFromLocalDisk } = await import(

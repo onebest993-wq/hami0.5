@@ -7,7 +7,7 @@ import { stagePendingLawsuitCreate, clearLawsuitPendingCreatesForTests } from '@
 import { persistLawsuitActiveSegment } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
 import { LAWSUIT_WRITE_JOURNAL_KEY } from '@/app/domain/lawsuit/lawsuitWriteJournal';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import { emptyLawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 
 const file = (id: number): FileData =>

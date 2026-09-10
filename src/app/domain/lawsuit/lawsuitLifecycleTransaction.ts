@@ -10,7 +10,7 @@ import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
     LAWSUIT_FILES_TRASH_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import {
     clearLegacyPlaintextMirror,
     readSecureOrDrainLegacySync,

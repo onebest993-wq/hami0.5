@@ -96,7 +96,7 @@ describe('sameOriginApiProbe', () => {
     });
 
     it('المسبار لا يستخدم AbortController حتى لا يظهر ERR_ABORTED في الكونسول', () => {
-        const src = readFileSync(resolve(process.cwd(), 'src/app/runtime/sameOriginApiProbe.ts'), 'utf8');
+        const src = readFileSync(resolve(process.cwd(), 'src/app/services/network/sameOriginApiProbe.ts'), 'utf8');
         expect(src).not.toContain('AbortController');
         expect(src).not.toMatch(/signal:\s*controller/);
     });

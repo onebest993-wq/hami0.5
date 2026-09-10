@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const getState = vi.fn(() => 'available' as const);
 
-vi.mock('@/app/runtime/sameOriginApiProbe', () => ({
+vi.mock('@/app/services/network/sameOriginApiProbe', () => ({
     getSameOriginApiState: () => getState(),
 }));
 

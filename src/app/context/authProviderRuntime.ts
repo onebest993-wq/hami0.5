@@ -17,7 +17,7 @@ import {
 } from '@/app/utils/authSupabaseLazy';
 import { getDevMockLawyerSession } from '@/app/services/auth/devMockLawyerAuth';
 import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
-import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
+import { probeSameOriginApi } from '@/app/services/network/sameOriginApiProbe';
 import {
     bffLogin,
     bffLogout,

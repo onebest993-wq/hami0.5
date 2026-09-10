@@ -1,5 +1,5 @@
 import { resolveLiveAuthUserIdForStorage } from '@/app/utils/liveAuthUserId';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { EXECUTION_FILES_STORAGE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 
 /** مفاتيح إضبارة غير مقيّدة بـ`:u:` — إخفاؤها عند وجود جلسة يمنع تسرّب حساب قديم */
 const UNSCOPED_HIDDEN_WHEN_SIGNED_IN_PREFIXES = [

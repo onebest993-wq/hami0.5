@@ -3,7 +3,7 @@ import {
     LAWSUIT_FILES_ACTIVE_KEY,
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_STORAGE_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     mergeRicherLawsuitActive,

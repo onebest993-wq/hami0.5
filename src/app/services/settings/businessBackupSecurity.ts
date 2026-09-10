@@ -4,7 +4,7 @@ import {
     LAWSUIT_FILES_ARCHIVED_KEY,
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_TRASH_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 
 /** حد أدنى لكلمة مرور حماية نسخة التصدير (بيانات قانونية حساسة) */
 export const BACKUP_PASSWORD_MIN_LENGTH = 12;

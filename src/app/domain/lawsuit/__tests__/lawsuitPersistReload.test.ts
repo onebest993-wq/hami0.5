@@ -6,7 +6,7 @@ import {
     LAWSUIT_FILES_ARCHIVED_KEY,
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_STORAGE_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { loadInitialLawsuitFilesAsync } from '@/app/domain/lawsuit/lawsuitFilesRepository';
 import {
     lawsuitStorageMayHaveUnreadData,

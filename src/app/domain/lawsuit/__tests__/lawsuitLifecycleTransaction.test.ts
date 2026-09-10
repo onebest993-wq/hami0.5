@@ -7,7 +7,7 @@ import {
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_TRASH_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { LAWSUIT_DOSSIER_TOMBSTONES_KEY } from '@/app/utils/lawsuitDossierTombstones';
 import { LAWSUIT_WRITE_JOURNAL_KEY } from '@/app/domain/lawsuit/lawsuitWriteJournal';
 import { LAWSUIT_PENDING_CREATES_KEY } from '@/app/domain/lawsuit/lawsuitPendingCreateStore';

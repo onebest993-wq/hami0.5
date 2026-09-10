@@ -3,7 +3,7 @@ import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossi
 import {
     EXECUTION_FILES_STORAGE_KEY,
     EXECUTION_FILES_STORAGE_KEYS_LEGACY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import {
     clearLegacyPlaintextMirror,
     readSecureOrDrainLegacySync,
@@ -20,7 +20,7 @@ import {
 export {
     EXECUTION_FILES_STORAGE_KEY,
     EXECUTION_FILES_STORAGE_KEYS_LEGACY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 
 const OWNER_MIGRATION_FLAG = 'hami:execution:files-owner-migrated:v1';
 /** حجر صحي للفهرس العام — لا يُسند تلقائياً لأول حساب يسجّل دخولاً */

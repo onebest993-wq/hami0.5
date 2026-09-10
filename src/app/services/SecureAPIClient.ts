@@ -1,7 +1,7 @@
 import { readCsrfTokenFromDocument } from '@/app/security/csrfSession';
 import { fetchKvProxyGuarded, isKvProxyUrl } from './kvProxyGuard';
 import { assertNetworkAllowed } from '@/app/services/settings/localOnlyGuard';
-import { isSameOriginApiBlocked } from '@/app/runtime/sameOriginApiProbe';
+import { isSameOriginApiBlocked } from '@/app/services/network/sameOriginApiProbe';
 import { readClientAccessTokenFallback } from '@/app/services/auth/localSigningToken';
 /*
  * الورقتان لا المحور. الاستيراد من `bffAuthClient` كان يُغلق دائرة ثابتة: هذا

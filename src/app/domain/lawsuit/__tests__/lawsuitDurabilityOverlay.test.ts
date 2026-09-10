@@ -18,7 +18,7 @@ import {
 import { emptyLawsuitFileSegments } from '../lawsuitFilesRepository';
 import { resetLawsuitPageWriteGuardForTests } from '../lawsuitPageWriteGuard';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import { executeLawsuitLifecycleTransaction } from '../lawsuitLifecycleTransaction';
 
 const file = (id: number): FileData =>

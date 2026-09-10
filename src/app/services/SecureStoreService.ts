@@ -892,7 +892,7 @@ class SecureStoreService {
     const run = (async () => {
       const [{ markLawsuitArchivePerf }, { LAWSUIT_SEGMENT_WARM_KEYS }] = await Promise.all([
         import('@/app/services/alerts/lawsuitArchivePerfMetrics'),
-        import('@/app/services/dossierPersistence/dossierStorageKeys'),
+        import('@/app/domain/dossier/dossierStorageKeys'),
       ]);
       markLawsuitArchivePerf('keys-warm-start');
       try {
@@ -931,7 +931,7 @@ class SecureStoreService {
       }
       await this.ensureWebInfrastructureReady();
       const { EXECUTION_INDEX_WARM_KEYS } = await import(
-        '@/app/services/dossierPersistence/dossierStorageKeys'
+        '@/app/domain/dossier/dossierStorageKeys'
       );
       await this.warmPersistedKeys(EXECUTION_INDEX_WARM_KEYS);
     })();

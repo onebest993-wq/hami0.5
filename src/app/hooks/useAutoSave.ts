@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { persistenceRepository } from '../infrastructure/persistence/LocalStorageRepository';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import { debug } from '@/app/utils/debug';
 import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 

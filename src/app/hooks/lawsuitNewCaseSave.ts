@@ -19,7 +19,7 @@ import {
 } from '@/app/hooks/lawsuitPersistDeferred';
 import { flushLawsuitWorkspacePersist, awaitLawsuitWorkspaceCommit } from '@/app/domain/lawsuit/lawsuitPersistFlush';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { dismissTransientOverlays, reconcileBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { getLocalTodayYmd } from '@/app/utils/localYmd';

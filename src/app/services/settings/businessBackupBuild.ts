@@ -12,7 +12,7 @@ import {
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_TRASH_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import {
     MAX_BACKUP_VAULT_BINARY_BYTES,
     MAX_BACKUP_VAULT_BLOB_COUNT,

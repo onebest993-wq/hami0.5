@@ -18,7 +18,7 @@ import {
 } from '@/app/domain/lawsuit/lawsuitActiveDurability';
 import { collectHeldOutOfActiveIds } from '@/app/domain/lawsuit/lawsuitFilesStatePolicy';
 import { readLawsuitLifecycleHeldFenceIds } from '@/app/domain/lawsuit/lawsuitLifecycleMutationFence';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export type LawsuitActivePersistOptions = {

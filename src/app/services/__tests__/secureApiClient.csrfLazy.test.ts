@@ -57,7 +57,7 @@ vi.mock('@/app/utils/liveAuthUserId', () => ({
     getLiveAuthUserId: () => 'lawyer-csrf-1',
 }));
 
-vi.mock('@/app/runtime/sameOriginApiProbe', () => ({
+vi.mock('@/app/services/network/sameOriginApiProbe', () => ({
     isSameOriginApiBlocked: () => false,
 }));
 

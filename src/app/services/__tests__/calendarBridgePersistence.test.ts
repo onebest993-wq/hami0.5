@@ -9,7 +9,7 @@ import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import { persistLawsuitActiveBundle } from '@/app/domain/lawsuit/lawsuitDurabilityGate';
 import { emptyLawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import { readLawsuitActiveSegment } from '@/app/domain/lawsuit/lawsuitSegmentPersist';
-import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/domain/dossier/dossierStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
 function seedLawsuitFile(overrides: Record<string, unknown> = {}): FileData {

@@ -34,7 +34,7 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     LAWSUIT_FILES_ARCHIVED_KEY,
     LAWSUIT_FILES_TRASH_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import {
     executeLawsuitLifecycleTransaction,
     type LawsuitLifecycleMutationKind,

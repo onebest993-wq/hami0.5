@@ -59,7 +59,7 @@ vi.mock('@/app/services/auth/lawyerAccountStatus', async (importOriginal) => {
 
 vi.mock('@/app/utils/liveAuthUserId', () => ({ getLiveAuthUserId: () => 'lawyer-origin-1' }));
 
-vi.mock('@/app/runtime/sameOriginApiProbe', () => ({ isSameOriginApiBlocked: () => false }));
+vi.mock('@/app/services/network/sameOriginApiProbe', () => ({ isSameOriginApiBlocked: () => false }));
 
 vi.mock('../kvProxyGuard', () => ({
     isKvProxyUrl: () => false,

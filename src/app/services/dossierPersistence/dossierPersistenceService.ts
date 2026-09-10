@@ -4,7 +4,7 @@ import {
     EXECUTION_FILES_STORAGE_KEYS_LEGACY,
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
-} from './dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { readLatestDossierBackup, writeDossierBackup } from './dossierBackupStore';
 import { shouldRejectDossierWipe } from './dossierWipeGuard';
 import { isCanonicalEmptyDossierPrimary } from './dossierPrimaryEmpty';

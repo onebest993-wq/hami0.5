@@ -5,7 +5,7 @@ import {
     LAWSUIT_FILES_ACTIVE_KEY,
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_STORAGE_KEY,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
 import { persistLawsuitActiveSegment } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
 import {
@@ -119,7 +119,7 @@ describe('lawsuit reload durability — root causes', () => {
 
     it('persistLawsuitFiles skips index/mirror when active segment is cold', async () => {
         const { LAWSUIT_FILES_INDEX_KEY, LAWSUIT_FILES_STORAGE_KEY } = await import(
-            '@/app/services/dossierPersistence/dossierStorageKeys'
+            '@/app/domain/dossier/dossierStorageKeys'
         );
         const { persistLawsuitFiles } = await import('@/app/domain/lawsuit/lawsuitFilesRepository');
 

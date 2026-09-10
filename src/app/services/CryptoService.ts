@@ -697,7 +697,7 @@ export class CryptoService {
         LAWSUIT_SEGMENT_WARM_KEYS,
         EXECUTION_FILES_STORAGE_KEY,
         EXECUTION_FILES_STORAGE_KEYS_LEGACY,
-      } = await import('@/app/services/dossierPersistence/dossierStorageKeys');
+      } = await import('@/app/domain/dossier/dossierStorageKeys');
       const probeKeys = new Set<string>([
         ...LAWSUIT_SEGMENT_WARM_KEYS,
         EXECUTION_FILES_STORAGE_KEY,

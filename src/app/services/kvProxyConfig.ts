@@ -4,7 +4,7 @@
  * فعّل بـ VITE_ENABLE_KV_PROXY=true عندما يُراد حفظ التقويم/المعاملات سحابياً على Vite.
  * على الاستضافة الثابتة: لا نستدعي الشبكة إلا بعد تأكيد توفر /api.
  */
-import { getSameOriginApiState } from '@/app/runtime/sameOriginApiProbe';
+import { getSameOriginApiState } from '@/app/services/network/sameOriginApiProbe';
 
 export function isKvProxyNetworkEnabled(): boolean {
     if (import.meta.env.VITE_ENABLE_KV_PROXY === 'false') return false;

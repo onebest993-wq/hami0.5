@@ -132,7 +132,7 @@ describe('CryptoService', () => {
         it('refuses to mint a new master key when encrypted lawsuit ciphertext exists on disk', async () => {
             const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
             const { LAWSUIT_FILES_ACTIVE_KEY } = await import(
-                '@/app/services/dossierPersistence/dossierStorageKeys'
+                '@/app/domain/dossier/dossierStorageKeys'
             );
             await SecureStoreService.setItem(
                 LAWSUIT_FILES_ACTIVE_KEY,

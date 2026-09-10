@@ -17,7 +17,7 @@ import {
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
     LAWSUIT_FILES_TRASH_KEY,
     LAWSUIT_SEGMENT_WARM_KEYS,
-} from '@/app/services/dossierPersistence/dossierStorageKeys';
+} from '@/app/domain/dossier/dossierStorageKeys';
 import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
