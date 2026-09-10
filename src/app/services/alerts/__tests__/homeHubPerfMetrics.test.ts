@@ -90,4 +90,52 @@ describe('homeHubPerfMetrics', () => {
             hadRadarCache: true,
         });
     });
+
+    /*
+     * النيّة المقصودة: **تقريرٌ لكل دخول** إلى الرئيسية، لا تقريرٌ واحد للجلسة.
+     *
+     * وكانت غير مختبَرة، فنابَ عنها تأكيدٌ نصّيّ في `worldclassHomeHubCloseHonesty`
+     * يمنع وجود `clearHomeHubPerfMarks()` في الخطّاف — وهو عكس النيّة، فتناقض مع
+     * `useLawyerDashboardHomeTab.test` الذي يشترط استدعاءه مرّةً عند كل دخول
+     * (`FINDING-020`). والدليل على أن «لكل دخول» هي النيّة: `resetHomeHubPerfReportSession`
+     * لا وجود لها إلا كأثرٍ لـ`clearHomeHubPerfMarks` — فبلا نيّة إعادة التسليح لا معنى لها.
+     *
+     * فتُقاس الدلالة هنا سلوكياً بدل أن تُفرَض نصّاً هناك.
+     */
+    function stubMarks(openAt: number, interactiveAt: number): void {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:home-hub:open-request') {
+                return [{ startTime: openAt }] as PerformanceEntryList;
+            }
+            if (name === 'hami:home-hub:interactive') {
+                return [{ startTime: interactiveAt }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+    }
+
+    it('تقريرٌ واحد لكل جلسة قياس — الثاني يُكتم', () => {
+        vi.mocked(reportHomeHubOpenToSentry).mockClear();
+        stubMarks(100, 400);
+
+        reportHomeHubPerf({ alertsTabCount: 1 });
+        reportHomeHubPerf({ alertsTabCount: 1 });
+
+        expect(reportHomeHubOpenToSentry).toHaveBeenCalledTimes(1);
+    });
+
+    it('وclearHomeHubPerfMarks يُعيد التسليح — فيُقاس الدخول التالي', () => {
+        vi.mocked(reportHomeHubOpenToSentry).mockClear();
+        stubMarks(100, 400);
+        reportHomeHubPerf({ alertsTabCount: 1 });
+        expect(reportHomeHubOpenToSentry).toHaveBeenCalledTimes(1);
+
+        /* دخولٌ جديد: يُمسح ثم يُعلَّم من جديد — كما يفعل useLawyerDashboardHomeTab */
+        clearHomeHubPerfMarks();
+        stubMarks(1_000, 1_500);
+        reportHomeHubPerf({ alertsTabCount: 1 });
+
+        expect(reportHomeHubOpenToSentry).toHaveBeenCalledTimes(2);
+        expect(reportHomeHubOpenToSentry).toHaveBeenLastCalledWith(500, { alertsTabCount: 1 });
+    });
 });

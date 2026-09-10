@@ -12,7 +12,23 @@ describe('world-class home-hub close honesty', () => {
             'utf8',
         );
         expect(hook).toMatch(/markHomeHubPerfPhase\('open-request'\)/);
-        expect(hook).not.toMatch(/clearHomeHubPerfMarks\(\)/);
+        /*
+         * كان هنا `expect(hook).not.toMatch(/clearHomeHubPerfMarks\(\)/)` — وهو عكس
+         * النيّة، وتناقض مع `useLawyerDashboardHomeTab.test` الذي يشترط استدعاءه مرّةً
+         * عند كل دخول ولا شيء عند البقاء (`FINDING-020`): ادّعاءان على سطرٍ واحد، فأيّاً
+         * كان اتجاه الشفرة أحدهما أحمر.
+         *
+         * وحُسم بالقياس لا بالذوق: النيّة **تقريرٌ لكل دخول**، ودليلها أن
+         * `resetHomeHubPerfReportSession` لا وجود لها إلا كأثرٍ لـ`clearHomeHubPerfMarks`.
+         * والدلالة صارت مقيسة سلوكياً في `homeHubPerfMetrics.test.ts` بدل أن تُفرَض نصّاً.
+         *
+         * وما يبقى نصّياً هو ما لا يُقاس إلا نصّاً: **الترتيب** — مسحٌ ثم تعليم. فلو
+         * انعكس لمُحيت علامة `open-request` بعد تسجيلها فصار القياس صفراً صامتاً.
+         */
+        const clearAt = hook.indexOf('clearHomeHubPerfMarks()');
+        const markAt = hook.indexOf("markHomeHubPerfPhase('open-request')");
+        expect(clearAt).toBeGreaterThan(-1);
+        expect(clearAt).toBeLessThan(markAt);
     });
 
     it('H1: interactive احتياطي + reportedRef في useHomeHubLifecycle', () => {
