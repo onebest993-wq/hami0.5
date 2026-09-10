@@ -133,7 +133,14 @@ export async function openExecutionFollowupModal(page: Page): Promise<void> {
     const memo = page.getByTestId('execution-followup-memo');
     await expect(memo).toBeVisible({ timeout: 15_000 });
     await clickNativeElement(memo);
-    await expect(page.getByTestId('execution-followup-modal')).toBeVisible({ timeout: 20_000 });
+    const modal = page.getByTestId('execution-followup-modal');
+    await expect(modal).toBeVisible({ timeout: 20_000 });
+    // `execution-followup-modal` is also on ExecutionFollowupInstantFrame, the Suspense
+    // fallback that paints instantly (execution-open-perf-probe times the modal through
+    // that id, so it stays). Returning on the id alone hands back the placeholder, which
+    // is then destroyed when the live modal commits — anything grabbed in between detaches
+    // mid-action. Only the live modal renders tab buttons, so wait for one.
+    await expect(modal.locator('[data-followup-tab]').first()).toBeVisible({ timeout: 20_000 });
 }
 
 export async function clickExecutionFollowupTab(
