@@ -113,6 +113,12 @@ jobs:
       - name: Execution modals use dvh and lock body scroll
         run: npm run guard:execution-modal-mobile
 
+      # كتمُ pointer-events على <html> يُخمد كل تراكب لا يُعيد تفعيلها لنفسه، ولا
+      # يُستردّ. أخفى محضرَ المتابعة حيّاً على الشاشة وميتاً تحت الإصبع، وأسقط أربع
+      # مواصفات E2E بجذورٍ تبدو مختلفة. يُكتم التراكب نفسه، لا المستند.
+      - name: No pointer-events muting on the document root
+        run: npm run guard:root-pointer-events
+
       # مِسنَنتان تمنعان عودة ما نُظّف: وحدة لا يصلها أحد، ومنطق مكتوب مرّتين.
       # التكرار هو ما جعل محرّك جدول المشاهدة نسختين متباعدتين، إحداهما تحمل
       # إصلاحاً والأخرى تحمل العيب، وكلتاهما تدّعي الحقيقة نفسها.
