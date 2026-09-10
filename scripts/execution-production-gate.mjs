@@ -9,6 +9,13 @@ import { spawnSync } from 'node:child_process';
 import { globSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+/*
+ * المصدر الواحد لمواصفات E2E — يشترك فيه هذا الملفّ و`run-execution-e2e.mjs`.
+ * واستيرادُه هو ما أسقطته `065d18a2` مع مرحلة E2E كلّها، **بلا أن يُحدَّث اختبارها**:
+ * `executionGateManifestParity` بقي يشترطه، وهو الدليل على أن السقوط لم يكن مقصوداً —
+ * فمن يُزيل E2E من بوّابة عمداً يُحدّث اختباره.
+ */
+import { EXECUTION_GATE_E2E_SPECS } from './execution-gate-manifest.mjs';
 
 const EXACT_BANNER = '===== EXECUTION TIER-1 PRODUCTION GATE PASSED =====';
 const EXACT_LAST_STDOUT_LINE = '=== Gate result === PASSED';
@@ -342,6 +349,36 @@ if (ratio < 0.99) {
     process.exit(1);
 }
 ok(`Phase2 regression ratio ≥99% PASS`);
+
+/* =========================================================================
+ * PHASE 2.5 — E2E (مُستعادة)
+ *
+ * كانت هذه المرحلة هنا ثم أُسقطت في `065d18a2`: استيراد البيان، وفحص وجود
+ * المواصفات، و`build:e2e`، وتشغيل `playwright`. فصارت «بوّابة إنتاج التنفيذ» لا
+ * تُشغّل تحقّقاً طرفياً إطلاقاً — وهي لا تستدعي `run-execution-e2e.mjs` لأنهما
+ * أمران منفصلان في `package.json`.
+ *
+ * وتُستعاد **بتفويض المشغّل القائم** لا بتكرار منطقه: هو يبني `build:e2e` ثم يُشغّل
+ * playwright على مواصفات البيان نفسه. فلا قائمة ثانية تتفرّع عن الأولى.
+ * =======================================================================*/
+console.log('\n=== Phase2.5: E2E from the shared manifest (restored) ===');
+const missingSpecs = EXECUTION_GATE_E2E_SPECS.filter((s) => !existsSync(resolve(PROJECT_ROOT, s)));
+if (missingSpecs.length > 0) {
+    fail(`Phase2.5 manifest lists ${missingSpecs.length} missing spec(s): ${missingSpecs.join(', ')}`);
+    process.exit(1);
+}
+ok(`Phase2.5 manifest: ${EXECUTION_GATE_E2E_SPECS.length} spec(s) present on disk`);
+
+const e2eRun = spawnSync(
+    process.execPath,
+    [resolve(PROJECT_ROOT, 'scripts', 'run-execution-e2e.mjs')],
+    { stdio: 'inherit', cwd: PROJECT_ROOT, ...CANONICAL_SPAWN_OPTS },
+);
+if (e2eRun.status !== 0) {
+    fail(`Phase2.5 E2E exit=${e2eRun.status} → FAIL`);
+    process.exit(1);
+}
+ok(`Phase2.5 E2E PASS — ${EXECUTION_GATE_E2E_SPECS.length} spec(s) via run-execution-e2e`);
 
 /* =========================================================================
  * TR-9.5 Gate Integrity Counters Verify (4 counters preserved + stubs 2/2)
