@@ -112,6 +112,16 @@ export function resetCryptoDeferredAttempts(): void {
     givenUpKeys.clear();
 }
 
+/** يزيد ميزانية المفتاح، ويُبلغ عند نفادها. يُرجع: هل بقيت محاولة؟ */
+function countWriteFailure(active: CryptoDeferredHost, key: string): boolean {
+    const attempts = (writeFailureAttempts.get(key) ?? 0) + 1;
+    writeFailureAttempts.set(key, attempts);
+    if (attempts < MAX_WRITE_FAILURE_ATTEMPTS) return true;
+    givenUpKeys.add(key);
+    active.reportGivingUp(key, 'encryption kept failing while the key was present');
+    return false;
+}
+
 export async function flushCryptoDeferredWrites(): Promise<void> {
     if (deferredWrites.size === 0 || !host) return;
     const active = host;
@@ -151,18 +161,25 @@ export async function flushCryptoDeferredWrites(): Promise<void> {
         }
         try {
             await active.persist(key, value);
+            /*
+             * `setItem` **لا ترمي** لمفتاحٍ ليس `encrypt-or-fail`: تُعيد إدراجه في هذا
+             * الطابور من داخل `catch` الخاص بها ثم تعود بنجاح. فكان النداء يُعدّ ناجحاً،
+             * وتُمحى ميزانيته، ولا يُعدّ إخفاق — أي أن `MAX_WRITE_FAILURE_ATTEMPTS`
+             * و`reportGivingUp` **لا تسريان على ذلك الصنف إطلاقاً**. قِيس على
+             * `lawyer_notes`: ثلاث عشرة جولة متتالية بلا بلاغٍ واحد، وهو الصمت نفسه
+             * الذي أُضيف `reportGivingUp` في `fac77eac` ليكسره.
+             *
+             * فوجودُ المفتاح في الطابور بعد عودة `persist` هو إخفاقٌ ظاهر، ويُعدّ.
+             */
+            if (deferredWrites.has(key)) {
+                if (countWriteFailure(active, key)) anyRetryable = true;
+                continue;
+            }
             writeFailureAttempts.delete(key);
         } catch (error) {
             if (error instanceof StorageEncryptionError) {
                 deferredWrites.set(key, value);
-                const attempts = (writeFailureAttempts.get(key) ?? 0) + 1;
-                writeFailureAttempts.set(key, attempts);
-                if (attempts >= MAX_WRITE_FAILURE_ATTEMPTS) {
-                    givenUpKeys.add(key);
-                    active.reportGivingUp(key, 'encryption kept failing while the key was present');
-                } else {
-                    anyRetryable = true;
-                }
+                if (countWriteFailure(active, key)) anyRetryable = true;
                 continue;
             }
             active.reportError(`Deferred persist failed for "${key}":`, error);
