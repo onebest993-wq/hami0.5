@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,35 +17,32 @@ function log(msg) {
     appendFileSync(LOG, msg + '\n', 'utf8');
 }
 
-const GUARDS = [
-    'guard:ts-nocheck',
-    'guard:import-closure',
-    'guard:cycles',
-    'guard:module-twins',
-    'guard:module-shadow',
-    'guard:dead-modules',
-    'guard:dead-exports',
-    'guard:duplicate-logic',
-    'guard:peer-conflicts',
-    'guard:native-foundation',
-    'guard:cold-entry',
-    'guard:screen-closure',
-    'guard:source-paths',
-    'guard:tailwind-source',
-    'guard:injected-globals',
-    'guard:ci-covers-guards',
-    'guard:supabase-info-boundary',
-    'guard:tracked-secrets',
-    'guard:shell-auth-prod',
-    'guard:prod-env-contract',
-    'guard:security-headers',
-    'guard:tsc',
-    'guard:cloud-types',
-    'guard:lint',
-    'guard:execution-window-confirm',
-    'guard:execution-modal-mobile',
-    'guard:tests',
-];
+/**
+ * مصدر الحقيقة واحد: `scripts["gate:wave0"]` في package.json.
+ *
+ * كانت القائمة مكرّرة هنا يدوياً فتباعدت: نصّ package.json يحوي ٢٨ حارساً منها
+ * `guard:architecture-boundaries`، وهذه القائمة تحوي ٢٧ بلا ذاك — والميثاق §٣
+ * يجعل هذا الملفّ هو الـrunner الرسمي («لا `npm run gate:wave0` مباشر»).
+ * و`guard-ci-covers-guards` يفحص نصّ package.json، أي أنّه يشهد للقائمة التي
+ * **لا تُشغَّل**، بينما التي تُشغَّل لا تُفحَص. فبقي حارس الطبقات بلا تشغيلٍ في
+ * أيّ مكان، وانحرف ٢٤٤ → ٢٤٨ بلا إنذار.
+ *
+ * والاشتقاق يجعل هذا التباعد مستحيلاً بالبناء لا بالانضباط.
+ */
+function readGuardsFromPackageJson() {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    const script = String(pkg.scripts?.['gate:wave0'] ?? '');
+    const guards = [...script.matchAll(/npm run (guard:[a-z0-9:-]+)/g)].map((m) => m[1]);
+    /* حاجزٌ ضدّ بوّابةٍ تنكمش صامتةً لو تغيّرت صيغة النصّ */
+    if (guards.length < 20) {
+        throw new Error(
+            `[gate-wave0] القائمة المشتقّة قصيرة (${guards.length}) — تحقّق من scripts["gate:wave0"] في package.json`,
+        );
+    }
+    return guards;
+}
+
+const GUARDS = readGuardsFromPackageJson();
 
 let firstFailedIdx = -1;
 let firstFailedExit = 0;

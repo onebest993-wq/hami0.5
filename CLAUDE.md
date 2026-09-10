@@ -134,7 +134,7 @@
 9. [src/app/bootstrap/LOADER_HYDRATOR_ORDER.md](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/LOADER_HYDRATOR_ORDER.md) — T3 33-entry registry
 10. [src/app/bootstrap/bootReveal.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/bootReveal.ts#L119-L147) — markBootRevealDone + SecureStore kickoff
 11. [src/app/services/SecureStoreService.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/services/SecureStoreService.ts#L1993-L2017) — idle deferral dual mechanism
-12. [scripts/run-gate-wave0.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/run-gate-wave0.mjs) — Official 27/28 runner cross-platform
+12. [scripts/run-gate-wave0.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/run-gate-wave0.mjs) — Official 28/28 runner cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
 13. [scripts/guard-tsc-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-tsc-ratchet.mjs) — tsc ratchet 956
 14. [scripts/guard-lint-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-lint-ratchet.mjs) — lint ratchet 177
 15. [scripts/guard-test-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-test-ratchet.mjs) — test ratchet 23 + flakes max=3

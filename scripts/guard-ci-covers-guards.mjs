@@ -17,10 +17,32 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const WORKFLOWS = join(ROOT, '.github/workflows');
 
-/** أوامر لا يصحّ تشغيلها في CI — لكل واحد سبب مكتوب */
+/**
+ * أوامر لا يصحّ تشغيلها في CI — لكل واحد سبب مكتوب.
+ *
+ * و`alsoExemptFromWave0` مفصولٌ عمداً: استثناءُ CI كان يُلغي شرط `gate:wave0`
+ * أيضاً (`continue` واحد يتخطّى الفحصين)، فصار بإمكان حارسٍ أن يُعفى من CI بحجّة
+ * «البوّابة المحلية تُشغّله» ثمّ لا تُشغّله البوّابة ولا يكتشف أحد. وهذا ما وقع
+ * حرفياً لـ`guard:architecture-boundaries`: أُعفي من CI بهذه الحجّة، ولم يكن في
+ * قائمة الـrunner، فلم يُشغَّل في أيّ مكان وانحرف ٢٤٤ → ٢٤٨ صامتاً.
+ * وحجّته الثانية كانت باطلة كذلك: `eslint.config.js` لا يحوي قواعد الطبقات
+ * إطلاقاً — فـ`guard:lint` لا يغطّيها.
+ */
 const NOT_FOR_CI = new Map([
-    ['guard:baseline', 'يكتب خطوط الأساس بدل فحصها — تشغيله في CI يمحو المِسنَنة'],
-    ['guard:architecture-boundaries', 'T21 طبقات معمارية — تشغيل ESLint JSON scan 30-90s على api/services/domain/application غلاف لgate:wave0 المحلي فقط؛ CI يمرّر guard:lint بالفعل فتكرارها هنا مُكلف حوسبة ومُكرر. المستخدم المحلي يمرّرها عبر gate:wave0 قبل PR.'],
+    [
+        'guard:baseline',
+        {
+            reason: 'يكتب خطوط الأساس بدل فحصها — تشغيله في CI يمحو المِسنَنة',
+            alsoExemptFromWave0: true,
+        },
+    ],
+    [
+        'guard:architecture-boundaries',
+        {
+            reason: 'T21 طبقات معمارية — مسح ESLint بصيغة JSON يستغرق ٣٠-٩٠ ثانية. يُعفى من CI للكلفة وحدها، و`gate:wave0` المحلي يُشغّله فعلاً (القائمة تُشتقّ من package.json فلا تتباعد). ولا يغطّيه `guard:lint`: قواعد الطبقات في .audit/eslint-arch-boundaries.config.js لا في eslint.config.js.',
+            alsoExemptFromWave0: false,
+        },
+    ],
 ]);
 
 function collectScripts() {
@@ -51,19 +73,22 @@ const missingFromCi = [];
 const missingFromWave0 = [];
 
 for (const script of scripts) {
-    if (NOT_FOR_CI.has(script)) continue;
+    const exemption = NOT_FOR_CI.get(script);
 
-    // يُعدّ مغطّى إن استُدعي مباشرةً أو عبر مجموعة تضمّه
-    const direct = new RegExp(`npm run ${script.replace(/:/g, ':')}(\\s|$)`, 'm').test(workflows);
-    const viaWave0 = wave0.has(script) && /npm run gate:wave0(\s|$)/m.test(workflows);
-    if (!direct && !viaWave0) missingFromCi.push(script);
+    if (!exemption) {
+        // يُعدّ مغطّى إن استُدعي مباشرةً أو عبر مجموعة تضمّه
+        const direct = new RegExp(`npm run ${script.replace(/:/g, ':')}(\\s|$)`, 'm').test(workflows);
+        const viaWave0 = wave0.has(script) && /npm run gate:wave0(\s|$)/m.test(workflows);
+        if (!direct && !viaWave0) missingFromCi.push(script);
+    }
 
     /*
      * كل فحص مصدر ينتمي إلى wave0 ليكون تشغيله محلياً أمراً واحداً. المستثنى هو
-     * ما يحتاج `dist` أو شبكة: لا معنى لطلبه قبل بناء.
+     * ما يحتاج `dist` أو شبكة: لا معنى لطلبه قبل بناء — أو ما أُعلن صراحةً أنه
+     * خارج البوّابة أيضاً. واستثناءُ CI وحده **لا يُعفي من البوّابة**.
      */
     const needsBuild = /dist|bundle|cold-entry:dist|boot-critical-weight|lawyer-inner-weight|first-open-shared-tax/.test(script);
-    if (!needsBuild && !wave0.has(script) && !NOT_FOR_CI.has(script)) {
+    if (!needsBuild && !wave0.has(script) && !exemption?.alsoExemptFromWave0) {
         missingFromWave0.push(script);
     }
 }
