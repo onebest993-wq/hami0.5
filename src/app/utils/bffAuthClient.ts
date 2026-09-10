@@ -12,6 +12,7 @@ import {
 } from '@/app/utils/authStorage';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { parseJsonResponse } from '@/app/utils/bffJsonResponse';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { getWifeNativeFetch } from '@/app/security/wifeNativeFetch';
 import { LEGAL_TERMS_ACCEPTANCE_VERSION } from '@/app/services/auth/legalTermsVersion';
@@ -57,9 +58,24 @@ type BffRefreshResponse = {
     error?: string;
 };
 
-async function applyCryptoWrapCredential(credential: string | undefined): Promise<void> {
+/**
+ * الهوية تُربط **قبل** أن يُهيَّأ التشفير.
+ *
+ * `CryptoService.initialize()` تحلّ المستخدم بنفسها، و`authLogin` تمسح جلسة Supabase
+ * المحفوظة قبل نداء الـBFF — فكانت التهيئة تقع هنا بهوية `null`. والفارغ يُعدّ جلسةً
+ * عابرة، فتسقط سلسلة الاستعادة إلى «سجلٌّ واحد على الجهاز ⇒ نفس المفتاح»، فيرث الداخلُ
+ * الجديد مفتاح المحامي السابق. `FINDING-022`.
+ *
+ * الحارس على العَرَض في `CryptoService`؛ وهذا يمنع السبب: لا نافذة أصلاً.
+ */
+async function applyCryptoWrapCredential(
+    credential: string | undefined,
+    sessionUserId?: string | null,
+): Promise<void> {
     if (!credential?.trim()) return;
     setBffCryptoWrapCredential(credential);
+    const uid = String(sessionUserId ?? '').trim();
+    if (uid) setLiveAuthUserId(uid);
     try {
         await CryptoService.initialize();
         const { default: SecureStoreService } = await import('@/app/services/SecureStoreService');
@@ -82,7 +98,7 @@ export async function fetchBffSession(): Promise<User | null> {
     });
     if (!response.ok) return null;
     const data = await parseJsonResponse<BffSessionResponse>(response);
-    await applyCryptoWrapCredential(data.cryptoWrapCredential);
+    await applyCryptoWrapCredential(data.cryptoWrapCredential, data.user?.id);
     return data.user ?? null;
 }
 
@@ -115,7 +131,7 @@ export async function bffLogin(email: string, password: string): Promise<User> {
         if (response.status >= 500) throw new Error('Auth service unavailable');
         throw new Error('فشل تسجيل الدخول');
     }
-    await applyCryptoWrapCredential(data.cryptoWrapCredential);
+    await applyCryptoWrapCredential(data.cryptoWrapCredential, data.user.id);
     startBffSessionKeeper();
     return data.user;
 }
@@ -165,8 +181,12 @@ export async function bffSignup(
     if (!response.ok) {
         throw new Error(payload.error ?? 'فشل إنشاء الحساب');
     }
-    await applyCryptoWrapCredential(payload.cryptoWrapCredential);
     const sessionEstablished = Boolean(payload.sessionEstablished && payload.user);
+    /* التسجيل بلا جلسة قائمة لا يربط هوية — فلا يُسنَد تخزينٌ إلى حسابٍ لم يُفتح بعد */
+    await applyCryptoWrapCredential(
+        payload.cryptoWrapCredential,
+        sessionEstablished ? payload.user?.id : null,
+    );
     if (sessionEstablished) startBffSessionKeeper();
     const fromPayload =
         typeof payload.userId === 'string' && payload.userId.trim() ? payload.userId.trim() : null;
