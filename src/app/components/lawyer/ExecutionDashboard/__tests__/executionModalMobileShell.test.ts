@@ -19,4 +19,15 @@ describe('executionModalMobileShell', () => {
         expect(EXEC_MODAL_HEADER_SAFE_TOP).toMatch(/safe-area-inset-top/);
         expect(EXEC_MODAL_BACKDROP_SAFE_PAD).toMatch(/safe-area-inset-bottom/);
     });
+
+    /*
+     * خمسُ شرائح أضيق من هذا الثابت حُذفت لأنها لم تُستعمل قطّ وهو يغطّي الجهات الأربع
+     * في ٤٦ موضعاً. فتضييقُه لاحقاً يحرم تلك الجهات بلا بديل — ولذلك يُحرَس هنا:
+     * مبرّر الحذف صار قابلاً للاختبار لا مجرّد قولٍ في رسالة commit.
+     */
+    it('الثابت الشامل يغطّي الجهات الأربع — وهو مبرّر حذف الشرائح الأضيق', () => {
+        for (const side of ['left', 'right', 'top', 'bottom']) {
+            expect(EXEC_MODAL_BACKDROP_SAFE_PAD).toContain(`env(safe-area-inset-${side})`);
+        }
+    });
 });
