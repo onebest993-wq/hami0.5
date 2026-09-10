@@ -580,59 +580,6 @@ class SecureStoreService {
     });
   }
 
-  /** @deprecated — تحميل كامل؛ يُستخدم فقط عند الحاجة لترحيل قديم */
-  private static async webDbLoadAllIntoCache(): Promise<void> {
-    const db = await this.openWebDatabase();
-    if (!db) return;
-    await new Promise<void>((resolve) => {
-      const tx = this.beginWebDbTransaction(db, 'readonly');
-      if (!tx) {
-        db.close();
-        resolve();
-        return;
-      }
-      const store = tx.objectStore(WEB_STORE);
-      const req = store.getAll();
-      const keyReq = store.getAllKeys();
-      let values: unknown[] = [];
-      let keys: unknown[] = [];
-      let pending = 2;
-
-      const tryResolve = () => {
-        if (--pending > 0) return;
-        for (let i = 0; i < Math.min(keys.length, values.length); i++) {
-          const k = keys[i];
-          const v = values[i];
-          if (typeof k === 'string' && typeof v === 'string') {
-            webFallbackStore.set(k, v);
-          }
-        }
-      };
-
-      req.onsuccess = () => {
-        values = req.result as unknown[];
-        tryResolve();
-      };
-      keyReq.onsuccess = () => {
-        keys = keyReq.result as unknown[];
-        tryResolve();
-      };
-
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onabort = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve();
-      };
-    });
-  }
-
   /**
    * @returns هل بلغت الكتابة القرص فعلاً.
    *
