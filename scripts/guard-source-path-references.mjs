@@ -58,6 +58,31 @@ const broken = new Map();
  */
 const ASSERTS_ABSENCE = /existsSync|fileExists|\.toThrow\s*\(/;
 
+/**
+ * ونمطٌ ثانٍ لتأكيد الغياب لم تكن النافذة تراه: **حرّاس ظلّ الوحدات** في بوّابات
+ * الإنتاج. كلٌّ منها يحمل مصفوفة `…_SHADOW_STUB_GLOB_PATHS` (أو `LEGACY_…_SHADOW_STUBS`)
+ * يُمرّرها إلى `globSync` ثم يُخفق **إن وُجد** المسار:
+ *
+ *     fail(`BOMB PHASE0 LEGACY TASKS SHADOW DETECTED: … risk: module shadowing security hole`)
+ *
+ * فهذه مساراتٌ **غيابها هو المطلوب** — وعدُّها «إشارةً مقطوعة» يجعل الحارس يطالب
+ * بإصلاحٍ يُفجّر حارساً أمنياً. وقِيس: ٤٥ من ٥٢ إشارة «مقطوعة» كانت من هذا الصنف.
+ *
+ * والاستخراج **بنيويّ لا بنافذة نصّية**: مصفوفةٌ من ثماني إدخالات تُبعد آخرَها عن
+ * تصريحها أكثر من أيّ نافذة معقولة. وهو يتبع نفسه: مصفوفةُ ظلٍّ جديدة تُفهم تلقائياً.
+ */
+const SHADOW_ARRAY_RE = /const\s+\w*SHADOW\w*\s*=\s*\[([\s\S]*?)\]/g;
+const INLINE_SHADOW_RE = /globSync\(\s*'((?:src|api|e2e)\/[^']+)'[\s\S]{0,400}?SHADOW/g;
+
+function shadowAssertedPaths(text) {
+    const out = new Set();
+    for (const arr of text.matchAll(SHADOW_ARRAY_RE)) {
+        for (const lit of arr[1].matchAll(/'([^']+)'/g)) out.add(lit[1]);
+    }
+    for (const inline of text.matchAll(INLINE_SHADOW_RE)) out.add(inline[1]);
+    return out;
+}
+
 for (const abs of files) {
     let text;
     try {
@@ -65,9 +90,11 @@ for (const abs of files) {
     } catch {
         continue;
     }
+    const shadowAsserted = shadowAssertedPaths(text);
     for (const m of text.matchAll(SOURCE_PATH_RE)) {
         const rel = m[1];
         if (fs.existsSync(path.join(ROOT, rel))) continue;
+        if (shadowAsserted.has(rel)) continue;
 
         // نافذة حول الإشارة تكفي لالتقاط `existsSync(path.join(root, '…'))` بأسطره
         const window = text.slice(Math.max(0, m.index - 280), m.index + 500);

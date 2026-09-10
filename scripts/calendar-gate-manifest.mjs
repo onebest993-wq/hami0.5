@@ -30,7 +30,7 @@ export const CALENDAR_CRITICAL_GLOBS = [
     'src/app/components/lawyer/hooks/__tests__/*useCalendarData*.test.ts',
     'src/app/services/cloud/lawyerCalendarCloud*.{ts,tsx}',
     'src/app/services/__tests__/calendarFullSimulation.test.ts',
-    'src/app/services/__tests__/calendarFullScheduleSync.test.ts',
+    'src/app/services/calendar/__tests__/calendarFullScheduleSync.test.ts',
     'src/app/services/notifications/native/__tests__/calendarNativeReminderScheduler.test.ts',
 ];
 

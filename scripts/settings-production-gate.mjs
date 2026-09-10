@@ -89,7 +89,7 @@ const criticalGlobs = [
     'src/app/runtime/hamiSettings*.ts',
     'src/app/runtime/*Settings*.ts',
     'src/app/components/ui/SmartDialogContainer.tsx',
-    'src/app/components/ui/smartDialogScope.ts',
+    'src/app/components/ui/smartDialogBus.ts',
     'src/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet.tsx',
     'src/app/components/lawyer/dashboard/__tests__/SettingsInstantPaintCover.test.tsx',
     'src/app/hooks/lawyerDashboard/__tests__/*useLawyerDashboardSettings*.test.ts',

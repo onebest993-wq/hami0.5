@@ -135,12 +135,12 @@ const testGlobs = [
     'src/app/components/lawyer/dashboard/__tests__/lawsuitsResourceHonesty.test.ts',
     'src/app/components/lawyer/criminal-system/criminalCaseOwner.test.ts',
     'src/app/components/lawyer/criminal-system/criminalCaseGovernance.test.ts',
-    'src/app/components/lawyer/criminal-system/criminalCaseDraftFactory.test.ts',
+    'src/app/components/lawyer/criminal-system/__tests__/criminalCaseDraftFactory.test.ts',
     'src/app/components/lawyer/criminal-system/criminalCaseDraftFactory.ensure.test.ts',
     'src/app/components/lawyer/criminal-system/criminalCaseMutationGuard.test.ts',
-    'src/app/components/lawyer/criminal-system/InvestigationDecisionModal.test.ts',
-    'src/app/components/lawyer/criminal-system/JudicialDecisionsLedger.test.tsx',
-    'src/app/components/lawyer/criminal-system/CaseJourneyHeader.test.tsx',
+    'src/app/components/lawyer/criminal-system/components/modals/InvestigationDecisionModal.test.ts',
+    'src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedger.test.tsx',
+    'src/app/components/lawyer/criminal-system/components/CaseJourneyHeader.test.tsx',
     'src/app/components/lawyer/criminal-system/complaintCourtReferralEngine.test.ts',
     'src/app/components/lawyer/criminal-system/complainantCassationGovernance.test.ts',
     'src/app/components/lawyer/criminal-system/cassationJudicialForm.test.ts',
@@ -182,7 +182,14 @@ const testGlobs = [
     'src/app/components/lawyer/criminal-system/__tests__/criminalStorePersistOptions.test.ts',
     'src/app/components/lawyer/criminal-system/__tests__/criminalStorePersistMerge.test.ts',
     'src/app/components/lawyer/criminal-system/__tests__/criminalModalPortal.test.ts',
-    'src/app/components/lawyer/criminal-system/__tests__/criminalDashboardEntry.test.ts',
+    /*
+     * ثغرة تغطية مسمّاة: كان هنا مدخلٌ لاختبار `criminalDashboardEntry` تحت
+     * `criminal-system/__tests__`، وقد زال الملفّ بلا خليفة — **ولا اختبار في
+     * المستودع كلّه يذكر `CriminalDashboardEntry`** (قِيس)، بينما
+     * `CriminalDashboardEntryLazy.tsx` قائم بلا تغطية.
+     * فالمدخل كان يُطابق صفر ملفات، أي بوّابةً تعدّ تغطيةً لا وجود لها. أُزيل ليُسمّى
+     * النقص بدل أن يبقى مخفيّاً خلف glob لا يلتقط شيئاً.
+     */
     'src/app/components/lawyer/criminal-system/orchestrators/__tests__/criminalOrchestrators.test.ts',
     'src/app/runtime/__tests__/*lawsuit*.test.{ts,tsx}',
     'src/app/runtime/__tests__/*dossier*.test.{ts,tsx}',

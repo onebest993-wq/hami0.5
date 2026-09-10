@@ -157,7 +157,7 @@ const testGlobs = [
     'src/app/services/calendar/__tests__/calendarShellSession.test.ts',
     'src/app/services/schedule/__tests__/scheduleShellSnap.test.ts',
     'src/app/services/__tests__/calendarFullSimulation.test.ts',
-    'src/app/services/__tests__/calendarFullScheduleSync.test.ts',
+    'src/app/services/calendar/__tests__/calendarFullScheduleSync.test.ts',
     'src/app/services/calendar/dossierSync/__tests__/visitationCalendarSync.test.ts',
     'src/app/hooks/__tests__/useIncrementalCalendarSync.threadingBump.test.ts',
     'src/app/components/lawyer/SmartLegalRadar/__tests__/calendarPermissions.test.ts',
