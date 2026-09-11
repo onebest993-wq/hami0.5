@@ -1657,15 +1657,6 @@ function hqPhoneUiExclusionAliases() {
       find: '@/app/components/lawyer/criminal-system/criminalStore',
       replacement: stub('excludedCriminalStore.ts'),
     },
-    /*
-     * `liveAuthUserId` مرآةُ هوية مشتركة بين المنتجين، وتستورد هذه الوحدة بـ
-     * `import()` عند تبديل الحساب. فيُدرجها rollup في dist-hq ومعها رسمها
-     * المتعدّي — وهو الباب الذي تصل منه واجهة المحامي إلى حزمة الإدارة.
-     */
-    ...omit(
-      '@/app/services/auth/resetLawyerSessionUiForIdentityChange',
-      'hqOmitLawyerSessionUiReset.ts',
-    ),
     {
       find: /^@\/app\/stores\/executionDashboardStoreLazy$/,
       replacement: stub('excludedExecutionDashboardStoreLazy.ts'),
