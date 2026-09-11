@@ -205,8 +205,38 @@ announceHomeMainGridPainted();
   `feature-open: null` و`surfaceInert: false` وعرض البلاطة ٢٨٣٫٧. فالشرط الذي يُفعّل
   العطل خاصٌّ ببيئة E2E ولم أعزله.
   **وأُغلق في الطريق عيبٌ حقيقيّ منفصل** في `useOpaqueFeatureSurface` (عدّاد بدل
-  حفظ/استعادة) — **ولم يُصلح هذه المواصفة**، يُقال صراحةً. فمالكُ الـ`inert` على سطح
-  المنزل ليس ذلك الخطّاف؛ **الموضع التالي لمن يُكمل: `useLawyerDashboardMainViewChrome.ts:199`**.
+  حفظ/استعادة) — **ولم يُصلح هذه المواصفة**، يُقال صراحةً.
+
+> #### تتبُّعٌ إضافي ٢٠٢٦-٠٩-١١ — **مالك `inert` مُسمّىً بالقياس، وفرضيّتان سقطتا**
+>
+> **المالك:** أوّل سلفٍ يحمل `inert` فوق بلاطة التقويم هو
+> `DIV#lawyer-dashboard-home-surface` — أي الأثر في
+> [`useLawyerDashboardMainViewChrome.ts:194`](../src/app/components/lawyer/dashboard/useLawyerDashboardMainViewChrome.ts)
+> الذي يضع `inert` حين `underlayInert`. وقِيس: `false` على الرئيسية، `true` عند فتح
+> المستودع، **و`true` بعد إغلاقه**.
+>
+> و`underlayInert = (settingsOpen ‖ notificationsOpen ‖ globalSearchOpen) && !profileSurfaceActive`،
+> ومصادره الثلاثة **لا تُعلم React بتغيّرها**: سمّتان على `<html>` ومتغيّرُ وحدة.
+> فبدت الفرضية بيّنة: تُطفأ المصادر بلا تصيير، فلا يُعاد تشغيل الأثر.
+>
+> **وجُرّبت، فسقطت — مرّتين:**
+>
+> | المحاولة | النتيجة المقيسة |
+> |---|---|
+> | جعل كشف الإعدادات تفاعلياً (`useSyncExternalStore` + بثّ من `settingsOverlayPresence`) | `surfaceInert` بقي `true` بعد الإغلاق — **بلا أثر** |
+> | `MutationObserver` على `data-hami-notifications-open` و`data-hami-global-search-open` | بقي `true` — **بلا أثر** |
+>
+> **وكلاهما تُرك وسقط.** تعديلٌ لا أستطيع تسمية العطل الذي يمنعه ذوقٌ لا إصلاح
+> (الميثاق، البند ٧) — والقياس رفضهما، فلا يُشحنان لأنّهما «يبدوان صحيحين».
+>
+> **وما تبقّى بالاستنتاج من الشفرة لا بالمشاهدة:** السمّتان غائبتان عند الإغلاق،
+> و`profileSurfaceActive` لو كان صادقاً لأطفأ `underlayInert` أصلاً. فالمُدخل الوحيد
+> الباقي هو `reactOpen = Boolean(overlaysBundle.overlays.showSettings)` — **حالةُ React
+> نفسها عالقةً على `true` بعد إغلاق طبقة الإعدادات.**
+>
+> **فالموضع التالي لمن يُكمل ليس المصادر غير التفاعلية، بل مالك تلك الحالة:**
+> `useLawyerDashboardSettings` وما يضبط `showSettings`. **ويُقاس أولاً لا يُصلَح**:
+> ثلاث محاولاتٍ في هذا الخيط، اثنتان منها سقطتا لأنّي بنيتُ على استنتاجٍ قبل قياسه.
 - `lawyer-profile-z-forum-visitor` ×٢ — `forum-open-author-profile` موجود و`hidden`.
 
 **والأربع المعتمدة على تبويب «عاجل» غير مستقرّة بذاتها — قيس بالمعدّل لا بملاحظة:**
