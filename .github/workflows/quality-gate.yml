@@ -206,6 +206,13 @@ jobs:
       - name: Boot critical path stays light
         run: npm run guard:boot-critical-weight
 
+      # المِسنَنة قبل الميزانية عمداً: حارس الميزانية أحمر منذ ما قبل هذا الفرع،
+      # وخطوةٌ فاشلة تُجهض ما بعدها — فوضعُ المِسنَنة بعده يجعلها ميّتة في CI.
+      # وهي المسؤولة عن الاتجاه: بين ٢٠٢٦-٠٩-٠٧ و٢٠٢٦-٠٩-١١ نما الإغلاق ٣٤٪
+      # ولم يُمسكه شيء لأن الفشل كان ثابتاً في الحالتين.
+      - name: Lawyer Inner closure does not grow
+        run: npm run guard:lawyer-inner-weight-ratchet
+
       - name: Lawyer Inner first-tab closure stays light
         run: npm run guard:lawyer-inner-weight
 

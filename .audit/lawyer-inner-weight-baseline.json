@@ -1,0 +1,7 @@
+{
+  "totalKb": 527.7,
+  "chunkCount": 133,
+  "budgetKb": 220,
+  "recordedAt": "2026-09-11",
+  "reason": "First measurement after b798b803 split the forum tile's live subtree out of the first screen's static closure (852.5 -> 527.7 KB gzip, 154 -> 133 chunks). This is a floor that must not rise, not a budget that has been met: guard:lawyer-inner-weight still fails against its 220 KB budget and is unchanged. Lower this file only in a baseline(scope): commit."
+}

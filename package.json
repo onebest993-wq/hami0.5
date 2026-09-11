@@ -27,6 +27,7 @@
     "guard:cold-entry:dist": "node scripts/guard-cold-entry-surface.mjs --dist",
     "guard:boot-critical-weight": "node scripts/guard-boot-critical-weight.mjs",
     "guard:lawyer-inner-weight": "node scripts/guard-lawyer-inner-weight.mjs",
+    "guard:lawyer-inner-weight-ratchet": "node scripts/guard-lawyer-inner-weight-ratchet.mjs",
     "guard:first-open-shared-tax": "node scripts/guard-first-open-shared-tax.mjs",
     "guard:screen-closure": "node scripts/guard-screen-closure-weight.mjs",
     "guard:source-paths": "node scripts/guard-source-path-references.mjs",
