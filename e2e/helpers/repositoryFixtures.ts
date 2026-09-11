@@ -91,9 +91,19 @@ export async function pressRepositoryEscape(page: Page): Promise<void> {
 export function visibleRepositoryModal(page: Page): Locator {
     return page.locator('[data-testid="smart-repository-modal"]:not([aria-hidden="true"])');
 }
+/**
+ * «مغلق» = انتهى الخروج، لا بدأ.
+ *
+ * `beginHubLayerExit` ينزع `data-hami-repository-open` عند **بدء** التلاشي ويضع
+ * `data-hami-repository-closing=1` حتى نهايته، وعندها فقط يلتزم React بالإغلاق
+ * فيُرفع قناع مكدّس التبويبات عن الرئيسية. وقياسُ النافذة: نزع العلم عند ٤٥ms
+ * وعودة السطح عند ٢١٢ms — فمن يقرأ العلم وحده يُعيد التحكّم قبل أن يكون هناك سطح
+ * ينقر عليه، فتسقط نقرةٌ لا تُعيد المحاولة (`force: true`) بلا عطلٍ في المنتج.
+ */
 export async function expectRepositoryClosed(page: Page): Promise<void> {
     await expect(async () => {
         await expect(page.locator('html')).not.toHaveAttribute('data-hami-repository-open', '1');
+        await expect(page.locator('html')).not.toHaveAttribute('data-hami-repository-closing', '1');
         const modal = page.getByTestId('smart-repository-modal');
         const count = await modal.count();
         if (count === 0) return;
