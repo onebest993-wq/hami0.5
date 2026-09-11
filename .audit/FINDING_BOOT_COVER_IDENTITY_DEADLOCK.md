@@ -264,7 +264,15 @@ announceHomeMainGridPainted();
 > لا تُعيد المحاولة كانت تقع في تلك النافذة. أُضيف شرطٌ إلى تعريف «مغلق»: زوال
 > `data-hami-repository-closing` أيضاً. النتيجة: `home-main-interface` ٧/٧ في أربع
 > تشغيلات، و`smart-repository` + `notepad-modal` + `smart-vault` ١٩/١٩.
-- `lawyer-profile-z-forum-visitor` ×٢ — `forum-open-author-profile` موجود و`hidden`.
+- `lawyer-profile-z-forum-visitor` ×٢ — **أُغلقتا ٢٠٢٦-٠٩-١١.** `forum-open-author-profile`
+  كان موجوداً و`hidden` لأنّ **المنتدى أغلق نفسه لحظةَ وصول منشوراته**: أثرُ القياس في
+  `useForumLifecycle` تبعيّاته `[isOpen, userId, visiblePostCount]`، وتنظيفُه كان يستدعي
+  `tearDownForumFloatingState` فيُخفي `forum-overlay-host` وينزع `data-hami-forum-open`.
+  قيس بتتبّعٍ داخل الصفحة: فتحٌ عند ١٫١ث، ثمّ عند ٢٣٫٣ث انتقالٌ واحد يجمع ظهورَ البطاقتين
+  وإغلاقَ الطبقة. والتفكيك عند الإغلاق/التفكيك/الانهيار/تبديل الهوية مملوكٌ لأربع جهاتٍ
+  أخرى، فلا فجوة. **ونسبتي الأولى كانت خاطئة** — اتّهمتُ بلاطةَ الرئيسية
+  (`useForumTileProfileQuarterIdentity`) لأنّ إطار المكدّس وقع في مقطعها، والاختبار ردّها.
+  ويبقى مفتوحاً أنّ المنشورات تستغرق ٢٢ ثانية على معاينةٍ دافئة — جذرٌ آخر، بند ب‑٣.
 
 **والأربع المعتمدة على تبويب «عاجل» غير مستقرّة بذاتها — قيس بالمعدّل لا بملاحظة:**
 ثلاث تشغيلات، اثنتان منها بشفرةٍ متطابقة تماماً:
