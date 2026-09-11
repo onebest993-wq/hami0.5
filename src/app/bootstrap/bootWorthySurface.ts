@@ -97,17 +97,34 @@ export function isLiveHubPaintWorthy(root: ParentNode): boolean {
     return false;
 }
 
+type WorthyBootSurfaceOptions = {
+    /**
+     * يتجاوز شرط `data-identity-settled` وحده — للفتيل الأخير لا للمسار السعيد.
+     *
+     * السبب مقيس (٢٠٢٦-٠٩-١١): الربع الحيّ الذي يضبط تلك السمة لا يُركَّب إلا بعد
+     * `HOME_MAIN_GRID_PAINTED_EVENT`، والحدثُ لا يُعلَن حتى تُضبط السمة — حلقة
+     * مغلقة تُبقي `#hami-static-boot` فوق لوحةٍ جاهزة فتبتلع كل نقرة بلا نهاية.
+     * وبقيّة الشروط تبقى كما هي: هيكلٌ ناقص لا يُكشف بهذا ولا بغيره.
+     * انظر `.audit/FINDING_BOOT_COVER_IDENTITY_DEADLOCK.md`.
+     */
+    ignoreIdentitySettled?: boolean;
+};
+
 /**
  * سطح يستحق رفع الغطاء: بلاطات حية مكتملة + كروم المركز (هيكل أو بطاقة) + اسم الهوية.
  * طبقة FirstPaint لا تُكشف — الهيكل داخل الشبكة الحية يملأ نفس الهندسة.
  */
-export function isWorthyBootSurface(root: ParentNode = document): boolean {
+export function isWorthyBootSurface(
+    root: ParentNode = document,
+    opts?: WorthyBootSurfaceOptions,
+): boolean {
     if (hasAuthGateSurface(root)) return true;
     if (isInsideHomeFirstPaintLayer(root)) return false;
     if (root.querySelector('[data-testid^="home-widget-slot-skeleton-"]')) return false;
     if (hasIncompleteHomeWidgetSlots(root)) return false;
     if (!hasLiveCommandTiles(root)) return false;
     if (!isHubChromePaintWorthy(root)) return false;
+    if (opts?.ignoreIdentitySettled) return true;
     const profile = root.querySelector('[data-testid="home-dock-forum-profile"]');
     if (profile instanceof HTMLElement && profile.getAttribute('data-identity-settled') !== '1') {
         return false;

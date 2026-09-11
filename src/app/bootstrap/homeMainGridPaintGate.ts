@@ -108,6 +108,20 @@ function armUncoverWatchdog(): void {
         /* فتيل أخير: سطح حي مكتمل بلا طبقة FirstPaint — لا هيكل ناقص */
         if (canAnnounceHappyPathUncover() || isWorthyBootSurface() || hasAuthGateSurface()) {
             announceHomeMainGridPainted();
+            return;
+        }
+        /**
+         * وحدُّ الضمانة: سطحٌ مكتمل بكل شرط **إلا** `data-identity-settled`.
+         *
+         * تلك السمة وحدها محبوسة خلف هذا الإعلان نفسه — الربع الحيّ الذي يضبطها لا
+         * يُركَّب إلا بعد `HOME_MAIN_GRID_PAINTED_EVENT` (`ForumTileProfileQuarterSlot`).
+         * فبلا هذا الحدّ يبقى الغطاء فوق لوحةٍ جاهزة ما بقيت الجلسة، ويبتلع كل نقرة.
+         * وبعد الكشف تستقرّ الهوية من نفسها لأنّ الإعلان هو ما يُركّب الربع — قيس.
+         *
+         * وباقي الشروط لا تُتجاوز: هيكلٌ ناقص أو بلا بلاطات حية يبقى مغطّى.
+         */
+        if (isWorthyBootSurface(document, { ignoreIdentitySettled: true })) {
+            announceHomeMainGridPainted();
         }
     }, BOOT_UNCOVER_WATCHDOG_MS);
 }

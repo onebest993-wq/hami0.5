@@ -202,7 +202,23 @@ describe('homeMainGridPaintGate', () => {
         expect(isHomeMainGridPainted()).toBe(false);
     });
 
-    it('لا يكشف الشبكة قبل استقرار الهوية حتى بعد الفتيل القصير', async () => {
+    /**
+     * كان هذا الاختبار يؤكّد أنّ الغطاء لا يُرفع **أبداً** قبل استقرار الهوية، حتى بعد
+     * الفتيل. والقصد صحيح — لا يقفز اسم المحامي أو صورته بعد الكشف — لكنّه كان بلا سقف،
+     * وقياس ٢٠٢٦-٠٩-١١ أظهر ما يفعله غيابُ السقف:
+     *
+     *   • الربع الحيّ (ForumTileProfileQuarterSlot) لا يُركَّب إلا بعد
+     *     HOME_MAIN_GRID_PAINTED_EVENT، وهو وحده من يضبط data-identity-settled='1'.
+     *   • ومخارج رفع الغطاء الأربعة كلّها تشترط تلك السمة.
+     *   ⇒ حلقة مغلقة: ملفٌّ لم يُحمَّل كروَمه يُبقي `#hami-static-boot` فوق لوحةٍ جاهزة
+     *     عند z-index 99990 و pointer-events:auto — فتُبتلع كل نقرة، بلا نهاية.
+     *
+     * الضمانة باقية داخل النافذة القصيرة، والفتيل صار حدّاً لها:
+     * كشفٌ ناقص بعد ثماني ثوانٍ أهونُ من حبسٍ دائم. وبعد الكشف تستقرّ الهوية من نفسها
+     * لأنّ الإعلان هو ما يُركّب الربع الحيّ. التفاصيل:
+     * .audit/FINDING_BOOT_COVER_IDENTITY_DEADLOCK.md
+     */
+    it('يحفظ الهوية داخل النافذة القصيرة ثم يكشف بالفتيل — لا حبس دائم', async () => {
         const splash = document.createElement('div');
         splash.id = 'hami-static-boot';
         document.body.appendChild(splash);
@@ -230,8 +246,14 @@ describe('homeMainGridPaintGate', () => {
         expect(isHomeMainGridPainted()).toBe(false);
         vi.advanceTimersByTime(1_200);
         expect(isHomeMainGridPainted()).toBe(false);
+
+        /* الحدّ: بعد الفتيل يُكشف رغم أنّ الهوية لم تستقرّ */
         vi.advanceTimersByTime(8_000);
-        expect(isHomeMainGridPainted()).toBe(false);
+        expect(isHomeMainGridPainted()).toBe(true);
+
+        await vi.runAllTimersAsync();
+        expect(removeStaticBootShell).toHaveBeenCalled();
+        expect(markDashboardInteractiveOnce).toHaveBeenCalled();
     });
 
     it('لا يكشف هيكل المركز بعد استقرار الارتفاع', () => {
