@@ -49,6 +49,10 @@ vi.mock('@/app/domain/lawsuit/lawsuitSegmentStorage', () => ({
     applyLawsuitMonolithicMergeToSegments: vi.fn(),
 }));
 
+vi.mock('@/app/observability/sentryClient', () => ({
+    sentryCaptureMessage: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock('@/app/services/cloud/workCloudCheckpointCalendar', () => ({
     parseCalendarCheckpointSlice: (raw: { calendar?: unknown; calendarTombstones?: unknown }) => ({
         events: Array.isArray(raw.calendar) ? raw.calendar : [],
@@ -77,6 +81,7 @@ import { saveExecutionFilesRawImmediate } from '@/app/utils/executionFilesStorag
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { CALENDAR_EVENTS_STORAGE_KEY } from '@/app/services/calendar/calendarStorageKeys';
 import { CryptoService } from '@/app/services/CryptoService';
+import { sentryCaptureMessage } from '@/app/observability/sentryClient';
 import {
     applyLawsuitMonolithicMergeToSegments,
     collectLawsuitLocalRowsForSync,
@@ -380,6 +385,18 @@ describe('pushWorkCloudCheckpointNow', () => {
         expect(result).toEqual({ pushed: false, skipped: false, failed: true, retryable: false });
         expect(collectLawsuitLocalRowsForSync).toHaveBeenCalledTimes(1);
         expect(SecureAPIClient.fetchSecure).not.toHaveBeenCalled();
+
+        /*
+         * ورفضُ الحجم حتميّ: يتكرّر في كل دفعة ما دامت الإضابير فوق السقف. والمسار
+         * التلقائي يرمي النتيجة بـ`void`، فبلا بلاغٍ يعمل المحامي بلا نسخة ولا يدري.
+         */
+        /* الاستيراد الديناميّ للمُبلِّغ لا يُنتظَر داخل الدفع — يلزمه دور microtask */
+        await vi.waitFor(() =>
+            expect(sentryCaptureMessage).toHaveBeenCalledWith(
+                'work-checkpoint-push:over-size-ceiling',
+                expect.objectContaining({ ceilingBytes: 1_300_000 }),
+            ),
+        );
     });
 
     it('إن رمى جمع الدعاوى يقرأ المخزن المحلي بدلاً منه', async () => {

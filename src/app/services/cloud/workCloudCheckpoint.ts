@@ -312,6 +312,28 @@ async function encryptWithinCipherBudget(
     return { ...sealed, keep_anchor: false };
 }
 
+/**
+ * رفضُ الحجم وحده يُبلَّغ عنه — لا فشلُ النقل.
+ *
+ * السقف جُرفٌ لا منحدر: صمّامه الوحيد إسقاط التقويم، وبعده `CHECKPOINT_REJECTED`
+ * — **لا نسخة إطلاقاً**. وهو حتميّ لا عابر: محامٍ تجاوزت إضابيره ١٬٣٠٠٬٠٠٠ بايت
+ * تُرفض نقطتُه في كلّ مرّة. والمسار التلقائي `scheduleWorkCloudCheckpoint` يرمي
+ * النتيجة بـ`void`، فلا يراه أحد — يعمل المحامي ولا نسخة له وهو لا يدري.
+ *
+ * وفشلُ النقل عابرٌ وله محاولة ثانية ويظهر للمستخدم في لوحة الإعدادات، فالإبلاغ
+ * عنه ضجيجٌ يُغرق الإشارة. أرقامٌ فقط: حجمٌ وسقف، بلا أيّ محتوى (§١٩).
+ */
+function reportCheckpointSizeRejected(plaintextBytes: number): void {
+    void import('@/app/observability/sentryClient')
+        .then((m) =>
+            m.sentryCaptureMessage('work-checkpoint-push:over-size-ceiling', {
+                plaintextBytes,
+                ceilingBytes: MAX_PLAINTEXT_BYTES,
+            }),
+        )
+        .catch(() => undefined);
+}
+
 export async function pushWorkCloudCheckpointNow(): Promise<WorkCloudCheckpointPushResult> {
     if (!isLawyerWorkCloudLive()) return CHECKPOINT_SKIPPED;
     cancelScheduledWorkCloudCheckpoint();
@@ -328,12 +350,20 @@ export async function pushWorkCloudCheckpointNow(): Promise<WorkCloudCheckpointP
     }
     if (checkpointPlaintextBytes(toSend) > MAX_PLAINTEXT_BYTES) {
         toSend = stripCalendarFromCheckpoint(toSend);
-        if (checkpointPlaintextBytes(toSend) > MAX_PLAINTEXT_BYTES) return CHECKPOINT_REJECTED;
+        const strippedBytes = checkpointPlaintextBytes(toSend);
+        if (strippedBytes > MAX_PLAINTEXT_BYTES) {
+            reportCheckpointSizeRejected(strippedBytes);
+            return CHECKPOINT_REJECTED;
+        }
         if (!payloadHasDossiers(toSend)) return CHECKPOINT_REJECTED;
     }
     try {
         const sealed = await encryptWithinCipherBudget(toSend);
-        if (!sealed) return CHECKPOINT_REJECTED;
+        if (!sealed) {
+            /* مرّ سقف النصّ الصريح وسقط على سقف المُعمّى — رفضُ حجمٍ أيضاً */
+            reportCheckpointSizeRejected(checkpointPlaintextBytes(toSend));
+            return CHECKPOINT_REJECTED;
+        }
         const res = await SecureAPIClient.fetchSecure<{ ok?: boolean }>(CHECKPOINT_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
