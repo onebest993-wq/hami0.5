@@ -195,7 +195,7 @@ announceHomeMainGridPainted();
 
 **والباقي ثلاثةٌ بجذورٍ أخرى، لا يشفيها رفعُ الغطاء** — قيس لا افتُرض:
 
-- `home-main-interface:104` — **تُوبعت وسُمّي موضعها، ولم تُغلق.** القياس: بعد إغلاق
+- `home-main-interface:104` — **أُغلقت ٢٠٢٦-٠٩-١١؛ التفصيل في التتبُّع أسفله.** القياس الأوّل: بعد إغلاق
   المستودع بـ`Escape` في E2E يبقى `data-hami-feature-open=1` وسطحُ المنزل
   `#lawyer-dashboard-home-surface` بـ`inert` و`display:none` — **خمس عشرة ثانية بلا
   تعافٍ وبلا أيّ تراكب فوقه**. ولحظةَ فتح المستودع كان `data-hami-settings-closing=1`:
@@ -207,36 +207,63 @@ announceHomeMainGridPainted();
   **وأُغلق في الطريق عيبٌ حقيقيّ منفصل** في `useOpaqueFeatureSurface` (عدّاد بدل
   حفظ/استعادة) — **ولم يُصلح هذه المواصفة**، يُقال صراحةً.
 
-> #### تتبُّعٌ إضافي ٢٠٢٦-٠٩-١١ — **مالك `inert` مُسمّىً بالقياس، وفرضيّتان سقطتا**
+> #### تتبُّعٌ إضافي ٢٠٢٦-٠٩-١١ — **أُغلقت. وأوّلُ نسبةٍ كتبتُها كانت خاطئة، تُصحَّح هنا**
 >
-> **المالك:** أوّل سلفٍ يحمل `inert` فوق بلاطة التقويم هو
-> `DIV#lawyer-dashboard-home-surface` — أي الأثر في
-> [`useLawyerDashboardMainViewChrome.ts:194`](../src/app/components/lawyer/dashboard/useLawyerDashboardMainViewChrome.ts)
-> الذي يضع `inert` حين `underlayInert`. وقِيس: `false` على الرئيسية، `true` عند فتح
-> المستودع، **و`true` بعد إغلاقه**.
+> **ما قلته أوّلاً وكان خطأً:** إنّ `inert` على `#lawyer-dashboard-home-surface` أثرُ
+> [`useLawyerDashboardMainViewChrome.ts:194`](../src/app/components/lawyer/dashboard/useLawyerDashboardMainViewChrome.ts).
+> **المشاهدةُ كانت صحيحة والنسبةُ لا.** ذلك الأثر يكتب على `tabStackInertRef`، وهو
+> مربوط بالأب `div[data-hami-dashboard-tab-stack]` لا بالسطح. وقِيس في السيناريو كلّه:
+> `tabStack.inert = false` في **كلّ** عيّنة — حتى والمستودع مفتوح. فـ`underlayInert` لم
+> يلمس هذا العنصر قطّ، ومعه سقط خيط `showSettings` كلّه (كان بند ب‑٢ في الخطّة).
 >
-> و`underlayInert = (settingsOpen ‖ notificationsOpen ‖ globalSearchOpen) && !profileSurfaceActive`،
-> ومصادره الثلاثة **لا تُعلم React بتغيّرها**: سمّتان على `<html>` ومتغيّرُ وحدة.
-> فبدت الفرضية بيّنة: تُطفأ المصادر بلا تصيير، فلا يُعاد تشغيل الأثر.
+> **المالك الحقيقي:** `<DashboardTabSurface active={homeActive} homeStackCover>` عبر
+> `inertProps(!active)`، حيث
+> `homeActive = isLawyerDashboardTabMounted(isLawyerDashboardHomeStackTab(activeTab), tabStackMask)`.
+> فـ`inert` و`display:none` مخرجان لمُدخلٍ واحد: `shouldMaskLawyerDashboardTabStack`.
 >
-> **وجُرّبت، فسقطت — مرّتين:**
+> **والمُدخل العالق مقيس** — مسبار Playwright على سيناريو المواصفة نفسه:
 >
-> | المحاولة | النتيجة المقيسة |
-> |---|---|
-> | جعل كشف الإعدادات تفاعلياً (`useSyncExternalStore` + بثّ من `settingsOverlayPresence`) | `surfaceInert` بقي `true` بعد الإغلاق — **بلا أثر** |
-> | `MutationObserver` على `data-hami-notifications-open` و`data-hami-global-search-open` | بقي `true` — **بلا أثر** |
+> ```
+> A الرئيسية        tabStack=block  home.inert=false  is-active   feature-open=-   حاجب=٠
+> B المستودع مفتوح   tabStack=none   home.inert=true   —           feature-open=1   حاجب=١٠
+> C بعد الإغلاق      tabStack=none   home.inert=true   —           feature-open=1   حاجب=١٠
+> D بعد ١٠ ثوانٍ     tabStack=none   home.inert=true   —           feature-open=1   حاجب=١٠
+> ```
 >
-> **وكلاهما تُرك وسقط.** تعديلٌ لا أستطيع تسمية العطل الذي يمنعه ذوقٌ لا إصلاح
-> (الميثاق، البند ٧) — والقياس رفضهما، فلا يُشحنان لأنّهما «يبدوان صحيحين».
+> و`data-hami-repository-open` **منزوعٌ** في C وD: الـDOM أُغلق وReact لم يُغلق.
+> و`data-hami-feature-open=1` باقٍ — وهو مملوك لـ`useOpaqueFeatureSurface(isOpen)` في
+> `SmartRepositoryModal`، فشاهدٌ ثانٍ مستقلّ على أنّ `isRepositoryOpen` ما زال `true`.
 >
-> **وما تبقّى بالاستنتاج من الشفرة لا بالمشاهدة:** السمّتان غائبتان عند الإغلاق،
-> و`profileSurfaceActive` لو كان صادقاً لأطفأ `underlayInert` أصلاً. فالمُدخل الوحيد
-> الباقي هو `reactOpen = Boolean(overlaysBundle.overlays.showSettings)` — **حالةُ React
-> نفسها عالقةً على `true` بعد إغلاق طبقة الإعدادات.**
+> **والسبب سطرٌ واحد بترتيبٍ خاطئ** في `commitRepositoryClose`:
+> `repoShellActiveSessionIdRef.current = 0` يقع بعد `beginHubLayerExit` مباشرةً، وهذا
+> غير متزامن حين تكون الحركة مسموحة (`transitionend` أو ١٤٠+١٦ms). فحين يصل `onDone`
+> يقارن الحارسان جلسةً حيّة بصفر ويخرجان، فلا يُنفَّذ `setIsRepositoryOpen(false)`
+> **أبداً**. والنظير الصحيح في المستودع نفسه: `commitScheduleTabClose` يلتقط
+> `activeShellId` قبل الخروج ويقارن به داخله.
 >
-> **فالموضع التالي لمن يُكمل ليس المصادر غير التفاعلية، بل مالك تلك الحالة:**
-> `useLawyerDashboardSettings` وما يضبط `showSettings`. **ويُقاس أولاً لا يُصلَح**:
-> ثلاث محاولاتٍ في هذا الخيط، اثنتان منها سقطتا لأنّي بنيتُ على استنتاجٍ قبل قياسه.
+> **ولمَ لم تُحرّك المحاولتان السابقتان شيئاً — الآن مفهوم:**
+>
+> | المحاولة | النتيجة المقيسة | التفسير بعد القياس |
+> |---|---|---|
+> | جعل كشف الإعدادات تفاعلياً (`useSyncExternalStore`) | بقي `inert` — بلا أثر | الإعدادات ليست المالك |
+> | `MutationObserver` على سمّتَي القشرة | بقي — بلا أثر | ولا القشرتان |
+>
+> وتُركهما كان صواباً لسببٍ صحيح (البند ٧)، لا لحظّ: **لم أستطع تسمية العطل الذي
+> يمنعانه، لأنّهما لم يكونا يمنعان شيئاً.**
+>
+> **الأسنان قِيست بتعطيل الإصلاح لا بافتراضه:** اختبارٌ جديد يفتح ثمّ يُغلق بطبقةٍ حيّة
+> في DOM (بدونها يستدعي `beginHubLayerExit` الـ`onDone` فوراً فيختفي العطل، وهذا تحديداً
+> ما أنجى الاختبار القديم: كان يُغلق بلا فتحٍ سابق فيقارن صفراً بصفر). بالشفرة القديمة
+> يسقط بـ`Number of calls: 1` بلا استدعاءٍ بـ`false`؛ وبالجديدة `10 passed`.
+> وفي المنتج: العيّنة C تتعافى — `tabStack=block`، `home.inert=false`،
+> `feature-open` محرَّر، **وصفرُ سلفٍ حاجب بدل عشرة**.
+>
+> **وبقيت بعدها رعشةٌ سببها المواصفة لا المنتج:** `expectRepositoryClosed` كان يعدّ
+> المستودع مغلقاً عند **بدء** التلاشي — نزعُ العلم عند ٤٥ms — بينما يعود السطح عند
+> ٢١٢ms (قيس بتتبّعٍ داخل الصفحة عبر `requestAnimationFrame`). فنقرةٌ بـ`force: true`
+> لا تُعيد المحاولة كانت تقع في تلك النافذة. أُضيف شرطٌ إلى تعريف «مغلق»: زوال
+> `data-hami-repository-closing` أيضاً. النتيجة: `home-main-interface` ٧/٧ في أربع
+> تشغيلات، و`smart-repository` + `notepad-modal` + `smart-vault` ١٩/١٩.
 - `lawyer-profile-z-forum-visitor` ×٢ — `forum-open-author-profile` موجود و`hidden`.
 
 **والأربع المعتمدة على تبويب «عاجل» غير مستقرّة بذاتها — قيس بالمعدّل لا بملاحظة:**
