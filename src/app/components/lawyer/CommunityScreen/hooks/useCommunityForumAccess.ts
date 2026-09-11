@@ -128,7 +128,7 @@ export function useCommunityForumAccess({
             unsubscribe();
             if (activeSessionIdRef.current === currentSessionId) {
                 activeSessionIdRef.current = 0;
-                tearDownForumFloatingState(currentSessionId);
+                tearDownForumFloatingState();
             }
         };
     }, [signedIn, uid]);

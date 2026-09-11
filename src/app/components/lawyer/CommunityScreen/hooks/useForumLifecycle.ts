@@ -106,12 +106,14 @@ export function useForumLifecycle(
          * و`resetLawyerSessionUiForIdentityChange` عند تبديل الهوية.
          *
          * دخل السطر في commit التجميع `065d18a2` بلا تعليل — كنظيره في مسار المستودع.
+         *
+         * ولا تنظيفَ هنا أصلاً: `activeSessionIdRef` يملكه الأثر الأوّل `[isOpen]`،
+         * وهذا يقرؤه فقط. وكان التنظيف يصفّره عند كل تغيّرٍ في `userId` أو عدد
+         * المنشورات، فيسقط وعدُ `CommunityDB.listPosts()` المعلّق عند حارسه ولا يكتب
+         * `hadLocalCacheRef` — فيبقى `isShellReady` كاذباً ويرى المحامي قشرةَ تحميلٍ
+         * بدل منشوراته المخزّنة محلياً. وشرطُ التفعيل مقيس: الهوية تستقرّ متأخّرةً
+         * بعد الفتح، و`userId` من تبعيّات هذا الأثر.
          */
-        return () => {
-            if (activeSessionIdRef.current === currentSessionId) {
-                activeSessionIdRef.current = 0;
-            }
-        };
     }, [isOpen, userId, visiblePostCount]);
 
     return { isShellReady, hadLocalCache: hadLocalCacheRef.current };

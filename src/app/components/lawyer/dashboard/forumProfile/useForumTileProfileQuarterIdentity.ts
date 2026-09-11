@@ -42,7 +42,7 @@ export function useForumTileProfileQuarterIdentity(
             unsubscribe();
             if (activeSessionIdRef.current === currentSessionId) {
                 activeSessionIdRef.current = 0;
-                tearDownForumFloatingState(currentSessionId);
+                tearDownForumFloatingState();
             }
         };
     }, [userId]);

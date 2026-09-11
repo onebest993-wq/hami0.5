@@ -12,7 +12,6 @@ import { clearHubLayerEnter } from '@/app/runtime/overlayHubLayerMotion';
 import { FORUM_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
 import { concealForumWarmShell } from '@/app/runtime/forumInstantPaint';
 
-const CLOSING_ATTR_FORUM = FORUM_HUB_LAYER.closingAttr;
 const FORUM_ROOT_SELECTORS = [
     FORUM_HUB_LAYER.layerSelector,
     '[data-forum-layer-open]',
@@ -24,7 +23,27 @@ const FORUM_ROOT_SELECTORS = [
     '[data-forum-comments-root]',
 ];
 
-export function tearDownForumFloatingState(targetSurfaceSessionId?: number): void {
+/**
+ * يُفكّك حالة المنتدى العائمة — **بلا شرط**، وهذا ما كان يفعله فعلاً.
+ *
+ * حُذف منها شيئان بقياسٍ في ٢٠٢٦-٠٩-١٢، وكلاهما لم يكن يفعل شيئاً:
+ *
+ * ١. وسيط `targetSurfaceSessionId` وحارسُه: كان يقارن بـ`window.__hamiForumActiveSessionId`
+ *    وهو مفتاحٌ **يُقرأ في هذا الموضع وحده ولا يكتبه أيّ موضع في المستودع**، فالشرط
+ *    `currentActiveId !== undefined` كاذبٌ دائماً ولا يخرج أبداً. وكان غيرَ متماسكٍ
+ *    أصلاً: المستدعيان يمرّران عدّادين محلّيين لخطّافيهما لا صلة لهما بجلسةٍ عامّة.
+ *    وهذه الدالّة نفسها تحذف كلّ مفتاحٍ يبدأ بـ`__hamiForum` — فلو كُتب لمُحي.
+ *    التقييدُ الصحيح تصميمٌ (مَن يملك «الجلسة النشطة»؟) لا سطر، فلا يُدّعى بحارسٍ ميت.
+ *
+ * ٢. كتابةُ `data-hami-forum-closing="true"` على عناصر الطبقة: كلّ قارئٍ لسمة
+ *    `*-closing` في المستودع — ٩٠ قاعدة CSS وموضعان في TS — يقرؤها على `html`
+ *    وبالقيمة `'1'`. ولا قارئ لها على عنصر. (والثلاثة الشقيقة
+ *    `tearDownRepo/Litigation/Execution` تكتب `data-closing="true"` بلا قارئٍ كذلك —
+ *    خارج نطاق هذا التغيير، مسجَّلة في `.audit/REVIEW_REPORT_2026-09-11.md`.)
+ *
+ * والحركة الحقيقية للخروج يملكها `beginHubLayerExit` على `html` — لا هذه الدالّة.
+ */
+export function tearDownForumFloatingState(): void {
     try {
         try {
             const nodes: HTMLElement[] = [];
@@ -89,16 +108,6 @@ export function tearDownForumFloatingState(targetSurfaceSessionId?: number): voi
 
         try {
             if (typeof window !== 'undefined') {
-                if (targetSurfaceSessionId !== undefined) {
-                    const currentActiveId =
-                        (window as unknown as Record<string, unknown>).__hamiForumActiveSessionId as
-                            | number
-                            | undefined;
-                    if (currentActiveId !== undefined && currentActiveId !== targetSurfaceSessionId) {
-                        /* T2-TR-5 Dual-surface selective skip: another surface owns active session now */
-                        return;
-                    }
-                }
                 window.dispatchEvent(
                     new CustomEvent(FORUM_TEARDOWN_EVENT, {
                         detail: { reason: 'tearDown', suppressed: false },
@@ -148,19 +157,6 @@ export function tearDownForumFloatingState(targetSurfaceSessionId?: number): voi
             }
         } catch {
             /* P5 outer cleanup ignore */
-        }
-
-        try {
-            if (typeof document !== 'undefined') {
-                for (const selector of FORUM_ROOT_SELECTORS) {
-                    const layer = document.querySelector(selector);
-                    if (layer instanceof HTMLElement) {
-                        layer.setAttribute(CLOSING_ATTR_FORUM, 'true');
-                    }
-                }
-            }
-        } catch {
-            /* P6 snap closing attrs ignore */
         }
 
         try {

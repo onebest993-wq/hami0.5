@@ -153,6 +153,36 @@ describe('useForumLifecycle — session guard + hadLocalCache reset', () => {
      * يُغلق المنتدى وهو مفتوح. قيس في E2E: فتحٌ عند ١٫١ث، ووصولُ البطاقات وإغلاقُ
      * الطبقة في الإطار نفسه عند ٢٣٫٣ث.
      */
+    /**
+     * أثرُ القياس يقرأ `activeSessionIdRef` ولا يملكه — مالكُه الأثر الأوّل `[isOpen]`.
+     *
+     * وكان تنظيفه يصفّره، فيسقط وعدُ `CommunityDB.listPosts()` المعلّق عند حارسه ولا
+     * يكتب `hadLocalCacheRef`. والنتيجة على المستخدم: `isShellReady` يبقى `false` مع
+     * `loadingPosts` و`visiblePostCount = 0`، فيرى المحامي قشرةَ تحميلٍ بدل منشوراته
+     * المخزّنة محلياً. وشرطُ التفعيل ليس نادراً: استقرارُ الهوية متأخّراً — وهو مقيس
+     * في E2E (الهوية تصل بعد الفتح بثوانٍ) — يكفي وحده لأنّ `userId` من تبعيّاته.
+     */
+    it('استقرارُ الهوية أثناء التحميل لا يُسقط وعدَ المخزن المحلّي', async () => {
+        const { rerender, result } = renderHook(
+            ({ userId }: { userId: string | null }) => useForumLifecycle(userId, true, 0, true),
+            { initialProps: { userId: null as string | null } },
+        );
+
+        expect(mocks.listPostsMock).toHaveBeenCalledTimes(1);
+        expect(result.current.isShellReady).toBe(false);
+
+        /* الهوية تستقرّ بينما المنشورات ما زالت تُحمَّل */
+        rerender({ userId: 'u1' });
+
+        await act(async () => {
+            mocks.getResolvers()[0]([{ id: 'p1' }] as unknown as Array<{ groupId?: string }>);
+        });
+        rerender({ userId: 'u1' });
+
+        expect(result.current.hadLocalCache).toBe(true);
+        expect(result.current.isShellReady).toBe(true);
+    });
+
     it('تغيّر visiblePostCount لا يُفكّك حالة المنتدى العائمة', () => {
         const { rerender } = renderHook(
             ({ isOpen, visiblePostCount }) =>
