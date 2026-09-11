@@ -1,0 +1,515 @@
+{
+  "ranAt": "2026-09-11T22:32:12.708Z",
+  "durationMin": 21,
+  "project": "chromium",
+  "passed": 240,
+  "failed": 74,
+  "flaky": 6,
+  "skipped": 182,
+  "failingFiles": {
+    "transactions-hub.spec.ts": 17,
+    "wife-user-journey.spec.ts": 8,
+    "auth-onboarding-assault.spec.ts": 5,
+    "execution-flow.spec.ts": 5,
+    "smart-legal-radar.spec.ts": 5,
+    "case-consolidation-linking.spec.ts": 4,
+    "lawsuit-flow.spec.ts": 4,
+    "civil-lawsuit-scenarios.spec.ts": 3,
+    "global-search.spec.ts": 3,
+    "wife-api-smoke.spec.ts": 3,
+    "civil-session-requests.spec.ts": 2,
+    "civil-lawsuit-cloud-sync.spec.ts": 1,
+    "civil-lawsuit-new-case.spec.ts": 1,
+    "decisions-storage-persist.spec.ts": 1,
+    "field-tasks.spec.ts": 1,
+    "forum-attachment-persistence.spec.ts": 1,
+    "headquarters-auth-gate.spec.ts": 1,
+    "lawsuit-storage-lifecycle.spec.ts": 1,
+    "notifications-panel.spec.ts": 1,
+    "personal-status-journal-reload.spec.ts": 1,
+    "personal-status-reload-durability.spec.ts": 1,
+    "settings-shell.spec.ts": 1,
+    "tasks-live-user-audit.spec.ts": 1,
+    "urgent-dossier-open.spec.ts": 1,
+    "urgent-no-kv-storm.spec.ts": 1,
+    "wife-live-server.spec.ts": 1
+  },
+  "failures": [
+    {
+      "file": "auth-onboarding-assault.spec.ts",
+      "line": 45,
+      "title": "rejects disposable email signup from browser",
+      "err": "Error: expect(received).toBe(expected) // Object.is equality"
+    },
+    {
+      "file": "auth-onboarding-assault.spec.ts",
+      "line": 62,
+      "title": "rejects weak password signup from browser",
+      "err": "Error: expect(received).toBe(expected) // Object.is equality"
+    },
+    {
+      "file": "auth-onboarding-assault.spec.ts",
+      "line": 77,
+      "title": "forgot-password accepts request but does not echo evil redirect",
+      "err": "Error: expect(received).toBe(expected) // Object.is equality"
+    },
+    {
+      "file": "auth-onboarding-assault.spec.ts",
+      "line": 91,
+      "title": "forum posts without session is rejected",
+      "err": "Error: expect(received).toBeGreaterThanOrEqual(expected)"
+    },
+    {
+      "file": "auth-onboarding-assault.spec.ts",
+      "line": 99,
+      "title": "admin ban without session is rejected",
+      "err": "Error: expect(received).toBeLessThanOrEqual(expected)"
+    },
+    {
+      "file": "case-consolidation-linking.spec.ts",
+      "line": 22,
+      "title": "merges with existing dossier — keeps primary case number and court",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "case-consolidation-linking.spec.ts",
+      "line": 36,
+      "title": "external consolidation reference keeps primary identity",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "case-consolidation-linking.spec.ts",
+      "line": 54,
+      "title": "links existing dossier without merging timelines",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "case-consolidation-linking.spec.ts",
+      "line": 70,
+      "title": "external case link shows simple reference card",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "civil-lawsuit-cloud-sync.spec.ts",
+      "line": 18,
+      "title": "active and archived segments stay isolated after monolith mirror update",
+      "err": "Error: page.evaluate: TypeError: Failed to fetch dynamically imported module: http://127.0.0.1:8090/src/app/services/Sec"
+    },
+    {
+      "file": "civil-lawsuit-new-case.spec.ts",
+      "line": 69,
+      "title": "creates personal-status lawsuit and persists to lawyer_files",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "civil-lawsuit-scenarios.spec.ts",
+      "line": 195,
+      "title": "only one موكل active — switching sides moves client mark",
+      "err": "Error: expect(locator).toHaveAttribute(expected) failed"
+    },
+    {
+      "file": "civil-lawsuit-scenarios.spec.ts",
+      "line": 206,
+      "title": "two موكل on the same plaintiff side stay marked",
+      "err": "Error: expect(locator).toHaveAttribute(expected) failed"
+    },
+    {
+      "file": "civil-lawsuit-scenarios.spec.ts",
+      "line": 258,
+      "title": "undetermined dossier offers تمييز only in appeal gateway",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "civil-session-requests.spec.ts",
+      "line": 24,
+      "title": "opens session record panel and saves proceedings to timeline",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "civil-session-requests.spec.ts",
+      "line": 35,
+      "title": "requests hub is visible below session record trigger",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "decisions-storage-persist.spec.ts",
+      "line": 64,
+      "title": "seeded decision card survives page reload and dossier reopen",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "execution-flow.spec.ts",
+      "line": 162,
+      "title": "Calculator shows correct results",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "execution-flow.spec.ts",
+      "line": 178,
+      "title": "Calculator validates input",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "execution-flow.spec.ts",
+      "line": 189,
+      "title": "Calculator updates on input change",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "execution-flow.spec.ts",
+      "line": 212,
+      "title": "Execution data is encrypted",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "execution-flow.spec.ts",
+      "line": 229,
+      "title": "User cannot access execution without auth",
+      "err": "Error: expect(page).toHaveURL(expected) failed"
+    },
+    {
+      "file": "field-tasks.spec.ts",
+      "line": 83,
+      "title": "إضافة مهمة أسبوعية وحفظها",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "forum-attachment-persistence.spec.ts",
+      "line": 42,
+      "title": "keeps an image post after reload",
+      "err": "Error: المنشور غير محفوظ في SecureStore: {\"saved\":false,\"attachmentType\":null}"
+    },
+    {
+      "file": "global-search.spec.ts",
+      "line": 63,
+      "title": "يفتح من زر الهيدر ويعرض حقل البحث",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "global-search.spec.ts",
+      "line": 87,
+      "title": "Ctrl+K يفتح البحث",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "global-search.spec.ts",
+      "line": 103,
+      "title": "Escape يغلق البحث",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "headquarters-auth-gate.spec.ts",
+      "line": 12,
+      "title": " /admin is a blank document and anonymous OTP status is not trusted",
+      "err": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/admin"
+    },
+    {
+      "file": "lawsuit-flow.spec.ts",
+      "line": 192,
+      "title": "Dashboard loads within 3 seconds",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "lawsuit-flow.spec.ts",
+      "line": 202,
+      "title": "File creation completes within 2 seconds",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "lawsuit-flow.spec.ts",
+      "line": 223,
+      "title": "Page has proper heading structure",
+      "err": "Error: expect(received).toBeGreaterThan(expected)"
+    },
+    {
+      "file": "lawsuit-flow.spec.ts",
+      "line": 240,
+      "title": "Forms have proper labels",
+      "err": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "file": "lawsuit-storage-lifecycle.spec.ts",
+      "line": 245,
+      "title": "trash → reload → restore → reload → permanent delete → reload",
+      "err": "Error: Error: expect(received).toContain(expected) // indexOf"
+    },
+    {
+      "file": "notifications-panel.spec.ts",
+      "line": 311,
+      "title": "فتح الإشعارات من الهيدر يغلق البحث الشامل",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "personal-status-journal-reload.spec.ts",
+      "line": 58,
+      "title": "journal overlay at boot survives reload and appears in archive",
+      "err": "Error: Durability overlays not cleared within 45000ms (pending=0, journal=2)"
+    },
+    {
+      "file": "personal-status-reload-durability.spec.ts",
+      "line": 27,
+      "title": "personal-status dossier survives full page reload",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "settings-shell.spec.ts",
+      "line": 199,
+      "title": "يفتح بزمن تفاعل مقبول (performance marks)",
+      "err": "Error: يجب تسجيل hami:settings:open-request و interactive"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 142,
+      "title": "يفتح من عنوان التقويم في الرئيسية ويعرض راداراً فارغاً",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 174,
+      "title": "محامٍ يضيف موعداً بعنوان ووقت وموقع فيظهر في اليوم",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 218,
+      "title": "رجوع يعيد الرئيسية وإعادة الفتح تحافظ على الموعد",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 276,
+      "title": "زر اليوم يعيد التركيز إلى تاريخ اليوم",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 310,
+      "title": "محامٍ يعدّل عنوان موعد محفوظ",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "tasks-live-user-audit.spec.ts",
+      "line": 122,
+      "title": "الأجندة: أيام الأسبوع، تحقق الإضافة، إلغاء، حفظ",
+      "err": "Test timeout of 180000ms exceeded while running \"afterEach\" hook."
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 65,
+      "title": "فتح التفاصيل من البطاقة والرجوع للقائمة",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 74,
+      "title": "Escape من التفاصيل يعود للقائمة",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 83,
+      "title": "التفاصيل تعرض التبويبات ومشاركة الإجراءات معطّلة بلا مهام",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 103,
+      "title": "البحث يعثر على المعاملة ويُفرغ النتائج عند لا تطابق",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 115,
+      "title": "فلاتر الحالة والأرشيف والمحذوفات",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 132,
+      "title": "أرشفة المعاملة واستعادتها من الأرشيف",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 145,
+      "title": "حذف المعاملة مع التأكيد ثم الاستعادة من المحذوفات",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 160,
+      "title": "إضافة مهمة من شاشة التفاصيل ثم تفعيل مشاركة الإجراءات",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 174,
+      "title": "إنهاء المعاملة يحوّلها للقراءة فقط ثم إعادة الفتح",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 227,
+      "title": "Escape يغلق ورقة إضافة المهمة",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 238,
+      "title": "تبويب المرفقات: إضافة مستمسك ثم ظهوره في القائمة",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 253,
+      "title": "تحديث الموكل يفتح نصاً جاهزاً للنسخ",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 264,
+      "title": "مسار المهام: إكمال المهمة مع رقم الصادر ثم ظهورها منجزة",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 282,
+      "title": "مشاركة الإجراءات تفتح الحوار بلا اسم الموكل",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 296,
+      "title": "متفرع يضيف مهمة فرعية ظاهرة في المسار",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 312,
+      "title": "تعديل المهمة من القائمة يحدّث العنوان",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 326,
+      "title": "حذف المهمة من القائمة يزيلها من المسار",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "urgent-dossier-open.spec.ts",
+      "line": 49,
+      "title": "urgent dossier opens from lawsuits workspace",
+      "err": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "file": "urgent-no-kv-storm.spec.ts",
+      "line": 42,
+      "title": "opening urgent tab and dossier triggers at most 3 kv-proxy calls",
+      "err": "TimeoutError: locator.click: Timeout 20000ms exceeded."
+    },
+    {
+      "file": "wife-api-smoke.spec.ts",
+      "line": 26,
+      "title": "wifeFetchGuard signs bare fetch() to protected /api route",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-api-smoke.spec.ts",
+      "line": 41,
+      "title": "app boot attempts signed CSRF bootstrap when session exists",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-api-smoke.spec.ts",
+      "line": 67,
+      "title": "protected forum GET is signed without depending on forum UI",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-live-server.spec.ts",
+      "line": 185,
+      "title": "fetch المحمي يُوقَّع من المتصفح حتى مع الواجهة مفتوحة",
+      "err": "Error: Timed out waiting for same-origin /api/public/healthz (15000ms)"
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 56,
+      "title": "لوحة المحامي تبقى، والقراءة اليومية تُوقَّع",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 73,
+      "title": "إعادة تحميل الصفحة — التوقيع يستمر",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 97,
+      "title": "5 طلبات متوازية — كلها موقّعة + nonce مختلف",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 119,
+      "title": "قراءتان متتاليتان بعد العودة للوحة — كل /api موقّع",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 134,
+      "title": "تحديث access_token (محاكاة refresh) — الطلب التالي موقّع",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 164,
+      "title": "بدون login — الطلب المحمي لا يخرج بلا توقيع",
+      "err": "Error: Timed out waiting for same-origin /api/public/healthz (15000ms)"
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 199,
+      "title": "زمن التوقيع في المتصفح — burst 5 under 10s client-side",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    },
+    {
+      "file": "wife-user-journey.spec.ts",
+      "line": 217,
+      "title": "لوحة المحامي تفتح مع وجود WIFE",
+      "err": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded."
+    }
+  ],
+  "flakyTests": [
+    {
+      "file": "execution-notes-persist.spec.ts",
+      "line": 36,
+      "title": "saves a note, shows it in vault, and reflects it in the dossier timeline"
+    },
+    {
+      "file": "forum-community.spec.ts",
+      "line": 116,
+      "title": "يفتح التعليقات من منشور التغذية"
+    },
+    {
+      "file": "notifications-panel.spec.ts",
+      "line": 335,
+      "title": "المنبثق يظهر للإشعار الوارد الجديد ويفتح اللوحة عند النقر"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 206,
+      "title": "نقر خلفية النموذج يلغي الإضافة دون حفظ"
+    },
+    {
+      "file": "smart-legal-radar.spec.ts",
+      "line": 401,
+      "title": "فتح المصدر لموعد دعوى موجود يخرج من التقويم إلى الإضبارة"
+    },
+    {
+      "file": "transactions-hub.spec.ts",
+      "line": 38,
+      "title": "يفتح ورقة الإضافة ويغلقها بـ Escape"
+    }
+  ]
+}
