@@ -322,10 +322,34 @@ export function commitRepositoryClose({
 }: CommitRepositoryCloseParams): void {
     repositoryOpenInFlight = false;
     repositoryOpenLoadSeq += 1;
+    /**
+     * جلسةُ هذا الإغلاق تُلتقط قبل التلاشي وتُقارن داخله.
+     *
+     * كان `repoShellActiveSessionIdRef.current = 0` يقع **بعد** استدعاء
+     * `beginHubLayerExit` مباشرةً، و`beginHubLayerExit` غير متزامن حين تكون الحركة
+     * مسموحة (`transitionend` أو مهلة ١٤٠+١٦ms). فحين يصل `onDone` يكون الحارسان في
+     * `conceal`/`commit` يقارنان جلسةً حيّة (١) بصفر فيخرجان، فلا يبلغ React خبرُ
+     * الإغلاق: `isRepositoryOpen` يبقى `true` إلى الأبد، ومعه قناعُ مكدّس التبويبات
+     * (`shouldMaskLawyerDashboardTabStack`) — فيبقى `#lawyer-dashboard-home-surface`
+     * بـ`inert` ومكدّس التبويبات بـ`display:none` بلا شيءٍ مفتوحٍ فوقهما.
+     *
+     * أمّا فتحٌ جديد أثناء التلاشي فمحميٌّ أصلاً — `commitRepositoryOpen` يستدعي
+     * `clearHubLayerClosing` فيُبطل جيلَ الخروج ولا يصل `onDone` أساساً (قيس: العطل
+     * أعلاه يسقط باختباره، وحالةُ إعادة الفتح تمرّ بالشفرة القديمة والجديدة معاً).
+     *
+     * النظير الصحيح في المستودع نفسه: `commitScheduleTabClose` يلتقط `activeShellId`
+     * قبل `beginHubLayerExit` ويقارن به داخله.
+     */
+    const closingShellId = repoShellActiveSessionIdRef.current;
+    const closeStillOwnsSession = () =>
+        repoShellActiveSessionIdRef.current === closingShellId &&
+        repoShellSessionIdRef.current === closingShellId;
+
     beginHubLayerExit(REPOSITORY_HUB_LAYER, () => {
+        const owned = closeStillOwnsSession();
         executeRepositoryOverlayClose({
             conceal: () => {
-                if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
+                if (!owned) return;
                 if (typeof document !== 'undefined') {
                     const modal = document.querySelector(REPOSITORY_MODAL_SELECTOR);
                     blurFocusWithin(modal instanceof HTMLElement ? modal : null);
@@ -333,7 +357,7 @@ export function commitRepositoryClose({
                 concealRepositoryWarmShell();
             },
             commit: () => {
-                if (repoShellSessionIdRef.current !== repoShellActiveSessionIdRef.current) return;
+                if (!owned) return;
                 flushSync(() => {
                     setIsRepositoryOpen(false);
                     setFocusNoteId(undefined);
@@ -343,8 +367,8 @@ export function commitRepositoryClose({
                 });
             },
         });
+        if (owned) repoShellActiveSessionIdRef.current = 0;
     });
-    repoShellActiveSessionIdRef.current = 0;
     try {
         void import('@/app/services/repository/tearDownRepoFloatingState').then(({ tearDownRepoFloatingState }) => {
             tearDownRepoFloatingState({ targetSurface: 'repository-shell', reason: 'unmount' });

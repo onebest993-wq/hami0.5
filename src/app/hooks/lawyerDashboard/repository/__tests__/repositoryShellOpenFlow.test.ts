@@ -4,6 +4,7 @@ import {
     consumeNativeBackForTests,
     resetNativeBackHandlersForTests,
 } from '@/app/runtime/nativeBackStack';
+import { HUB_LAYER_EXIT_MS, HUB_LAYER_EXIT_PAD_MS } from '@/app/runtime/overlayHubLayerMotion';
 
 const mocks = vi.hoisted(() => ({
     dismissMock: vi.fn(),
@@ -278,5 +279,70 @@ describe('repositoryShellOpenFlow', () => {
             }
         });
         expect(setIsRepositoryOpen).toHaveBeenCalledWith(false);
+    });
+
+    /**
+     * الاختبار أعلاه يُغلق بلا فتحٍ سابق، فيكون مُعرِّفا الجلسة صفرين ويمرّ الحارس
+     * مهما كان ترتيب التصفير. وبعد فتحٍ حقيقيّ — وهو وحده ما يقع في المنتج — كان
+     * التصفير المتزامن بعد `beginHubLayerExit` يبتلع الـcommit فلا يعلم React بالإغلاق.
+     */
+    it('commitRepositoryClose بعد فتحٍ حقيقي يصل React ولو تأخّر التلاشي', async () => {
+        vi.useFakeTimers();
+        try {
+            const { commitRepositoryOpen, commitRepositoryClose } = await import(
+                '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
+            );
+            /* طبقة حيّة في DOM — بدونها يستدعي beginHubLayerExit onDone فوراً فيختفي العطل */
+            const layer = document.createElement('div');
+            layer.setAttribute('data-testid', 'smart-repository-modal');
+            document.body.appendChild(layer);
+
+            const setIsRepositoryOpen = vi.fn();
+            commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+            expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
+
+            commitRepositoryClose({
+                setIsRepositoryOpen,
+                setFocusNoteId: vi.fn(),
+                setVaultOpenScanner: vi.fn(),
+                setRepositoryHostMounted: vi.fn(),
+            });
+
+            expect(setIsRepositoryOpen).not.toHaveBeenCalledWith(false);
+            await vi.advanceTimersByTimeAsync(HUB_LAYER_EXIT_MS + HUB_LAYER_EXIT_PAD_MS + 8);
+            expect(setIsRepositoryOpen).toHaveBeenCalledWith(false);
+            expect(mocks.concealMock).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('فتحٌ جديد أثناء التلاشي لا يُغلقه الإغلاق المعلّق', async () => {
+        vi.useFakeTimers();
+        try {
+            const { commitRepositoryOpen, commitRepositoryClose } = await import(
+                '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow'
+            );
+            const layer = document.createElement('div');
+            layer.setAttribute('data-testid', 'smart-repository-modal');
+            document.body.appendChild(layer);
+
+            const setIsRepositoryOpen = vi.fn();
+            commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+            commitRepositoryClose({
+                setIsRepositoryOpen,
+                setFocusNoteId: vi.fn(),
+                setVaultOpenScanner: vi.fn(),
+                setRepositoryHostMounted: vi.fn(),
+            });
+            commitRepositoryOpen(openArgs({ setIsRepositoryOpen }));
+
+            await vi.advanceTimersByTimeAsync(HUB_LAYER_EXIT_MS + HUB_LAYER_EXIT_PAD_MS + 8);
+            expect(setIsRepositoryOpen).not.toHaveBeenCalledWith(false);
+        } finally {
+            vi.useRealTimers();
+            document.body.innerHTML = '';
+        }
     });
 });
