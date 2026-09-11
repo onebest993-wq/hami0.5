@@ -28,7 +28,11 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # fetch-depth: 0 لأن guard:commit-conventions يمشي تاريخ الفرع. والاستنساخ
+      # الضحل الافتراضي يجعله يسقط برسالة صريحة بدل أن يتخطّى صامتاً.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # .nvmrc هو المصدر الوحيد للإصدار حتى لا ينحرف CI عن الإنتاج مرّة أخرى:
       # كان يعمل على 20 بينما engines وVercel على 24، فاختلفت نتائج ترتيب
@@ -42,6 +46,11 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       # الأرخص أولاً حتى يظهر الفشل الشائع بسرعة
+      # ومراجعةُ ٢٠٢٦-٠٩-١١ وجدت مخالفتين بالعين مرّتا شهوراً: بادئة خارج الستّ،
+      # وRevert بلا سبب ولا عبارة تجميد بصري. العين لا تتكرّر مع كل التزام؛ هذا يتكرّر.
+      - name: Commit conventions (CLAUDE.md §2)
+        run: npm run guard:commit-conventions
+
       - name: No new @ts-nocheck
         run: npm run guard:ts-nocheck
 
