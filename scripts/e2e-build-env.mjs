@@ -33,15 +33,18 @@ export function hamiBootScriptFingerprint() {
 }
 
 /**
- * بصمةُ المصدر الذي بُني منه `dist` — الالتزام **ومعه** ما يخالفه في شجرة العمل.
+ * بصمةُ **مُدخلات البناء** التي بُني منها `dist` — لا بصمةُ الالتزام.
  *
  * السبب مقيس: في ٢٠٢٦-٠٩-١١ أُرجع ملفّا إصلاحٍ إلى التزامٍ أقدم لتجربة A/B، ثمّ
  * بُني `dist`، ثمّ أُعيد الملفّان **بلا إعادة بناء**، وسُلّم ذلك الـ`dist` على أنّه
  * يمثّل `HEAD`. المواصفتان عليه: ٣ ساقطة/٦؛ وعلى بناءٍ من `HEAD`: ٩/٩. ولم يكن
- * `HEAD` قد تغيّر، فبصمة الالتزام وحدها كانت ستمرّ — ولذلك يدخل الفرق نفسه في
- * البصمة. (`.audit/REVIEW_REPORT_2026-09-11.md` F1)
+ * `HEAD` قد تغيّر، فبصمة الالتزام وحدها كانت ستمرّ.
+ * (`.audit/REVIEW_REPORT_2026-09-11.md` F1)
  *
- * لا تُستعمل إلا للمقارنة: إن اختلفت عمّا في الطابع فالـ`dist` لا يمثّل الشجرة.
+ * **ولا تُستعمل تجزئةُ الالتزام نفسها** — جُرّبت أوّلاً فكانت تُبطل `dist` سليماً
+ * تماماً بعد كلّ التزام وثائقي، فتفرض بناءً بلا سبب. البصمة الآن على **محتوى**
+ * مسارات البناء: تجزئة شجرة git لكلٍّ منها (لا تتغيّر بالتزامٍ لا يمسّها) مع فرق
+ * شجرة العمل عنها.
  */
 export function sourceFingerprint() {
     const paths = ['src', 'vite.config.mts', 'index.html', 'hq.html', 'public'];
@@ -52,11 +55,12 @@ export function sourceFingerprint() {
             return '';
         }
     };
-    const head = run(['rev-parse', 'HEAD']).trim();
-    /* الفرق عن HEAD في مسارات البناء — يشمل المرحَّل وغير المرحَّل */
+    /* تجزئة كائن الشجرة لكلّ مسار بناء — محتوىً لا تاريخ */
+    const trees = paths.map((p) => `${p}:${run(['rev-parse', `HEAD:${p}`]).trim()}`).join('\n');
+    /* والفرق عن HEAD في تلك المسارات — يشمل المرحَّل وغير المرحَّل */
     const diff = run(['diff', 'HEAD', '--', ...paths]);
     return {
-        commit: head || null,
+        sourceDigest: createHash('sha256').update(trees).digest('hex').slice(0, 16),
         worktreeDigest: createHash('sha256').update(diff).digest('hex').slice(0, 16),
         worktreeDirty: diff.length > 0,
     };

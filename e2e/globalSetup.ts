@@ -49,14 +49,16 @@ export default async function globalSetup(): Promise<void> {
     }
 
     /* طابعٌ من قبل إدخال البصمة — لا يُحاكم بما لم يكن يسجّله */
-    if (typeof stamp.commit !== 'string' || typeof stamp.worktreeDigest !== 'string') return;
+    if (typeof stamp.sourceDigest !== 'string' || typeof stamp.worktreeDigest !== 'string') return;
 
     const now = sourceFingerprint();
-    if (stamp.commit === now.commit && stamp.worktreeDigest === now.worktreeDigest) return;
+    if (stamp.sourceDigest === now.sourceDigest && stamp.worktreeDigest === now.worktreeDigest) {
+        return;
+    }
 
     const why =
-        stamp.commit !== now.commit
-            ? `الالتزام: بُني من ${String(stamp.commit).slice(0, 8)} والشجرة الآن ${String(now.commit).slice(0, 8)}`
+        stamp.sourceDigest !== now.sourceDigest
+            ? 'محتوى المصدر المُلتزَم تغيّر منذ آخر بناء'
             : 'شجرة العمل: تغيّر مصدرٌ في src/ أو إعدادات البناء بعد آخر بناء';
 
     throw new Error(
