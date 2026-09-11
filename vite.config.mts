@@ -973,6 +973,26 @@ function resolveLawyerHomeTabContentChunk(id: string): string | undefined {
   ) {
     return 'lawyer-home-tab-content'
   }
+  /**
+   * ربعُ المنتدى الحيّ يُفصل عن بلاطة الطلاء الفوري.
+   *
+   * القياس ٢٠٢٦-٠٩-١١ على إغلاق `LawyerDashboardInner`: من ٦٨ وحدة في
+   * `lawyer-home-forum-profile` تحتاج الشاشةُ الأولى ٢١ فقط (البلاطة والاسم
+   * والوجه والاحتياط). والباقي يدخل عبر `useForumTileProfileQuarterIdentity`
+   * و`profilePerfMetrics` فيجرّ خدمات المنتدى والخزنة والسحابة، ومعها
+   * `supabase-browser-client` → `vendor-supabase` و
+   * `execution-dashboard-persist-pipeline` وعنقودَه.
+   *
+   * ولأنّ استيراد الحزمة يُحمّل كلّ وحداتها، كانت الوحداتُ الإحدى والعشرون
+   * تدفع ثمن السبع والأربعين. الفصل يُبقي الطلاء الفوري وحده على المسار الساكن.
+   */
+  if (
+    /\/src\/app\/components\/lawyer\/dashboard\/forumProfile\/(ForumTileProfileQuarter|ForumTileProfileQuarterSlot|useForumTileProfileQuarterIdentity|pickForumTileProfilePaintState)\.(tsx|ts|js)$/.test(
+      normalized,
+    )
+  ) {
+    return 'lawyer-home-forum-profile-live'
+  }
   if (normalized.includes('/src/app/components/lawyer/dashboard/forumProfile/')) {
     return 'lawyer-home-forum-profile'
   }
@@ -1087,6 +1107,34 @@ function resolveSharedRuntimeLeafChunk(id: string): string | undefined {
   const normalized = normalizeModuleId(id)
   if (!normalized.includes('/src/')) return undefined
 
+  /**
+   * أوراق الطلاء الفوري لبلاطة المنتدى. القياس ٢٠٢٦-٠٩-١١: هذه الثماني تحتاجها
+   * الشاشة الأولى، وتبعاتُها كلّها مطلوبة مثلها — لكنّها بلا قاعدة، فسكنت في
+   * حزمة الربع الحيّ (٨ من ٥٥). فكانت الثماني تُبقي السبع والأربعين الأخرى على
+   * المسار الساكن، ومعها خدمات المنتدى والخزنة و`supabase-browser-client`.
+   * تُسمّى بالمجال لا بالمقياس اللحظي، حتى لا تفسد المجموعة إن تغيّر ما تحتاجه
+   * الشاشة لاحقاً.
+   */
+  if (
+    /\/src\/app\/components\/lawyer\/RoyalLawyerProfile\/components\/ProfileAvatarImage\.(tsx|ts|js)$/.test(normalized) ||
+    /\/src\/app\/hooks\/useProfileAvatarDisplaySrc\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/profile\/resolveProfileAvatarDisplaySrc\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/services\/profile\/profileMediaIdentity\.(ts|js)$/.test(normalized)
+  ) {
+    return 'profile-avatar-leaves'
+  }
+  if (
+    /\/src\/app\/runtime\/overlayController\.(ts|js)$/.test(normalized) ||
+    /\/src\/app\/runtime\/forumInstantPaint\.(ts|js)$/.test(normalized)
+  ) {
+    return 'overlay-instant-leaves'
+  }
+  if (/\/src\/app\/services\/forum\/forumNotificationEvents\.(ts|js)$/.test(normalized)) {
+    return 'forum-notification-events'
+  }
+  if (/\/src\/app\/services\/settings\/cloudSyncBucket\.(ts|js)$/.test(normalized)) {
+    return 'cloud-sync-bucket'
+  }
   if (/\/src\/app\/utils\/bffJsonResponse\.(ts|js)$/.test(normalized)) {
     return 'bff-json-leaf'
   }
