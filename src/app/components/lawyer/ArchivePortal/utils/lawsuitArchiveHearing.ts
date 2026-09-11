@@ -1,5 +1,5 @@
 import { FIRST_HEARING_TIMELINE_APPT_ID } from '@/app/domain/lawsuit/firstHearingTimelineId';
-import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+import type { CaseStage, TimelineEvent } from '@/app/domain/lawsuit/stageTimelineTypes';
 import { computeNextSessionNumber } from '@/app/components/lawyer/smart-modal/smartFile/sessionTimelineNumber';
 import { isDossierFinalized } from '@/app/components/lawyer/smart-modal/smartFile/dossierFinality';
 import {

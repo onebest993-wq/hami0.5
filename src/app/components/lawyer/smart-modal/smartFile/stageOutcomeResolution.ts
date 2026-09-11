@@ -1,4 +1,4 @@
-import type { StageOutcome } from '../../lawyerShared/stageTransitionMetadataTypes';
+import type { StageOutcome } from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 import type { FirstInstanceAppealAction, FirstInstanceAppealRights } from './firstInstanceAppealRightsTypes';
 import { resolveAbsentObjectionClientRole } from './absentJudgmentFlow';
 import { resolveClientMarkedParty } from './clientMarkedParty';

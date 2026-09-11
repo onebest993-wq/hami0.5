@@ -3,4 +3,4 @@
  * يُستورد من وحدة الأنواع لا من برميل `LawyerShared.tsx` حتى لا تعتمد الطبقة
  * المجال على React/UI.
  */
-export type { FileData } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
+export type { FileData } from '@/app/domain/lawsuit/fileDataTypes';

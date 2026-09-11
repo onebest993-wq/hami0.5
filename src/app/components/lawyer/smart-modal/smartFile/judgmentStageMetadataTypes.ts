@@ -1,6 +1,6 @@
 /**
  * مساعدات قراءة/كتابة metadata الطعn — smart-modal layer.
- * الأنواع الأساسية في lawyerShared/stageTransitionMetadataTypes.ts
+ * الأنواع الأساسية في domain/lawsuit/stageTransitionMetadataTypes.ts
  */
 export type {
     StageOutcome,
@@ -9,7 +9,7 @@ export type {
     FirstInstanceDegree,
     StageTransitionMetadata,
     AppealStageMetadata,
-} from '../../lawyerShared/stageTransitionMetadataTypes';
+} from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 
 export {
     STAGE_OUTCOMES,
@@ -20,7 +20,7 @@ export {
     isJudgmentFormType,
     isCourtJurisdiction,
     isFirstInstanceDegree,
-} from '../../lawyerShared/stageTransitionMetadataTypes';
+} from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 
 import type {
     AppealStageMetadata,
@@ -29,7 +29,7 @@ import type {
     JudgmentFormType,
     StageOutcome,
     StageTransitionMetadata,
-} from '../../lawyerShared/stageTransitionMetadataTypes';
+} from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 import {
     normalizePartyJudgmentDispositions,
     summarizePartyJudgmentForm,

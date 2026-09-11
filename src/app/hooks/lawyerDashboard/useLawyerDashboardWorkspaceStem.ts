@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLawsuitFilesState } from '@/app/hooks/useLawsuitFilesState';
-import type { FileData } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
+import type { FileData } from '@/app/domain/lawsuit/fileDataTypes';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type {
     LawyerDashboardWorkspaceStem,

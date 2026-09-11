@@ -1,5 +1,5 @@
 import type { CaseStage } from '../../LawyerShared';
-import type { StageOutcome, AppealStageMetadata } from '../../lawyerShared/stageTransitionMetadataTypes';
+import type { StageOutcome, AppealStageMetadata } from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 import { resolveClientMarkedParty } from './clientMarkedParty';
 import {
     isAppellantAppealRole,

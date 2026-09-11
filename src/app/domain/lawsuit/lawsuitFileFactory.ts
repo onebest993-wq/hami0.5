@@ -1,6 +1,6 @@
 import type { FileData } from './lawsuitFileTypes';
-import type { CaseType, Party } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
-import type { TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+import type { CaseType, Party } from '@/app/domain/lawsuit/fileDataTypes';
+import type { TimelineEvent } from '@/app/domain/lawsuit/stageTimelineTypes';
 import { FIRST_HEARING_TIMELINE_APPT_ID } from './firstHearingTimelineId';
 
 export { FIRST_HEARING_TIMELINE_APPT_ID };

@@ -1,5 +1,5 @@
 import type { FileData } from './lawsuitFileTypes';
-import type { Party } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
+import type { Party } from '@/app/domain/lawsuit/fileDataTypes';
 import { computeLawsuitStageOptions } from './lawsuitStageOptions';
 import { partitionPartiesBySide } from '@/app/components/lawyer/smart-modal/smartFile/partyRoleClassification';
 

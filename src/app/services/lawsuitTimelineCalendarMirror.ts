@@ -1,4 +1,4 @@
-import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+import type { CaseStage, TimelineEvent } from '@/app/domain/lawsuit/stageTimelineTypes';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync/incrementalSync';
 import {

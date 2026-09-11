@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { FileData } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
+import type { FileData } from '@/app/domain/lawsuit/fileDataTypes';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawsuitFileSegments } from '@/app/domain/lawsuit/lawsuitFileSegments';
 import type { LawsuitLifecycleCounts } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';

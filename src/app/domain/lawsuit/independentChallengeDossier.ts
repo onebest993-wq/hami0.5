@@ -10,8 +10,8 @@ import type {
     CaseLinkRecord,
     FileData,
     IndependentChallengeLink,
-} from '@/app/components/lawyer/lawyerShared/fileDataTypes';
-import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+} from '@/app/domain/lawsuit/fileDataTypes';
+import type { CaseStage, TimelineEvent } from '@/app/domain/lawsuit/stageTimelineTypes';
 import { isGhayabiObjectionAppealType } from '@/app/domain/lawsuit/challengeAppellantEligibility';
 import {
     classifyAbsentObjectionOutcome,

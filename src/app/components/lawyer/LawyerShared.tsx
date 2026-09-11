@@ -20,7 +20,7 @@ export {
     type CaseLinkRecord,
     type Party,
     type Alert,
-} from './lawyerShared/fileDataTypes';
+} from '@/app/domain/lawsuit/fileDataTypes';
 export {
     type EventType,
     type AppointmentType,
@@ -31,7 +31,7 @@ export {
     type ThirdParty,
     type CaseStage,
     type Task,
-} from './lawyerShared/stageTimelineTypes';
+} from '@/app/domain/lawsuit/stageTimelineTypes';
 export {
     type StageOutcome,
     type JudgmentFormType,
@@ -39,7 +39,7 @@ export {
     type FirstInstanceDegree,
     type StageTransitionMetadata,
     type AppealStageMetadata,
-} from './lawyerShared/stageTransitionMetadataTypes';
+} from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 export {
     type IncidentalType,
     type IncidentalStatus,
@@ -48,4 +48,4 @@ export {
     type AffiliationSide,
     type IncidentalFileLink,
     type IncidentalCase,
-} from './lawyerShared/incidentalTypes';
+} from '@/app/domain/lawsuit/incidentalTypes';

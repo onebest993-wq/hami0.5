@@ -14,7 +14,7 @@ import {
     isFirstInstanceDegree,
     isJudgmentFormType,
     isStageOutcome,
-} from '@/app/components/lawyer/lawyerShared/stageTransitionMetadataTypes';
+} from '@/app/domain/lawsuit/stageTransitionMetadataTypes';
 import { resolveCourtJurisdiction, resolveFirstInstanceDegree } from '../stageJurisdictionResolution';
 
 describe('judgmentStageMetadataTypes', () => {

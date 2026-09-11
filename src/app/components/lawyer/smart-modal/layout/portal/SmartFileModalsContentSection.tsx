@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import type { SmartFileModalsPortalProps } from './smartFileModalsPortalTypes';
-import type { TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+import type { TimelineEvent } from '@/app/domain/lawsuit/stageTimelineTypes';
 import { LazyEditCaseInfoModal, LazyFastTrackModal, LazyAttachmentShieldModal } from '../../lazySmartFileModalChunks';
 import type { SmartFileCaseFormData } from '../../smartFile/modalFormTypes';
 import { inferLawsuitTypeFromDocType } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
