@@ -98,6 +98,29 @@ function canAnnounceHappyPathUncover(): boolean {
     return isHomeGridRevealReady(grid);
 }
 
+/**
+ * الحدُّ يمنع الحبس، ولا يُخبر أحداً أنّه وقع. وبلا بلاغ يبقى السؤال الذي لم يُحسم
+ * بعدُ — هل يبلغ هذا الفرعَ مستخدمٌ حقيقي؟ — بلا جواب إلى الأبد.
+ *
+ * والاستيراد ديناميّ عمداً: عميل الرصد لا يدخل مسار الإقلاع لأجل فرعٍ نادر،
+ * ولا يُرمى ولا يُنتظَر. ولا يُرسَل معه معرّف ولا اسم ولا أيّ قيمة مستخدم —
+ * أعدادٌ وحالاتٌ فقط.
+ */
+function reportIdentityFuse(): void {
+    const profile = document.querySelector('[data-testid="home-dock-forum-profile"]');
+    void import('@/app/observability/sentryClient')
+        .then((m) =>
+            m.sentryCaptureMessage('boot-uncover:identity-fuse', {
+                waitedMs: BOOT_UNCOVER_WATCHDOG_MS,
+                profileTilePresent: profile instanceof HTMLElement,
+                identitySettled: profile instanceof HTMLElement
+                    ? profile.getAttribute('data-identity-settled')
+                    : null,
+            }),
+        )
+        .catch(() => undefined);
+}
+
 function armUncoverWatchdog(): void {
     if (watchdogArmed) return;
     watchdogArmed = true;
@@ -122,6 +145,7 @@ function armUncoverWatchdog(): void {
          */
         if (isWorthyBootSurface(document, { ignoreIdentitySettled: true })) {
             announceHomeMainGridPainted();
+            reportIdentityFuse();
         }
     }, BOOT_UNCOVER_WATCHDOG_MS);
 }

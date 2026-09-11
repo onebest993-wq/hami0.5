@@ -35,6 +35,10 @@ vi.mock('@/app/bootstrap/BootLaunchOrchestrator', () => ({
     beforeBootShellReveal: vi.fn(),
 }));
 
+vi.mock('@/app/observability/sentryClient', () => ({
+    sentryCaptureMessage: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock('@/app/runtime/deferredAppStyles', () => ({
     isDeferredAppStylesLoaded: () => true,
     ensureDeferredAppStylesLoaded: () => Promise.resolve(),
@@ -45,6 +49,7 @@ import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
 import { markBootRevealDone, notifyBootContentReady } from '@/app/bootstrap/bootReveal';
 import { markLawyerDashboardFirstTabOpenOnce } from '@/app/bootstrap/lawyerDashboardFirstTabMark';
 import { markDashboardInteractiveOnce } from '@/app/bootstrap/dashboardInteractiveMark';
+import { sentryCaptureMessage } from '@/app/observability/sentryClient';
 
 function mockRect(el: HTMLElement, width: number, height: number) {
     Object.defineProperty(el, 'getBoundingClientRect', {
@@ -78,6 +83,7 @@ describe('homeMainGridPaintGate', () => {
         vi.mocked(notifyBootContentReady).mockClear();
         vi.mocked(markLawyerDashboardFirstTabOpenOnce).mockClear();
         vi.mocked(markDashboardInteractiveOnce).mockClear();
+        vi.mocked(sentryCaptureMessage).mockClear();
         vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'setTimeout'] });
     });
 
@@ -178,6 +184,10 @@ describe('homeMainGridPaintGate', () => {
         window.dispatchEvent(new Event('hami:app-runtime-ready'));
         vi.advanceTimersByTime(50);
         expect(isHomeMainGridPainted()).toBe(true);
+
+        /* المسار السعيد لا يُشعل الفتيل، فلا بلاغ — وإلا صار البلاغ ضجيجاً لا إشارة */
+        await vi.runAllTimersAsync();
+        expect(sentryCaptureMessage).not.toHaveBeenCalled();
     });
 
     it('لا يكشف هيكل المركز مع بلاطات حية', async () => {
@@ -254,6 +264,12 @@ describe('homeMainGridPaintGate', () => {
         await vi.runAllTimersAsync();
         expect(removeStaticBootShell).toHaveBeenCalled();
         expect(markDashboardInteractiveOnce).toHaveBeenCalled();
+
+        /* الحدُّ يمنع الحبس ويُبلّغ عنه — وإلا بقي «هل يقع عند مستخدم حقيقي؟» بلا جواب */
+        expect(sentryCaptureMessage).toHaveBeenCalledWith(
+            'boot-uncover:identity-fuse',
+            expect.objectContaining({ identitySettled: '0', profileTilePresent: true }),
+        );
     });
 
     it('لا يكشف هيكل المركز بعد استقرار الارتفاع', () => {
