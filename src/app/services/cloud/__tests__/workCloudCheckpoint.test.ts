@@ -450,6 +450,50 @@ describe('restoreLastWorkCloudCheckpoint', () => {
         dispatch.mockRestore();
     });
 
+    /**
+     * الحزمة وصلت وفُكّ تشفيرها وفيها محتوى، ثم رُفضت كل كتابة محلية.
+     *
+     * هذا ليس فرضاً: النداء الوحيد الذي يراه المحامي يأتي من
+     * `dataCloudSyncToggle` بـ`onlyIfLocalEmpty` — أي على جهازٍ فارغ، وهو الموضع
+     * الذي يرفض فيه المخزن البارد الكتابة. وذلك الملفّ يقرأ `failed` ليُحذّر:
+     * فإن بقيت `false` مرّ فقدُ الاستعادة **بلا تحذير**، وهو أسوأ من فشلٍ معلن.
+     */
+    it('يُبلّغ عن الفشل حين تُرفض كل كتابة محلية — لا صمت', async () => {
+        const save = vi.mocked(persistenceRepository.save);
+        save.mockImplementation(() => {
+            throw new Error('cold store refused');
+        });
+        try {
+            const result = await restoreLastWorkCloudCheckpoint();
+            expect(result.applied).toBe(false);
+            expect(result.failed).toBe(true);
+        } finally {
+            /* clearAllMocks يمحو النداءات لا التنفيذ — بلا هذا يتسرّب الرمي لما بعده */
+            save.mockReset();
+        }
+    });
+
+    /**
+     * قرارٌ مقصود يُثبَّت هنا: الاستعادة الجزئية **فشلٌ يُبلَّغ عنه** لا نجاحٌ ناقص.
+     * محامٍ استُعيدت دعاواه وضاعت ملاحظاته يستحقّ أن يعرف، لا أن يرى «تمّ».
+     */
+    it('شريحة واحدة مرفوضة: يُطبَّق ما نجح ويبقى failed صادقة', async () => {
+        const merge = vi.mocked(applyLawsuitMonolithicMergeToSegments);
+        merge.mockImplementation(() => {
+            throw new Error('segments refused');
+        });
+        try {
+            const result = await restoreLastWorkCloudCheckpoint();
+            expect(result.lawsuits).toBe(0);
+            expect(result.execution).toBe(1);
+            expect(result.notes).toBe(1);
+            expect(result.applied).toBe(true);
+            expect(result.failed).toBe(true);
+        } finally {
+            merge.mockReset();
+        }
+    });
+
     it('يستعيد المواعيد من الحزمة المشفّرة عبر /api/work-checkpoints لا KV', async () => {
         const calPayload = {
             ...payload,

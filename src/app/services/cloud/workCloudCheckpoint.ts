@@ -367,6 +367,23 @@ export function scheduleWorkCloudCheckpoint(): void {
     }, DEBOUNCE_MS);
 }
 
+/**
+ * التحذير يصل المحامي، والبلاغ يقول **أيّ** شريحة رُفضت — وبلا الثاني نعرف أنّ
+ * استعادةً فشلت ولا نعرف أين. أرقامٌ وأسماءُ شرائح فقط: لا معرّف ولا محتوى (§١٩).
+ * والاستيراد ديناميّ كي لا يدخل عميلُ الرصد مسارَ الاستعادة لأجل فرعٍ نادر.
+ */
+function reportRefusedSlices(slices: string[], applied: boolean): void {
+    void import('@/app/observability/sentryClient')
+        .then((m) =>
+            m.sentryCaptureMessage('work-checkpoint-restore:slices-refused', {
+                slices: slices.join(','),
+                refusedCount: slices.length,
+                partial: applied,
+            }),
+        )
+        .catch(() => undefined);
+}
+
 async function applyWorkCloudCheckpointPayload(
     payload: WorkCloudCheckpointPayload,
 ): Promise<RestoreWorkCheckpointResult> {
@@ -375,6 +392,19 @@ async function applyWorkCloudCheckpointPayload(
     const notes = payload.notes;
     const calendar = payload.calendar;
     const restoredKeys: string[] = [];
+    /**
+     * الشرائح التي رُفضت كتابتها. كانت الكتل الأربع تبتلع الخطأ و`failed` تُكتب
+     * `false` دائماً — فاستعادةٌ وصلت وفُكّ تشفيرها ثم رُفضت كل كتابةٍ محلية كانت
+     * تُعيد `{applied:false, failed:false}`: لا تُميَّز عن «لا نسخة هناك».
+     *
+     * وذلك يصمت في الموضع الأسوأ: النداء الوحيد الذي يراه المحامي يأتي من
+     * `dataCloudSyncToggle` بـ`onlyIfLocalEmpty` — أي على جهازٍ فارغ، حيث المخزن
+     * بارد وقد يرفض. وذلك الملفّ يقرأ `failed` ليُحذّر، فكان التحذير لا يظهر.
+     *
+     * ولا تُبدَّل الكتل بـ`throw`: «شريحة أخرى قد تنجح» قرارٌ صحيح — استعادةٌ جزئية
+     * خيرٌ من لا شيء. الجديد أن يُقال إنّها جزئية.
+     */
+    const refusedSlices: string[] = [];
     let lawsuitsApplied = 0;
     let executionApplied = 0;
     let notesApplied = 0;
@@ -399,7 +429,7 @@ async function applyWorkCloudCheckpointPayload(
                 lawsuitsApplied = stripped.length;
             }
         } catch {
-            /* شريحة أخرى قد تنجح */
+            refusedSlices.push('lawsuits');
         }
     }
     if (execution.length > 0) {
@@ -410,7 +440,7 @@ async function applyWorkCloudCheckpointPayload(
             restoredKeys.push(executionKey);
             executionApplied = execution.length;
         } catch {
-            /* شريحة أخرى قد تنجح */
+            refusedSlices.push('execution');
         }
     }
     if (notes.length > 0) {
@@ -419,7 +449,7 @@ async function applyWorkCloudCheckpointPayload(
             restoredKeys.push(STORAGE_KEYS.LAWYER_NOTES);
             notesApplied = notes.length;
         } catch {
-            /* شريحة أخرى قد تنجح */
+            refusedSlices.push('notes');
         }
     }
     if (calendar.length > 0 || Object.keys(payload.calendarTombstones).length > 0) {
@@ -434,7 +464,8 @@ async function applyWorkCloudCheckpointPayload(
             restoredKeys.push(CALENDAR_EVENTS_STORAGE_KEY);
             calendarSliceApplied = true;
         } catch {
-            /* التقويم لا يُلغي استعادة الإضابير التي كُتبت أعلاه */
+            /* لا يُلغي ما كُتب أعلاه — لكنه يُعدّ رفضاً يُبلَّغ عنه */
+            refusedSlices.push('calendar');
         }
     }
     if (typeof window !== 'undefined' && restoredKeys.length > 0) {
@@ -444,18 +475,20 @@ async function applyWorkCloudCheckpointPayload(
             }),
         );
     }
+    const applied =
+        lawsuitsApplied > 0 ||
+        executionApplied > 0 ||
+        notesApplied > 0 ||
+        calendarCount > 0 ||
+        calendarSliceApplied;
+    if (refusedSlices.length > 0) reportRefusedSlices(refusedSlices, applied);
     return {
-        applied:
-            lawsuitsApplied > 0 ||
-            executionApplied > 0 ||
-            notesApplied > 0 ||
-            calendarCount > 0 ||
-            calendarSliceApplied,
+        applied,
         lawsuits: lawsuitsApplied,
         execution: executionApplied,
         notes: notesApplied,
         calendar: calendarCount,
-        failed: false,
+        failed: refusedSlices.length > 0,
     };
 }
 
