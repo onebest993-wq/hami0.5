@@ -29,8 +29,13 @@ const mocks = vi.hoisted(() => {
         },
         markPhaseMock: markPhaseMockImpl,
         reportPerfMock: reportPerfMockImpl,
+        tearDownMock: vi.fn(),
     };
 });
+
+vi.mock('@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState', () => ({
+    tearDownForumFloatingState: mocks.tearDownMock,
+}));
 
 vi.mock('@/app/services/forum/forumCommunityRuntime', () => ({
     CommunityDB: {
@@ -137,6 +142,29 @@ describe('useForumLifecycle — session guard + hadLocalCache reset', () => {
         expect(mocks.reportPerfMock).toHaveBeenCalledTimes(1);
         expect(mocks.markPhaseMock).toHaveBeenCalledWith('first-paint');
         expect(mocks.markPhaseMock).toHaveBeenCalledWith('interactive');
+    });
+
+    /**
+     * وصولُ المنشورات لا يُغلق الطبقة التي تعرضها.
+     *
+     * أثرُ القياس تبعيّاته `[isOpen, userId, visiblePostCount]`، وتنظيفُه كان يستدعي
+     * `tearDownForumFloatingState` — وهو يُخفي `forum-overlay-host` وينزع
+     * `data-hami-forum-open`. فأوّلُ تغيّرٍ في عدد المنشورات بعد الطلاء الأوّل كان
+     * يُغلق المنتدى وهو مفتوح. قيس في E2E: فتحٌ عند ١٫١ث، ووصولُ البطاقات وإغلاقُ
+     * الطبقة في الإطار نفسه عند ٢٣٫٣ث.
+     */
+    it('تغيّر visiblePostCount لا يُفكّك حالة المنتدى العائمة', () => {
+        const { rerender } = renderHook(
+            ({ isOpen, visiblePostCount }) =>
+                useForumLifecycle('u1', false, visiblePostCount, isOpen),
+            { initialProps: { isOpen: true as boolean, visiblePostCount: 0 } },
+        );
+
+        expect(mocks.tearDownMock).not.toHaveBeenCalled();
+
+        rerender({ isOpen: true, visiblePostCount: 2 });
+
+        expect(mocks.tearDownMock).not.toHaveBeenCalled();
     });
 
     it('stale CommunityDB promise من جلسة مغلقة لا يكتب hadLocalCache للجلسة الحالية (cross-session guard)', async () => {

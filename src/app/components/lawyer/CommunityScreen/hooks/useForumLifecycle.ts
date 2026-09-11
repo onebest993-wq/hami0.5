@@ -6,7 +6,6 @@ import {
 } from '@/app/services/forum/forumPerfMetrics';
 import { peekForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 import { sortCommunityPosts } from '@/app/services/cloud/lawyerCommunityCloud';
-import { tearDownForumFloatingState } from '@/app/components/lawyer/CommunityScreen/tearDownForumFloatingState';
 
 let forumOpenFlowSessionCounter = 0;
 let lastActiveForumLifecycleId = 0;
@@ -92,10 +91,25 @@ export function useForumLifecycle(
         });
 
         void currentSessionId;
+        /*
+         * لا `tearDownForumFloatingState` هنا.
+         *
+         * تبعيّات هذا الأثر تشمل `visiblePostCount`، فتنظيفُه يعمل عند أوّل تغيّرٍ في
+         * عدد المنشورات — أي عند **وصولها**. وكان يستدعي التفكيك، وهو يُخفي
+         * `forum-overlay-host` وينزع `data-hami-forum-open`: فالطبقة تُغلق نفسها في
+         * اللحظة التي تعرض فيها محتواها. قيس في E2E: فتحٌ عند ١٫١ث، ثم وصولُ البطاقات
+         * وإغلاقُ الطبقة في الإطار نفسه عند ٢٣٫٣ث، بلا لمسةٍ من أحد.
+         *
+         * وهذا أثرُ قياسٍ لا مالكَ دورةِ حياة. والتفكيك مملوكٌ حيث يجب:
+         * `commitCommunityClose` عند الإغلاق، و`LawyerDashboardCommunityOverlayEntry`
+         * عند تفكيك المضيف، و`CommunityErrorBoundary` عند الانهيار،
+         * و`resetLawyerSessionUiForIdentityChange` عند تبديل الهوية.
+         *
+         * دخل السطر في commit التجميع `065d18a2` بلا تعليل — كنظيره في مسار المستودع.
+         */
         return () => {
             if (activeSessionIdRef.current === currentSessionId) {
                 activeSessionIdRef.current = 0;
-                tearDownForumFloatingState(currentSessionId);
             }
         };
     }, [isOpen, userId, visiblePostCount]);
