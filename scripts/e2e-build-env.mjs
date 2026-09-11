@@ -3,6 +3,7 @@
  * متغيّرات بناء Vite لبوابات E2E — يحقن هوية Supabase من info.ts (تطوير/اختبار)
  * حتى لا يرفض clientEnv الإقلاع في حزمة production preview.
  */
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,6 +30,36 @@ export function readDevSupabaseFromInfoTs() {
 export function hamiBootScriptFingerprint() {
     const boot = path.join(ROOT, 'public', 'hami-boot.js');
     return createHash('sha256').update(fs.readFileSync(boot)).digest('hex').slice(0, 16);
+}
+
+/**
+ * بصمةُ المصدر الذي بُني منه `dist` — الالتزام **ومعه** ما يخالفه في شجرة العمل.
+ *
+ * السبب مقيس: في ٢٠٢٦-٠٩-١١ أُرجع ملفّا إصلاحٍ إلى التزامٍ أقدم لتجربة A/B، ثمّ
+ * بُني `dist`، ثمّ أُعيد الملفّان **بلا إعادة بناء**، وسُلّم ذلك الـ`dist` على أنّه
+ * يمثّل `HEAD`. المواصفتان عليه: ٣ ساقطة/٦؛ وعلى بناءٍ من `HEAD`: ٩/٩. ولم يكن
+ * `HEAD` قد تغيّر، فبصمة الالتزام وحدها كانت ستمرّ — ولذلك يدخل الفرق نفسه في
+ * البصمة. (`.audit/REVIEW_REPORT_2026-09-11.md` F1)
+ *
+ * لا تُستعمل إلا للمقارنة: إن اختلفت عمّا في الطابع فالـ`dist` لا يمثّل الشجرة.
+ */
+export function sourceFingerprint() {
+    const paths = ['src', 'vite.config.mts', 'index.html', 'hq.html', 'public'];
+    const run = (args) => {
+        try {
+            return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+        } catch {
+            return '';
+        }
+    };
+    const head = run(['rev-parse', 'HEAD']).trim();
+    /* الفرق عن HEAD في مسارات البناء — يشمل المرحَّل وغير المرحَّل */
+    const diff = run(['diff', 'HEAD', '--', ...paths]);
+    return {
+        commit: head || null,
+        worktreeDigest: createHash('sha256').update(diff).digest('hex').slice(0, 16),
+        worktreeDirty: diff.length > 0,
+    };
 }
 
 /** علامات حزمة E2E داخل HTML — المصدر الوحيد للحقيقة */
