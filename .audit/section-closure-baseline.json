@@ -1,0 +1,45 @@
+{
+  "capturedAt": "2026-09-12T19:11:31.515Z",
+  "entries": [
+    {
+      "entry": "CriminalDashboard",
+      "chunks": 136,
+      "kb": 2930
+    },
+    {
+      "entry": "CommunityScreen",
+      "chunks": 120,
+      "kb": 2531
+    },
+    {
+      "entry": "CommunityScreenContent",
+      "chunks": 119,
+      "kb": 2523
+    },
+    {
+      "entry": "forumApiService",
+      "chunks": 86,
+      "kb": 2289
+    },
+    {
+      "entry": "LawyerDashboardInner",
+      "chunks": 133,
+      "kb": 1572
+    },
+    {
+      "entry": "LawyerDashboardMainView",
+      "chunks": 102,
+      "kb": 1371
+    },
+    {
+      "entry": "ScheduleTabHost",
+      "chunks": 57,
+      "kb": 870
+    },
+    {
+      "entry": "boot (index.html)",
+      "chunks": 11,
+      "kb": 279
+    }
+  ]
+}
