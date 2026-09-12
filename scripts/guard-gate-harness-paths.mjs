@@ -16,6 +16,23 @@
  * حرفيٌّ عمداً (Actions لا يدعم مراسي YAML)، وقد اختلفتا مرّةً فاختلف سلوك البوّابة
  * بين الدفع وطلب الدمج بلا سببٍ معلَن.
  *
+ * ── ما يُغطّيه فعلاً، بعد أن شُحن بوصفٍ أوسع منه ───────────────────────────────
+ * شُحن هذا الملفّ موصوفاً بأنّه «مُختبَرٌ سلباً»، وكان ذلك صحيحاً في حالتين فقط —
+ * الحالتين اللتين وُضع لهما. ووجدته مراجعةٌ مستقلّة (F3) يمرّ كاذباً في صيغٍ صالحة،
+ * وجذرُها واحد: **محلّلٌ يُنتج فراغاً حين لا يفهم، ومنطقٌ يُخطّي الفراغ**.
+ * أُغلقت خمسٌ، ولكلٍّ اختبارٌ سلبيّ في
+ * `src/app/__tests__/gateHarnessPathsGuardTeeth.test.ts` يسقط إن عاد العطل:
+ *   ١ · `- "x"` بالاقتباس المزدوج      ٢ · `- x` بلا اقتباس
+ *   ٣ · `run: |` متعدّد الأسطر          ٤ · Playwright بلا خطوة `playwright install`
+ *   ٥ · `- run: …` خطوةٌ بلا اسم (انكشفت أثناء كتابة الاختبار، ولم تكن في القائمة)
+ * **والقاعدة التي تحكمها جميعاً:** `paths:` مُعلَنةٌ ولم يُقرأ منها مُدخل = تحليلٌ
+ * تعذّر ⇒ **FAIL**، لا تخطٍّ. فالتعذُّر ليس نجاحاً (CLAUDE.md §٣).
+ *
+ * ── وما لا يُغطّيه، ليُقال قبل أن يُكتشف ────────────────────────────────────────
+ * `paths-ignore:` لا يُفحص البتّة — سير عملٍ يستثني عُدّته بهذا الطريق يمرّ.
+ * ومراسي YAML، والوثائق المتعدّدة، و`on:` بالصيغة الانسيابية — لا يفهمها المحلّل؛
+ * لكنّها تسقط الآن بقاعدة «المُعلَن غير المقروء يُفشل» بدل أن تُخطّى.
+ *
  *   node scripts/guard-gate-harness-paths.mjs
  */
 
@@ -69,6 +86,7 @@ function importClosure(entries, pkgScripts) {
 function triggerPaths(text, trigger) {
     const lines = text.split(/\r?\n/);
     const out = [];
+    let declared = false;
     let inTrigger = false;
     let inPaths = false;
     for (const line of lines) {
@@ -81,24 +99,60 @@ function triggerPaths(text, trigger) {
             inPaths = false;
         }
         if (!inTrigger) continue;
-        if (/^\s{4}paths:\s*$/.test(line)) {
-            inPaths = true;
+        /* `paths:` وحدها أو ومعها محتوىً على السطر (تسلسلٌ انسيابيّ) — كلتاهما إعلان. */
+        if (/^\s{4}paths:/.test(line)) {
+            declared = true;
+            inPaths = /^\s{4}paths:\s*$/.test(line);
             continue;
         }
         if (!inPaths) continue;
-        const item = line.match(/^\s{6}-\s*'([^']+)'/);
-        if (item) out.push(item[1]);
-        else if (/^\s{6}#/.test(line)) continue;
+        if (/^\s{6}#/.test(line)) continue;
+        /*
+         * ثلاث صيغٍ صالحة في YAML:  - 'x'  ·  - "x"  ·  - x
+         * وكان يُقرأ الأوّل وحده، فقائمةٌ بالاقتباس المزدوج تُقرأ **صفراً** فتُخطّى
+         * البوّابة كلّها بلا أن يقول أحدٌ شيئاً.
+         */
+        const item = line.match(/^\s{6}-\s+(?:'([^']*)'|"([^"]*)"|([^#\s][^#]*?))\s*(?:#.*)?$/);
+        if (item) out.push((item[1] ?? item[2] ?? item[3]).trim());
         else if (/^\s{4}\S/.test(line)) inPaths = false;
     }
-    return { paths: out };
+    return { declared, paths: out };
 }
 
 /**
  * أوامر خطوات سير العمل وحدها — لا نصّه كلّه. فالتعليق الذي يذكر `playwright.config.ts`
  * ليس استعمالاً لـPlaywright، وتمييزُ الأمر من الكلام يمنع مطالبةً بلا سبب.
  */
-const runCommands = (text) => [...text.matchAll(/^\s*run:\s*(.+)$/gm)].map((m) => m[1].trim());
+function runCommands(text) {
+    const lines = text.split(/\r?\n/);
+    const out = [];
+    for (let i = 0; i < lines.length; i += 1) {
+        /* تعليقٌ يذكر `run:` ليس أمراً — والتمييز مقصودٌ منذ النسخة الأولى. */
+        if (/^\s*#/.test(lines[i])) continue;
+        /*
+         * `run:` أينما وقع في السطر — فصيغة `- run: …` (خطوةٌ بلا اسم) كانت تُفلت
+         * من `^\s*run:` كلّها، وهي صيغةٌ شائعة وصالحة.
+         */
+        const keyCol = lines[i].search(/(?<![\w-])run:/);
+        if (keyCol < 0) continue;
+        const rest = lines[i].slice(keyCol + 4).trim();
+        /* أمرٌ أحاديّ السطر. */
+        if (rest && !/^[|>][-+]?\d*$/.test(rest)) {
+            out.push(rest);
+            continue;
+        }
+        /*
+         * كتلة `run: |` — وكانت تُقرأ «|» وحدها فتضيع كلّ أوامرها. وهذا يكفي وحده
+         * لإخفاء سكربتٍ كاملٍ عن الفحص: خطوةٌ متعدّدة الأسطر = خطوةٌ بلا مُدخلات.
+         */
+        for (let j = i + 1; j < lines.length; j += 1) {
+            if (!lines[j].trim()) continue;
+            if (lines[j].search(/\S/) <= keyCol) break;
+            out.push(lines[j].trim());
+        }
+    }
+    return out;
+}
 
 /** أوامر الخطوات → ملفّات سكربت حقيقية على القرص. */
 function entryScripts(commands, pkgScripts) {
@@ -145,13 +199,42 @@ for (const name of readdirSync(WORKFLOWS)) {
         }
     }
 
-    // بلا مرشّح مسارات → تعمل على كلّ دفعة، فلا عمى ممكن.
-    if (!push.paths.length && !pull.paths.length) continue;
+    // بلا إعلان `paths:` أصلاً → تعمل على كلّ دفعة، فلا عمى ممكن.
+    if (!push.declared && !pull.declared) continue;
+
+    /*
+     * أُعلنت `paths:` ولم يُقرأ منها مُدخلٌ واحد ⇒ **تحليلٌ تعذّر، لا مرشّحٌ فارغ**.
+     * وكان هذا مخرجَ الحارس الأوسع: أيّ صيغةٍ لا يفهمها المحلّل تُنتج قائمةً فارغة،
+     * والفارغةُ كانت تُخطَّى فتمرّ البوّابة خضراء. **والتعذُّر ليس نجاحاً** (CLAUDE.md §٣).
+     */
+    let parseFailed = false;
+    for (const [trigger, block] of [
+        ['push', push],
+        ['pull_request', pull],
+    ]) {
+        if (block.declared && !block.paths.length) {
+            problems.push(
+                `${name}: أُعلنت \`paths:\` تحت \`${trigger}\` ولم يُقرأ منها مُدخلٌ واحد — ` +
+                    `صيغةٌ لا يفهمها هذا المحلّل (تسلسلٌ انسيابيّ؟ مرساة؟). ` +
+                    `لا تُخطّى: التحليلُ المتعذّر ليس نجاحاً`,
+            );
+            parseFailed = true;
+        }
+    }
+    if (parseFailed) continue;
     audited += 1;
 
     const commands = runCommands(text);
     const entries = entryScripts(commands, pkgScripts);
-    const usesPlaywright = commands.some((cmd) => /\bplaywright\b/i.test(cmd));
+    /*
+     * كان يُقرأ من نصّ الخطوات وحده، فحذفُ خطوة `playwright install` يُسقط الفحص كلّه
+     * عن عُدّة Playwright. يُقرأ الآن من **إغلاق السكربتات** أيضاً: مَن يشغّل Playwright
+     * برمجياً يمرّ بعُدّته وإن لم تُذكر في أيّ خطوة.
+     */
+    const baseClosure = importClosure(entries, pkgScripts);
+    const usesPlaywright =
+        commands.some((cmd) => /\bplaywright\b/i.test(cmd)) ||
+        baseClosure.some((f) => /\bplaywright\b/i.test(readFileSync(join(ROOT, f), 'utf8')));
     const inputs = importClosure(
         [...entries, ...(usesPlaywright ? PLAYWRIGHT_HARNESS : [])],
         pkgScripts,
