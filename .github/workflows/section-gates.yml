@@ -1,0 +1,93 @@
+name: Section Gates
+
+# ستّ عشرة بوّابةَ إنتاجٍ مكتوبةً بالكامل لم يكن يستدعيها شيء تلقائياً — لا أمرُ npm
+# في سير عمل، ولا غلافٌ موصول: `release:check:*` يستدعي أحد عشر منها ولا سير عملٍ
+# يستدعيه، و`run-all-10-section-gates.mjs` يستدعي عشراً ولا أمر npm له. فكانت تعمل
+# فقط إن تذكّر إنسانٌ تشغيلها. وهذه هي العلّة نفسها التي كُتب `guard:ci-covers-guards`
+# لمنعها، في فضاء أسماءٍ لا يراه: هو يفرضها على `guard:*` وحدها لا على `gate:*`.
+#
+# **ولا مُشغِّل `push` ولا `pull_request` هنا عمداً.** وصلُ ستّ عشرة بوّابةً — أكثرها
+# يبني ويُشغّل Playwright — بكلّ دفعة يضاعف زمنها ويحجب العمل. فالمُشغِّل يدويٌّ
+# ومجدوَل: تعمل وتُبلِّغ، ولا تمنع التزاماً واحداً.
+#
+# ولا `continue-on-error`: ما دامت لا تحجب شيئاً، فإخفاءُ حمرتها خلف أخضرَ كاذب
+# يُعيدها إلى ما كانت عليه — مكتوبةً ولا تقول شيئاً. تُترك تصدق.
+#
+# **ملاحظة تشغيلية تُقال بصراحة:** `schedule` **و**`workflow_dispatch` كلاهما لا يُتاح
+# إلا لملفٍّ على الفرع الافتراضي — الجدولُ لا يعمل من فرعٍ جانبيّ، وزرّ التشغيل اليدويّ
+# لا يظهر في صفحة Actions أصلاً حتى يصل الملفّ إلى `main`. فهذا الملفّ **ساكنٌ حتى
+# يُدمج**، وهذا مقصود: وصلُها الآن بمُشغِّل دفعٍ كان سيُبطئ كلّ التزامٍ في فرع العمل.
+# وعند الدمج تصير حيّةً بلا تعديلٍ آخر.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # الاثنين ٠٣:٠٠ UTC — أسبوعيّ: يكفي لكشف انحدارٍ ولا يُغرق السجلّ.
+    - cron: '0 3 * * 1'
+
+concurrency:
+  group: section-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: ${{ matrix.section }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - section: auth-onboarding
+            run: npm run gate:auth-onboarding
+          - section: calendar
+            run: npm run gate:calendar
+          - section: core-boot
+            run: node scripts/core-boot-production-gate.mjs
+          - section: forum
+            run: npm run gate:forum
+          - section: global-search
+            run: npm run gate:global-search
+          - section: headquarters
+            run: npm run gate:hq
+          - section: home-hub
+            run: npm run gate:homeHub
+          - section: legal
+            run: npm run gate:legal
+          - section: litigation
+            run: node scripts/litigation-production-gate.mjs
+          - section: notifications
+            run: npm run gate:notifications
+          - section: operations
+            run: node scripts/operations-production-gate.mjs
+          - section: profile
+            run: npm run gate:profile
+          - section: repository
+            run: npm run gate:repository
+          - section: settings
+            run: npm run gate:settings
+          - section: tasks
+            run: npm run gate:tasks
+          - section: wife
+            run: npm run gate:wife-production
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # يُثبَّت للجميع بلا تمييز: بوّابةٌ تحتاجه ولا تجده تسقط سقوطاً كاذباً،
+      # وتمييزُ من يحتاجه يتقادم صامتاً مع كلّ تعديلٍ في مشغّلات البوّابات.
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: ${{ matrix.section }} production gate
+        run: ${{ matrix.run }}
