@@ -115,10 +115,15 @@ npx playwright test e2e/smart-repository.spec.ts e2e/notepad-modal.spec.ts e2e/s
 - `guard:lawyer-inner-weight` — ٥٢٧٫٨ ك.ب مقابل ميزانية ٢٢٠.
 - `guard:first-open-shared-tax`.
 
-كلاهما مسجَّل في [`HANDOFF-2026-09-10.md`](HANDOFF-2026-09-10.md) سطر ١٩١ بوصفهما
-«حمراوان وموروثان»، والثاني موصوفٌ في `27-FINAL-DEEP-ARCH-NUCLEUS-VERIFICATION.txt`
-بأنّه مقايضة مقصودة. **وكلاهما يعمل في CI بلا `continue-on-error`** — أي أنّ أوّل
-تشغيل CI لهذا الفرع سيحمرّ، ويُعرف سببه سلفاً.
+وكلاهما موصوفٌ في ملفٍّ **متتبَّع** —
+[`27-FINAL-DEEP-ARCH-NUCLEUS-VERIFICATION.txt`](27-FINAL-DEEP-ARCH-NUCLEUS-VERIFICATION.txt)
+السطران ١٩٢ و٢١٢ — بالنصّ نفسه: `FAIL (INTENTIONAL TRADE-OFF, NOT A BUG)`.
+**وكلاهما يعمل في CI بلا `continue-on-error`** — أي أنّ أوّل تشغيل CI لهذا الفرع
+سيحمرّ، ويُعرف سببه سلفاً.
+
+> **تصويب ٢٠٢٦-٠٩-١٢:** كان هذا السطر يستشهد بـ`HANDOFF-2026-09-10.md` سطر ١٩١، وذلك
+> الملفّ **غير متتبَّع** — فالاستشهاد يصحّ على قرصي ولا يصحّ لأحدٍ غيري. أُعيد ربطه
+> بدليلٍ متتبَّع يقول الشيء نفسه عن **كليهما** لا عن أحدهما.
 
 ### ٤·٢ عنقود بطاقة التنبيهات — **٥ حمراء، وليست من عملي: قيس بالضبط**
 
