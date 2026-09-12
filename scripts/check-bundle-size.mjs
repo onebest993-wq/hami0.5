@@ -86,11 +86,37 @@ function findEntry(files) {
 
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'dist', 'index.html'), 'utf8');
 
-    const match = indexHtml.match(/src="\/assets\/(index-[^"]+\.js)"/);
+    /**
+     * **مدخل Vite في هذا المشروع اسمه `main-*.js` لا `index-*.js`.**
+     *
+     * وكانت الصيغة تشترط `index-` ثمّ **تسقط إلى أيّ حزمةٍ تبدأ بذلك الاسم** — وفي
+     * `dist` حزمةٌ تافهة اسمها `index-*.js` (٢٫٤ ك.ب) لا علاقة لها بالإقلاع. فكان
+     * «المسار الحرج» إغلاقَ تلك الحزمة العشوائية:
+     *
+     *     المدخل الحقيقيّ `main-*`   : ١١ ملفاً ·  ٢٧٩ ك.ب خام ·  **٨٩ ك.ب مضغوطة**
+     *     الاحتياطيّ `index-*`       : ١٠٧ ملفاً · ٢٬٤١٧ ك.ب خام · **٧٤٣ ك.ب مضغوطة**   (الحدّ ٣٢٠)
+     *
+     * ولأنّ اسم تلك الحزمة وبصمتها يتغيّران بين الأبنية، كان الحارس **يتذبذب بين
+     * `OK` و`FAIL` على مصدرٍ واحد** — قيس: مرّ في بناء، وسقط في التالي، بلا تغيير حرف.
+     * فهو لم يكن يحرس الإقلاع، ولا كان حكمه ثابتاً.
+     *
+     * **والصيغة الآن تأخذ المدخل من وسم الوحدة نفسه** (`type="module"`)، ولا احتياطيّ
+     * يُخمّن: إن لم يوجد، يسقط الحارس صراحةً (`entry chunk not found` أدناه) —
+     * فالتعذُّر ليس نجاحاً.
+     */
+    const moduleEntry = indexHtml.match(/<script[^>]*type="module"[^>]*src="\/assets\/([^"?]+\.js)/);
 
-    const entry = match ? match[1] : files.find((f) => f.startsWith('index-') && f.endsWith('.js')) ?? null;
+    const entry = moduleEntry ? moduleEntry[1] : null;
 
-    return { entry, preloaded: findPreloadedChunks(indexHtml), indexHtml };
+    /**
+     * سكربتات الرأس الكلاسيكية (`hami-boot.*.js` مثلاً، ٢٩٫٤ ك.ب) تُنزَّل على المسار
+     * الحرج فعلاً وإن لم تكن في رسم وحدات Vite — فإغفالها يُقلّل القياس.
+     */
+    const classic = [
+        ...indexHtml.matchAll(/<script(?![^>]*type="module")[^>]*src="\/assets\/([^"?]+\.js)/g),
+    ].map((m) => m[1]);
+
+    return { entry, classic, preloaded: findPreloadedChunks(indexHtml), indexHtml };
 
 }
 
@@ -108,7 +134,7 @@ if (!fs.existsSync(assetsDir)) {
 
 const jsFiles = fs.readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
 
-const { entry: entryName, preloaded } = findEntry(jsFiles);
+const { entry: entryName, preloaded, classic } = findEntry(jsFiles);
 
 
 
@@ -124,7 +150,7 @@ if (!entryName) {
 
 const transitiveEntry = collectTransitiveJsChunks(entryName, assetsDir);
 
-const criticalSet = new Set([entryName, ...preloaded, ...transitiveEntry]);
+const criticalSet = new Set([entryName, ...classic, ...preloaded, ...transitiveEntry]);
 
 
 
