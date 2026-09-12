@@ -6,6 +6,20 @@ import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainVie
 
 const root = process.cwd();
 
+/**
+ * حرّاس هذا المستودع تُحلّل **الشفرة** لا التعليقات — `guard-import-cycles.mjs`
+ * يُجرّدها قبل أيّ استنتاج، و`guard-root-pointer-events.mjs` كذلك. وفحصُ الغياب هنا
+ * كان يقرأ النصّ خاماً، فسقط على **تعليقٍ** في
+ * `LawyerDashboardWorkspaceProvider.tsx:93` يشرح قيداً على `useLawsuitFilesState`
+ * بينما الملفّ لا يستورده ولا يستدعيه.
+ *
+ * **وذكرُ الاسم ليس استعمالاً** — والتمييز بينهما هو ما يفحصه هذا الاختبار أصلاً،
+ * فحذفُ التعليق لإرضاء الفحص كان سيمحو قيداً مكتوباً لمصلحة مِجَسٍّ أخرق.
+ */
+function codeWithoutComments(source: string): string {
+    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
 describe('perceived boot wait cut honesty', () => {
     it('deferred styles بلا rAF مزدوج؛ تبدأ تحت الغطاء من preamble لا من index.html', () => {
         const src = fs.readFileSync(path.join(root, 'src/app/runtime/deferredAppStyles.ts'), 'utf8');
@@ -532,7 +546,7 @@ describe('perceived boot wait cut honesty', () => {
         );
         expect(provider).toContain("import('@/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceStemLayer')");
         expect(provider).toContain('createLawyerDashboardWorkspaceStemStubs');
-        expect(provider).not.toContain('useLawsuitFilesState');
+        expect(codeWithoutComments(provider)).not.toContain('useLawsuitFilesState');
         expect(provider).not.toMatch(
             /import \{[^}]*useLawyerDashboardWorkspaceStem[^}]*\} from/,
         );
@@ -542,7 +556,7 @@ describe('perceived boot wait cut honesty', () => {
             'utf8',
         );
         expect(layer).toContain('useLawyerDashboardWorkspaceStem');
-        expect(layer).not.toContain('useLawsuitFilesState');
+        expect(codeWithoutComments(layer)).not.toContain('useLawsuitFilesState');
         const stem = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardWorkspaceStem.ts'),
             'utf8',
