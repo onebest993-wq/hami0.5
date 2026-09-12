@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { expectTextOrRetired } from './retiredCursorArtifact';
+
 const root = process.cwd();
 
 function read(rel: string): string {
@@ -179,9 +181,18 @@ describe('execution section scenario coverage honesty', () => {
         );
         expect(seizureBadges).toContain('normalizeLine');
         expect(seizureBadges).toContain("from './debtorSeizureCategoryBadgeHelpers'");
-        const seizureProbe = read('.cursor/probe-seizure-workflow.mjs');
-        expect(seizureProbe).toContain("c.name === 'مسار الحجز'");
-        expect(seizureProbe).toContain('probe-execution-storage-seed');
+        /**
+         * `.cursor/*.mjs` مُهمَلٌ في `.gitignore:84`، فهذا المسبار **غير موجودٍ في أيّ
+         * استنساخٍ نظيف** — وكان `read()` يرميه بـ`ENOENT` فيسقط الاختبار على العدّاء
+         * وفي كلّ استنساخ، ويمرّ على جهاز مَن كتبه وحده.
+         *
+         * والعلاج هو نمط الملفّ نفسه للقِطع المُهمَلة (`retiredCursorArtifact.ts`):
+         * يُفحص إن وُجد، ويُعلَن تقاعده صراحةً إن غاب — **لا ختمٌ صامت**.
+         */
+        expectTextOrRetired('.cursor/probe-seizure-workflow.mjs', (seizureProbe) => {
+            expect(seizureProbe).toContain("c.name === 'مسار الحجز'");
+            expect(seizureProbe).toContain('probe-execution-storage-seed');
+        });
         const seizureBare = read(
             'src/app/components/lawyer/ExecutionDashboard/components/SeizurePropertyRequestBlock.tsx',
         );
