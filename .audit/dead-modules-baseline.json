@@ -1,6 +1,6 @@
 {
-  "savedAt": "2026-09-05T21:54:07.317Z",
-  "count": 51,
+  "savedAt": "2026-09-12T07:26:25.785Z",
+  "count": 52,
   "dead": [
     "src/app/components/lawyer/ExecutionDashboard/components/CollapsibleWorkflowToggle.tsx",
     "src/app/components/lawyer/ExecutionDashboard/components/ExecutionActiveTaskCard.tsx",
@@ -44,6 +44,7 @@
     "src/hq/stubs/hqOmitDossierKeyTable.ts",
     "src/hq/stubs/hqOmitDossierSnap.ts",
     "src/hq/stubs/hqOmitExecPurge.ts",
+    "src/hq/stubs/hqOmitLawyerSessionUiReset.ts",
     "src/hq/stubs/hqOmitPhoneBucketSync.ts",
     "src/hq/stubs/hqOmitPhoneCases.ts",
     "src/hq/stubs/hqOmitPhoneIsolation.ts",
