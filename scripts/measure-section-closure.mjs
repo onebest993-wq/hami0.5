@@ -22,7 +22,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = path.join(ROOT, 'dist', 'assets');
@@ -98,9 +98,13 @@ function bootEntries() {
 /** اسمٌ ثابت لا يتغيّر بتغيّر بصمة المحتوى. */
 const stemOf = (f) => f.replace(/-[A-Za-z0-9_-]{6,}\.js$/, '');
 
-const measured = [];
+/**
+ * يقيس كلّ مدخل قسم. يرمي عند غياب مدخلٍ مرصود — **التعذُّر ليس نجاحاً**.
+ * مُصدَّرة ليستعملها `guard-first-open-shared-tax.mjs` فلا يفترق مِجَسّان على شيءٍ واحد.
+ */
+export function measureAll() {
+    const measured = [];
 
-{
     const seen = new Set();
     for (const e of bootEntries()) for (const f of closureOf(e)) seen.add(f);
     measured.push({
@@ -108,27 +112,57 @@ const measured = [];
         chunks: seen.size,
         kb: Math.round([...seen].reduce((a, f) => a + sizeOf(f), 0) / 1024),
     });
+
+    for (const prefix of SECTION_ENTRIES) {
+        const matches = files.filter(
+            (f) => f.startsWith(prefix) && !NOT_ENTRIES.some((n) => f.startsWith(n)),
+        );
+        if (matches.length === 0) {
+            throw new Error(`[section-closure] missing entry chunk ${prefix}*.js`);
+        }
+        for (const f of matches) {
+            const c = closureOf(f);
+            measured.push({
+                entry: stemOf(f),
+                chunks: c.size,
+                kb: Math.round([...c].reduce((a, x) => a + sizeOf(x), 0) / 1024),
+            });
+        }
+    }
+
+    return measured.sort((a, b) => b.kb - a.kb);
 }
 
-for (const prefix of SECTION_ENTRIES) {
-    const matches = files.filter(
-        (f) => f.startsWith(prefix) && !NOT_ENTRIES.some((n) => f.startsWith(n)),
-    );
-    if (matches.length === 0) {
-        console.error(`[section-closure] missing entry chunk ${prefix}*.js`);
-        process.exit(1);
+/** يقارن قياساً بخطّ الأساس ويُرجع قائمة المشاكل (فارغةً إن لم ينمُ شيء). */
+export function compareToBaseline(measured) {
+    if (!fs.existsSync(BASELINE)) return ['[section-closure] no baseline — run with --save first'];
+    const prev = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+    const prevBy = new Map(prev.entries.map((e) => [e.entry, e]));
+    const problems = [];
+    for (const r of measured) {
+        const p = prevBy.get(r.entry);
+        if (!p) {
+            problems.push(`${r.entry}: مدخلٌ جديد بلا خطّ أساس (${r.kb} KB) — أضفه بـ--save بإذنٍ موثّق`);
+            continue;
+        }
+        if (r.kb > p.kb) {
+            problems.push(
+                `${r.entry}: الإغلاق الساكن نما ${p.kb} ← ${r.kb} KB (+${r.kb - p.kb}) · الحزم ${p.chunks} ← ${r.chunks}`,
+            );
+        }
     }
-    for (const f of matches) {
-        const c = closureOf(f);
-        measured.push({
-            entry: stemOf(f),
-            chunks: c.size,
-            kb: Math.round([...c].reduce((a, x) => a + sizeOf(x), 0) / 1024),
-        });
-    }
+    return problems;
 }
 
-measured.sort((a, b) => b.kb - a.kb);
+/* ما دون هذا السطر واجهةُ سطر الأوامر وحدها — لا تعمل عند الاستيراد. */
+if (pathToFileURL(process.argv[1] ?? '').href !== import.meta.url) {
+    // مستورَد: لا تُشغّل شيئاً.
+} else {
+    runCli();
+}
+
+function runCli() {
+const measured = measureAll();
 
 const mode = process.argv.includes('--save')
     ? 'save'
@@ -151,25 +185,7 @@ for (const r of measured) {
 
 if (mode !== 'check') process.exit(0);
 
-if (!fs.existsSync(BASELINE)) {
-    console.error('[section-closure] no baseline — run with --save first');
-    process.exit(1);
-}
-const prev = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
-const prevBy = new Map(prev.entries.map((e) => [e.entry, e]));
-const problems = [];
-for (const r of measured) {
-    const p = prevBy.get(r.entry);
-    if (!p) {
-        problems.push(`${r.entry}: مدخلٌ جديد بلا خطّ أساس (${r.kb} KB) — أضفه بـ--save بإذنٍ موثّق`);
-        continue;
-    }
-    if (r.kb > p.kb) {
-        problems.push(
-            `${r.entry}: الإغلاق الساكن نما ${p.kb} ← ${r.kb} KB (+${r.kb - p.kb}) · الحزم ${p.chunks} ← ${r.chunks}`,
-        );
-    }
-}
+const problems = compareToBaseline(measured);
 if (problems.length) {
     console.error('\n[section-closure] FAIL — إغلاقٌ ساكن نما عن خطّ الأساس:');
     for (const p of problems) console.error(`  - ${p}`);
@@ -177,3 +193,4 @@ if (problems.length) {
     process.exit(1);
 }
 console.log('\n[section-closure] OK — لا نموّ في أيّ إغلاق ساكن');
+}

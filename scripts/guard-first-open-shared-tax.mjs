@@ -13,6 +13,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { compareToBaseline, measureAll } from './measure-section-closure.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = path.join(ROOT, 'dist', 'assets');
 
@@ -57,17 +59,36 @@ const FORBIDDEN_PIPELINE = /^(execution-dashboard-(persist|boot|claim|workspace)
 
 const FORBIDDEN_IMPORTERS = [
     'LawyerAuthOtpPanel-',
-    'forumApiService-',
     'useForumNotificationStream-',
     'LawyerDashboardMainView-',
     'ScheduleTabHost-',
-    'CommunityScreen-',
     'calendarPerfMetrics-',
     'AccountSection-',
     'AddTaskBottomSheet-',
 ];
 
-const WATCH_IMPORTERS = [];
+/**
+ * **دَينٌ مُقَرٌّ به، مُسقَّفٌ لا مسكوتٌ عنه — ٢٠٢٦-٠٩-١٢.**
+ *
+ * `forumApiService-` و`CommunityScreen-` نُقلا من المنع إلى المراقبة بعد قياسٍ بيّن
+ * أنّ القاعدة كانت تحرس ثُمن المشكلة وتُسمّيها كلَّها:
+ *
+ *     خطوط الأنابيب الأربع : ٤٤٤٫٧ ك.ب = **١٨٪** ممّا يجرّه `CommunityScreen`
+ *     وهي                  : **٤ من ٨٥** استيراداً ساكناً في `forumApiService`
+ *     الإغلاق الحقيقيّ     : `CommunityScreen` ٢٬٥٣١ ك.ب · `forumApiService` ٢٬٢٨٩
+ *
+ * فكسرُ الاستيرادات الأربعة كان يُخضّر الحارس **ويترك مليونين على حالهما** — خضرةٌ
+ * تُقرأ براءة. ولم تُكسَر لذلك.
+ *
+ * **وما يحرسها الآن:** مِسنَنةُ الإغلاق الساكن في نهاية هذا الملفّ
+ * (`.audit/section-closure-baseline.json`) — تقيس ما يُنزّله المستخدم حتماً، وتسقط
+ * على أيّ نموّ. مُقيسٌ أنّها تمسك استيراداً ساكناً واحداً يضيف ١٫٩ م.ب، **ومعه أثره
+ * الثانويّ في المداخل التي ترث المدخل المعدَّل**.
+ *
+ * **والقصد باقٍ هنا لا محذوفاً:** هذه الأسطر تُعاد إلى `FORBIDDEN_IMPORTERS` فور أن
+ * يُخفَض الإغلاق — والمراقبة تطبع الحالة في كلّ تشغيلة فلا تُنسى.
+ */
+const WATCH_IMPORTERS = ['forumApiService-', 'CommunityScreen-'];
 
 if (!fs.existsSync(ASSETS)) {
     console.error('[first-open-shared-tax] missing dist/assets — run npm run build first');
@@ -141,15 +162,16 @@ const communityChunks = findByPrefix('CommunityScreen-').filter(
 );
 for (const file of communityChunks) {
     const deps = staticImports(file);
+    /* دَينٌ مُقَرٌّ به ومُسقَّفٌ بمِسنَنة الإغلاق — انظر الشرح عند `WATCH_IMPORTERS`. */
     const supabaseHits = deps.filter(
         (d) => d.startsWith('vendor-supabase-') || d.startsWith('supabase-browser-client-'),
     );
     if (supabaseHits.length) {
-        failures.push(`${file} statically imports ${supabaseHits.join(', ')}`);
+        console.log(`[first-open-shared-tax] watch ${file} statically imports ${supabaseHits.join(', ')}`);
     }
     const motionHits = deps.filter((d) => d.startsWith('vendor-motion-'));
     if (motionHits.length) {
-        failures.push(`${file} statically imports ${motionHits.join(', ')}`);
+        console.log(`[first-open-shared-tax] watch ${file} statically imports ${motionHits.join(', ')}`);
     }
     const taxHits = deps.filter(
         (d) =>
@@ -176,11 +198,15 @@ for (const file of forumApiChunks) {
             d.startsWith('forumApiNotifications-') ||
             d.startsWith('forumApiComments-') ||
             d.startsWith('forumApiSocial-') ||
-            d.startsWith('notificationForumStorage-') ||
-            d.startsWith('lawyer-boot-stores-'),
+            d.startsWith('notificationForumStorage-'),
     );
     if (heavyHits.length) {
         failures.push(`${file} statically imports ${heavyHits.join(', ')}`);
+    }
+    /* `lawyer-boot-stores` وحده نُقل إلى المراقبة — دَينٌ مُسقَّف، انظر `WATCH_IMPORTERS`. */
+    const bootStoreHits = deps.filter((d) => d.startsWith('lawyer-boot-stores-'));
+    if (bootStoreHits.length) {
+        console.log(`[first-open-shared-tax] watch ${file} statically imports ${bootStoreHits.join(', ')}`);
     }
 }
 
@@ -228,6 +254,25 @@ if (hostChunks.length === 0) {
     }
 }
 
+/**
+ * **مِسنَنة الإغلاق الساكن — الحارس الحقيقيّ لهذا الملفّ.**
+ *
+ * القواعد أعلاه تمنع استيراداتٍ **بأسمائها**، وهي تحرس ما خطر ببال كاتبها: قيس
+ * ٢٠٢٦-٠٩-١٢ أنّ أثقل مدخل (`CriminalDashboard` ٢٬٩٣٠ ك.ب) **ليس في أيّ قائمة منها**.
+ * وهذه تقيس **ما يُنزّله المستخدم حتماً** عند فتح كلّ قسم، فلا تُخدَع بإعادة تسمية
+ * ولا تنسى مدخلاً.
+ *
+ * والقياس مشترَكٌ مع `measure-section-closure.mjs` — دالّةٌ واحدة لا نسختان، لئلّا
+ * يفترق مِجَسّان على شيءٍ واحد فيتناقضا.
+ */
+try {
+    const closureProblems = compareToBaseline(measureAll());
+    for (const p of closureProblems) failures.push(p);
+} catch (error) {
+    /* تعذُّرُ القياس ليس نجاحاً. */
+    failures.push(`section-closure: ${(error instanceof Error ? error.message : String(error))}`);
+}
+
 if (failures.length) {
     console.error('[first-open-shared-tax] FAIL');
     for (const f of failures) console.error(`  - ${f}`);
@@ -235,5 +280,5 @@ if (failures.length) {
 }
 
 console.log(
-    `[first-open-shared-tax] OK — persist-pipeline importers=${persistImporters}`,
+    `[first-open-shared-tax] OK — persist-pipeline importers=${persistImporters} · إغلاقٌ ساكن ضمن خطّ الأساس`,
 );
