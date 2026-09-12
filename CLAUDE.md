@@ -43,7 +43,7 @@
 
 ---
 
-## §3 — Quality Gates (28 Registered Guards)
+## §3 — Quality Gates (31 Registered Guards)
 
 > Runner الرسمي: `node scripts/run-gate-wave0.mjs` (يكتشف npm.cmd + shell:true على Windows تلقائيًا — لا `npm run gate:wave0` مباشر).
 
@@ -51,37 +51,46 @@
 > وكان قبل ٢٠٢٦-٠٩-١٠ يذكر ثلاثة حرّاس **لا وجود لهم** (`guard:install` ·
 > `guard:lockfile-parity` · `guard:cloud-delete-audit`) ويُسقط تسعةً قائمين —
 > أي أنّ السجلّ الرسمي كان خاطئاً في اثني عشر صفّاً. صُحّح بالقياس.
+>
+> **وصُحّح ٢٠٢٦-٠٩-١٢ ثانيةً:** كان العنوان يقول ٢٨ والواقع **٣١**، والجدول يُسقط ثلاثةً
+> أُضيفت بعده: `guard:commit-conventions` · `guard:gate-harness-paths` ·
+> `guard:root-pointer-events`. **والقائمة أعلاه اشتُقّت بأمرٍ من `package.json` لا بالعين**
+> (`scripts["gate:wave0"]` ← مطابقة `npm run guard:*` بالترتيب) — وهو ما يشترطه هذا
+> السطر على نفسه. **فمَن وجد عدداً رابعاً فليُعِد الاشتقاق، لا أن يعدّ الصفوف.**
 
 | # | Gate script (`package.json` name) | الموصوفة |
 |---|---|---|
-| 1 | `guard:ts-nocheck` | عدد ملفات `// @ts-nocheck` ≤ baseline |
-| 2 | `guard:import-closure` | import graph broken=0 |
-| 3 | `guard:cycles` | دوائر استيراد ساكنة ≤ baseline |
-| 4 | `guard:module-twins` | لا وحدة مكرّرة بنسختين في الرسم |
-| 5 | `guard:module-shadow` | لا وحدة تُظلّل أخرى (absence assertions) |
-| 6 | `guard:dead-modules` | وحدات لا تُبلَغ ≤ baseline |
-| 7 | `guard:dead-exports` | dead exports ≤ baseline (أحادي الاتجاه، مُفهرَس بالمسار) |
-| 8 | `guard:duplicate-logic` | منطق مُكرَّر ≤ baseline |
-| 9 | `guard:peer-conflicts` | peer-deps zero-conflict بعد strict install |
-| 10 | `guard:native-foundation` | Capacitor pinned + native-ready templates موجود |
-| 11 | `guard:cold-entry` | index.html لا يحتوي Google Fonts على critical path |
-| 12 | `guard:screen-closure` | LawsuitArchiveChrome +3 شاشات داخل KB ميزانيتها |
-| 13 | `guard:source-paths` | ملفات الـ source روابطها غير معطلة |
-| 14 | `guard:tailwind-source` | Tailwind source content ملموس، لا يكرر السورس |
-| 15 | `guard:injected-globals` | define ↔ declare ↔ استعمال متطابقة ×5 |
-| 16 | `guard:ci-covers-guards` | كل `guard:*` مربوط بـCI أو بالبوّابة، والمستثنى بسببٍ مكتوب |
-| 17 | `guard:supabase-info-boundary` | `info.ts` محصور في devFallbackConfig وحده |
-| 18 | `guard:tracked-secrets` | 11+ tracked secrets لا تُكرَّم في committed files |
-| 19 | `guard:shell-auth-prod` | production shell auth fail-closed |
-| 20 | `guard:prod-env-contract` | 13+ VITE_ keys documented + parity + BFF/Auth closed |
-| 21 | `guard:security-headers` | vercel.json · vercel-hq.json · public/_headers في تزامن تام |
-| 22 | `guard:tsc` | TS diagnostics ≤ baseline أحادي الاتجاه (لكل ملفّ) |
-| 23 | `guard:cloud-types` | 6 ملفات سحابية حاسمة clean types |
-| 24 | `guard:lint` | ESLint ≤ baseline |
-| 25 | `guard:execution-window-confirm` | execution paths لا تستخدم `window.confirm` |
-| 26 | `guard:execution-modal-mobile` | execution modals dvh + pointer-events safe |
-| 27 | `guard:tests` | Vitest failing ≤ baseline؛ KNOWN_TIMING_FLAKES بسقفٍ موثّق |
-| 28 | `guard:architecture-boundaries` | 4 طوابق T21 (api/services/domain+application) ≤ baseline |
+| 1 | `guard:commit-conventions` | قواعد §٢ آلياً على كلّ التزام: البادئات · عبارة التجميد · لا BOM (أُضيف `826cd335`) |
+| 2 | `guard:ts-nocheck` | عدد ملفات `// @ts-nocheck` ≤ baseline |
+| 3 | `guard:import-closure` | import graph broken=0 |
+| 4 | `guard:cycles` | دوائر استيراد ساكنة ≤ baseline |
+| 5 | `guard:module-twins` | لا وحدة مكرّرة بنسختين في الرسم |
+| 6 | `guard:module-shadow` | لا وحدة تُظلّل أخرى (absence assertions) |
+| 7 | `guard:dead-modules` | وحدات لا تُبلَغ ≤ baseline |
+| 8 | `guard:dead-exports` | dead exports ≤ baseline (أحادي الاتجاه، مُفهرَس بالمسار) |
+| 9 | `guard:duplicate-logic` | منطق مُكرَّر ≤ baseline |
+| 10 | `guard:peer-conflicts` | peer-deps zero-conflict بعد strict install |
+| 11 | `guard:native-foundation` | Capacitor pinned + native-ready templates موجود |
+| 12 | `guard:cold-entry` | index.html لا يحتوي Google Fonts على critical path |
+| 13 | `guard:screen-closure` | LawsuitArchiveChrome +3 شاشات داخل KB ميزانيتها |
+| 14 | `guard:source-paths` | ملفات الـ source روابطها غير معطلة — **ويقرأ `.md` أيضاً** |
+| 15 | `guard:tailwind-source` | Tailwind source content ملموس، لا يكرر السورس |
+| 16 | `guard:injected-globals` | define ↔ declare ↔ استعمال متطابقة ×5 |
+| 17 | `guard:ci-covers-guards` | كل `guard:*` مربوط بـCI أو بالبوّابة، والمستثنى بسببٍ مكتوب |
+| 18 | `guard:gate-harness-paths` | عُدّة البوّابات: مرشّحات المسارات وخطوات التشغيل (أُضيف `00ecf4a4`؛ وأسنانه ناقصة في أربع صيغ YAML — F3) |
+| 19 | `guard:supabase-info-boundary` | `info.ts` محصور في devFallbackConfig وحده |
+| 20 | `guard:tracked-secrets` | 11+ tracked secrets لا تُكرَّم في committed files |
+| 21 | `guard:shell-auth-prod` | production shell auth fail-closed |
+| 22 | `guard:prod-env-contract` | 13+ VITE_ keys documented + parity + BFF/Auth closed |
+| 23 | `guard:security-headers` | vercel.json · vercel-hq.json · public/_headers في تزامن تام |
+| 24 | `guard:tsc` | TS diagnostics ≤ baseline أحادي الاتجاه (لكل ملفّ) |
+| 25 | `guard:cloud-types` | 6 ملفات سحابية حاسمة clean types |
+| 26 | `guard:lint` | ESLint ≤ baseline |
+| 27 | `guard:execution-window-confirm` | execution paths لا تستخدم `window.confirm` |
+| 28 | `guard:execution-modal-mobile` | execution modals dvh + pointer-events safe |
+| 29 | `guard:root-pointer-events` | لا كتابة `pointer-events` بجانب `document.documentElement` |
+| 30 | `guard:tests` | Vitest failing ≤ baseline؛ KNOWN_TIMING_FLAKES بسقفٍ موثّق |
+| 31 | `guard:architecture-boundaries` | 4 طوابق T21 (api/services/domain+application) ≤ baseline |
 
 ### ستّة حرّاس خارج البوّابة — ولكلٍّ سببه
 
@@ -98,17 +107,23 @@
 
 | Ratchet | Baseline (locked JSON) | POST-T2 actual | Trend allowed | `--save` only if |
 |---|---|---|---|---|
-| tsc errors | `.audit/tsc-ratchet-baseline.json` | ٩٥٥ | ≤ baseline فقط | baseline: prefix + سبب موثق |
-| lint errors | `.audit/lint-baseline.json` | — | ≤ baseline فقط | baseline: prefix |
-| dead exports | **`1885`** `.audit/dead-exports-baseline.json` | **`1881`** | ≤1885 فقط | baseline: prefix |
-| test failures | `.audit/test-ratchet-baseline.json` | ١٣ | ≤ baseline فقط | baseline: prefix + flakes documented |
-| arch boundaries 4-floor | `244` (1/129/114) `.audit/architecture-boundaries-baseline.json` | **`219`** (1/128/90) | ≤244 فقط | baseline: prefix + T21 violation reason |
+| tsc errors | **`956`** `.audit/tsc-ratchet-baseline.json` | **`955`** | ≤ baseline فقط | baseline: prefix + سبب موثق |
+| lint errors | **`11`** `.audit/lint-baseline.json` | **`11`** | ≤ baseline فقط | baseline: prefix |
+| dead exports | **`1885`** `.audit/dead-exports-baseline.json` | **`1878`** | ≤1885 فقط | baseline: prefix |
+| test failures | **`21`** `.audit/test-ratchet-baseline.json` | **`13`** | ≤ baseline فقط | baseline: prefix + flakes documented |
+| arch boundaries 4-floor | `244` (1/129/114) `.audit/architecture-boundaries-baseline.json` | **`212`** (1/127/84) | ≤244 فقط | baseline: prefix + T21 violation reason |
 
 | import closure broken | `0` | `0` | **فقط 0** | غير مسموح به أبدًا — لا --save |
 
 > **صُحّح ٢٠٢٦-٠٩-١٠:** كان الجدول يذكر `.audit/tsc-baseline.json` وهو **غير موجود**
 > (الحارس يقرأ `tsc-ratchet-baseline.json`)، ويذكر خطّ أساس ١٨٨٨ للتصديرات الميتة
 > والملفّ يقول ١٨٨٥. **خطّ الأساس في الملفّ هو الحُجّة، لا الجدول.**
+>
+> **وصُحّح ٢٠٢٦-٠٩-١٢ بقراءة الملفّات نفسها وسجلّ بوّابةٍ خضراء:** كان عمودُ الأساس فارغاً
+> في ثلاثة صفوف، **وعمودُ «الحاليّ» يحمل الأساس في صفّ الاختبارات** (١٣ هو الحاليّ لا
+> الأساس؛ `numFailedTests` في الملفّ **٢١**). والمُصحَّح: tsc أساسُه ٩٥٦ · lint **١١** لا
+> ١٧٧ · التصديرات الميتة الحاليّ **١٨٧٨** لا ١٨٨١ · الطوابق الأربعة **٢١٢** (1/127/84)
+> لا ٢١٩. **ولا يُنقل رقمٌ إلى هنا إلا من ملفّ الأساس أو من سجلّ تشغيلةٍ خضراء.**
 
 ### Save Policy:
 ```
@@ -142,7 +157,7 @@
 
 ## §6 — 20 Critical Paths (Clickable file:// links)
 
-1. [package.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/package.json) — Stack pins + 28 guards scripts
+1. [package.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/package.json) — Stack pins + 31 guards scripts
 2. [.nvmrc](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.nvmrc) — Node 24.x pin
 3. [capacitor.config.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/capacitor.config.ts) — native shell config
 4. [vite.config.mts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/vite.config.mts) — Bundler + manualChunks + build sourcemaps
@@ -153,12 +168,12 @@
 9. [src/app/bootstrap/LOADER_HYDRATOR_ORDER.md](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/LOADER_HYDRATOR_ORDER.md) — T3 33-entry registry
 10. [src/app/bootstrap/bootReveal.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/bootReveal.ts#L119-L147) — markBootRevealDone + SecureStore kickoff
 11. [src/app/services/SecureStoreService.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/services/SecureStoreService.ts#L1993-L2017) — idle deferral dual mechanism
-12. [scripts/run-gate-wave0.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/run-gate-wave0.mjs) — Official 28/28 runner cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
+12. [scripts/run-gate-wave0.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/run-gate-wave0.mjs) — Official 31/31 runner cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
 13. [scripts/guard-tsc-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-tsc-ratchet.mjs) — tsc ratchet (`.audit/tsc-ratchet-baseline.json`)
-14. [scripts/guard-lint-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-lint-ratchet.mjs) — lint ratchet 177
-15. [scripts/guard-test-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-test-ratchet.mjs) — test ratchet 23 + flakes max=3
+14. [scripts/guard-lint-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-lint-ratchet.mjs) — lint ratchet **11** (`totalErrors` في `.audit/lint-baseline.json`)
+15. [scripts/guard-test-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-test-ratchet.mjs) — test ratchet **21** + `MAX_ALLOWED_FLAKES_PER_RUN` = **13** (`:196`)
 16. [scripts/guard-dead-exports.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-dead-exports.mjs) — dead exports 1885
-17. [scripts/guard-architecture-boundaries.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-architecture-boundaries.mjs) — T21 4-floor JSON 244 (حالياً 219)
+17. [scripts/guard-architecture-boundaries.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-architecture-boundaries.mjs) — T21 4-floor JSON 244 (حالياً **212**)
 18. [scripts/sync-security-headers.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/sync-security-headers.mjs) — vercel + _headers triple sync
 19. [.github/workflows/quality-gate.yml](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.github/workflows/quality-gate.yml) — CI gate entry (32 related guards)
 20. [supabase/migrations/](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/supabase/migrations/) — 15 search_path hardened files (T2)
@@ -185,7 +200,7 @@
    - ✅  Zero Visual Edits مؤكد في رسالة commit
 5. **Phase 5 — Review:** مستقل يتحقق من:
    - 13/13 مهام مُنفّذة (أو مع تعليق موثق لمن لم يتم بموافقة المستخدم)
-   - 28/28 gates PASS ×3 runs متتالية (Determinism)
+   - 31/31 gates PASS ×3 runs متتالية (Determinism)
    - كل TR في كل مهمة مُحقّق ب دليل حقيقي (grep / run / hash / screenshot)
    - **لا يُعتمد self-review:** نفس اللاعب لا يُحكم على عمله
 
