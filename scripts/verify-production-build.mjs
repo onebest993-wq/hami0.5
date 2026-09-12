@@ -57,11 +57,47 @@ const CONSUMERS = [
     { name: 'clean-mojibake', argv: ['scripts/clean-mojibake.mjs', '--check'] },
 ];
 
+/**
+ * **سقوطٌ لا يُقرأ كأنّه لم يقع.**
+ *
+ * سجلّات GitHub Actions تتطلّب اعتماداً حتى على مستودعٍ عموميّ، ولا `gh` على جهاز
+ * التطوير. فخطوةٌ صَدَفيّة تسقط لا تُنتج إلا `Process completed with exit code 1` في
+ * التعليقات — وهو ما وقع فعلاً في تشغيلة `b56ee60a`: سقطت الخطوة ٣٩ ولم يُعرف أيُّ
+ * الستّة سقط.
+ *
+ * والعلاج هو عينه الذي أُصلح به المُبلِّغ في `1b368367`: أوامرُ سير العمل
+ * (`::error::`) تُقرأ من **مخرَج الخطوة**، وتظهر في
+ * `GET /check-runs/{job}/annotations` **بلا اعتماد**. فالمخرَج يُلتقط ليُحوَّل إلى
+ * تعليقات، **ويُكتب كما هو أيضاً** لئلّا يخسر قارئ السجلّ شيئاً — وهذا هو الخطأ
+ * المعاكس الذي وقع في `5d1d6260` (التقاطٌ بلا كتابة).
+ */
+function annotate(title, message) {
+    const escaped = String(message)
+        .replace(/%/g, '%25')
+        .replace(/\r/g, '')
+        .replace(/\n/g, '%0A');
+    console.log(`::error title=${title}::${escaped}`);
+}
+
 const failed = [];
 for (const check of CONSUMERS) {
     console.log(`\n─── ${check.name} ───`);
-    const result = run(process.execPath, check.argv, { stdio: 'inherit' });
-    if (result.status !== 0) failed.push({ name: check.name, status: result.status ?? 1 });
+    const result = run(process.execPath, check.argv);
+    const out = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    process.stdout.write(out);
+    if (result.status !== 0) {
+        failed.push({ name: check.name, status: result.status ?? 1 });
+        /* الأسطر المفيدة وحدها — التعليقة محدودة الطول، والضجيج يُغرق الإشارة. */
+        const detail = out
+            .split(/\r?\n/)
+            .filter((l) => /FAIL|BLOCKED|نما|exceed|regression|missing|✗|Error/i.test(l))
+            .slice(0, 12)
+            .join('\n');
+        annotate(
+            `verify-production-build: ${check.name}`,
+            detail || `${check.name} exited with ${result.status ?? 1} (no matching detail lines)`,
+        );
+    }
 }
 
 if (failed.length) {
@@ -70,6 +106,10 @@ if (failed.length) {
     );
     for (const f of failed) console.error(`  - ${f.name} (exit=${f.status})`);
     console.error('\nكلُّها شُغِّلت رغم سقوط بعضها — فلا فحصَ يحجب أخاه، والقائمة أعلاه كاملة.');
+    annotate(
+        'verify-production-build',
+        `${failed.length}/${CONSUMERS.length} فحصاً سقط: ${failed.map((f) => f.name).join(' · ')}`,
+    );
     process.exit(1);
 }
 
