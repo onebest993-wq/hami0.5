@@ -201,6 +201,14 @@ export function resetWifeDrillEnv(): void {
   process.env.NODE_ENV = 'test';
   process.env.SUPABASE_URL = 'https://example.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  /**
+   * مسار التحقّق من هوية الرمز يقرأ `SUPABASE_ANON_KEY` وحده ولا يرجع إلى المفتاح
+   * المُمتاز: `getSupabaseAuthConfigFromEnv` (sessionCookie.ts) يشترط URL و anon معاً،
+   * فإن غاب أحدهما رجع `getVerifiedTokenIdentity` بـ`null` **قبل** أيّ fetch — فتسقط
+   * كلّ دعوى توقيعٍ أو CSRF في الدريل. ولأنّ المثبِّت لم يكن يعلنه، كان يستعيره من
+   * `.env` المطوِّر ويخضرّ محلياً ويحمرّ على العدّاء (٥ اختبارات).
+   */
+  process.env.SUPABASE_ANON_KEY = 'anon-key';
   delete process.env.WIFE_REDIS_REST_URL;
   delete process.env.WIFE_REDIS_REST_TOKEN;
 }
