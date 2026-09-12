@@ -40,6 +40,12 @@ on:
       - 'scripts/lawsuits-*.mjs'
       - 'scripts/run-lawsuits-ci-e2e.mjs'
       - 'scripts/e2e-preview-manager.mjs'
+      # عُدّة E2E المشتركة: تغييرٌ فيها يكسر هذه البوّابة وإن لم تُمسّ الدعاوى.
+      - 'playwright.config.ts'
+      - 'e2e/globalSetup.ts'
+      - 'scripts/e2e-build-env.mjs'
+      - 'scripts/run-e2e-build.mjs'
+      - 'scripts/guard-import-cycles.mjs'
       - '.github/workflows/lawsuits-gate.yml'
   # أفرع العمل تُقاس أيضاً — مرشّح المسارات أدناه يبقي التشغيل محصوراً.
   push:
@@ -73,6 +79,12 @@ on:
       - 'scripts/lawsuits-*.mjs'
       - 'scripts/run-lawsuits-ci-e2e.mjs'
       - 'scripts/e2e-preview-manager.mjs'
+      # عُدّة E2E المشتركة: تغييرٌ فيها يكسر هذه البوّابة وإن لم تُمسّ الدعاوى.
+      - 'playwright.config.ts'
+      - 'e2e/globalSetup.ts'
+      - 'scripts/e2e-build-env.mjs'
+      - 'scripts/run-e2e-build.mjs'
+      - 'scripts/guard-import-cycles.mjs'
       - '.github/workflows/lawsuits-gate.yml'
   workflow_dispatch:
 

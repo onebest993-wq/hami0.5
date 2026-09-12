@@ -47,6 +47,11 @@ on:
       - 'e2e/helpers/execution*.ts'
       - 'scripts/execution-*.mjs'
       - 'scripts/run-execution-e2e.mjs'
+      # عُدّة E2E المشتركة: تغييرٌ فيها يكسر هذه البوّابة وإن لم يُمسّ التنفيذ.
+      - 'playwright.config.ts'
+      - 'e2e/globalSetup.ts'
+      - 'scripts/e2e-build-env.mjs'
+      - 'scripts/run-e2e-build.mjs'
       - 'docs/execution-validation-gate.md'
       - 'execution-coverage-matrix.md'
       - '.github/workflows/execution-gate.yml'
@@ -81,6 +86,11 @@ on:
       - 'e2e/helpers/execution*.ts'
       - 'scripts/execution-*.mjs'
       - 'scripts/run-execution-e2e.mjs'
+      # عُدّة E2E المشتركة: تغييرٌ فيها يكسر هذه البوّابة وإن لم يُمسّ التنفيذ.
+      - 'playwright.config.ts'
+      - 'e2e/globalSetup.ts'
+      - 'scripts/e2e-build-env.mjs'
+      - 'scripts/run-e2e-build.mjs'
       - 'docs/execution-validation-gate.md'
       - 'execution-coverage-matrix.md'
       - '.github/workflows/execution-gate.yml'

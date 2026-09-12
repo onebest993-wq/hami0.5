@@ -110,6 +110,11 @@ jobs:
       - name: Every guard is wired to a workflow and to gate:wave0
         run: npm run guard:ci-covers-guards
 
+      # وبوّابةٌ عمياء عن عُدّتها مثله: غُيّر playwright.config.ts فعملت Boot E2E وحدها،
+      # وصمتت بوّابتا التنفيذ والدعاوى عن تغييرٍ تمرّان به. هذه الخطوة تجعل ذلك مستحيلاً.
+      - name: Every filtered gate lists the harness it depends on
+        run: npm run guard:gate-harness-paths
+
       # احتياطي التطوير المودَع لا يُستورد إلا من جسره؛ الالتفاف حوله يعني
       # مخاطبة مشروع التطوير في الإنتاج وشحن مفتاحه إلى كل مستخدم.
       - name: Committed Supabase dev fallback stays behind its bridge
