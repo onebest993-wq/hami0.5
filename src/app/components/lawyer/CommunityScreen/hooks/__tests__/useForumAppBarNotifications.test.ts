@@ -48,11 +48,24 @@ vi.mock('@/app/services/forum/forumNotificationsWarmCache', () => ({
     warmForumNotificationsCache: vi.fn(),
 }));
 
-vi.mock('../forumAsync', () => ({
+/* كذلك كان هذا المسار ميّتاً: الوحدة في `CommunityScreen/forumAsync` لا في `hooks/`. */
+vi.mock('../../forumAsync', () => ({
     withForumAsyncTimeout: (promise: Promise<unknown>) => promise,
 }));
 
-vi.mock('../communityFeedPolicy', () => ({
+/**
+ * كان المسار `'../communityFeedPolicy'` — ويُحلّ **من ملفّ الاختبار** إلى
+ * `hooks/communityFeedPolicy` وهو **غير موجود**، بينما الوحدة الحقيقية في
+ * `CommunityScreen/communityFeedPolicy`. فالقناع لم يعترض شيئاً قطّ.
+ *
+ * وما أخفاه: `resolveForumUnreadPollMs` الحقيقيّ يُرجع `90_000 / 12_000` على جهازٍ
+ * غير «خفيف» — **وهي قيم القناع حرفاً**. فصدفةُ تطابقٍ في الثوابت جعلت قناعاً ميّتاً
+ * يبدو حيّاً. وعلى عدّاء CI (يُصنَّف خفيفاً) يُرجع `180_000 / 24_000` فيسقط الاختباران.
+ *
+ * والمسار مُصحَّح، والأصل مُمرَّر بـ`importOriginal` لئلّا تختفي بقيّة صادرات الوحدة.
+ */
+vi.mock('../../communityFeedPolicy', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../communityFeedPolicy')>()),
     resolveForumUnreadPollMs: (stream: boolean) => (stream ? 90_000 : 12_000),
 }));
 
@@ -105,6 +118,28 @@ describe('useForumAppBarNotifications', () => {
     it('يستطلع التنبيهات بسياسة 12 ثانية دون تيار', () => {
         renderHook(() => useForumAppBarNotifications('lawyer-1', false));
         expect(useVisibilityAwareInterval).toHaveBeenCalledWith(expect.any(Function), 12_000, true);
+    });
+
+    /**
+     * حارسٌ على المِجَسّ نفسه لا على المنتج: يُجبر طبقة الجهاز على «خفيف» عبر
+     * `data-hami-lite` — وهي المدخل الذي يقرؤه `isLitePerformanceActive` أوّلاً.
+     *
+     * فإن عاد القناع ميّتاً يوماً (مسارٌ خاطئ، أو نقلُ الوحدة) عادت السياسة الحقيقية
+     * إلى ٢٤ ثانية تحت هذا الشرط **فيسقط هذا الاختبار باسمه على أيّ جهاز** — بدل أن
+     * ينتظر عدّاءً يُصنَّف خفيفاً ليكشفه، كما حدث فعلاً.
+     */
+    it('السياسة تُقرأ من الوحدة المُقنَّعة لا من طبقة الجهاز — حتى على جهازٍ خفيف', () => {
+        document.documentElement.dataset.hamiLite = '1';
+        try {
+            renderHook(() => useForumAppBarNotifications('lawyer-1', false));
+            expect(useVisibilityAwareInterval).toHaveBeenCalledWith(
+                expect.any(Function),
+                12_000,
+                true,
+            );
+        } finally {
+            delete document.documentElement.dataset.hamiLite;
+        }
     });
 
     it('يبطئ استطلاع الشريط عند تشغيل التيار ولا يلغيه', () => {

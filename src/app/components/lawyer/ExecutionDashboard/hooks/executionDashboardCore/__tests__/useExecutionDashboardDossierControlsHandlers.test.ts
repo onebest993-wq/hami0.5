@@ -19,7 +19,7 @@ vi.mock('@/app/utils/specialFollowupDecisionQueue', () => ({
     appendSpecialFollowupRequest: (...args: unknown[]) => appendSpecialFollowupRequestMock(...args),
 }));
 
-vi.mock('../../utils/inabaCorrespondenceLog', () => ({
+vi.mock('../../../utils/inabaCorrespondenceLog', () => ({
     createInabaCorrespondenceLogEntry: (...args: unknown[]) => createInabaCorrespondenceLogEntryMock(...args),
     getInabaCorrespondenceLog: (...args: unknown[]) => getInabaCorrespondenceLogMock(...args),
     patchParentInabaCorrespondenceLog: (...args: unknown[]) => patchParentInabaCorrespondenceLogMock(...args),
@@ -58,7 +58,38 @@ describe('useExecutionDashboardDossierControlsHandlers', () => {
     beforeEach(() => {
         appendSpecialFollowupRequestMock.mockReset();
         createInabaCorrespondenceLogEntryMock.mockReset();
+        /**
+         * يُحاكي العقد الحقيقيّ (`inabaCorrespondenceLog.ts:30-48`): يُسقط المُدخل في
+         * حقول القيد. والمُقنَّع منه شيئان فقط — `id` و`createdAt` — لأنّهما `Date.now()`
+         * و`Math.random()` في الأصل، وهما سببُ التقنيع لا الحقول الأخرى.
+         */
+        createInabaCorrespondenceLogEntryMock.mockImplementation((...args: unknown[]) => {
+            const input = (args[0] ?? {}) as {
+                subFileId?: string;
+                directorate?: string;
+                subject?: string;
+                requestDate?: string;
+                decisionRowId?: string;
+            };
+            return {
+                id: 'inaba_log_test_1',
+                subFileId: String(input.subFileId ?? ''),
+                directorate: String(input.directorate ?? ''),
+                subject: String(input.subject ?? ''),
+                requestDate: String(input.requestDate ?? ''),
+                createdAt: '2026-01-01T00:00:00.000Z',
+                status: 'pending_executor',
+                decisionRowId: String(input.decisionRowId ?? ''),
+            };
+        });
+        /**
+         * العقد الحقيقيّ (`inabaCorrespondenceLog.ts:18-28`) يُرجع مصفوفةً دائماً —
+         * `[]` عند الغياب، ولا `undefined` بحال. وكان القناع يُرجع `undefined` بلا أن
+         * يظهر ذلك، لأنّ مساره كان ميّتاً فلم يُستعمل قطّ. فلمّا صحّ المسار ظهر العطل
+         * بـ`prev is not iterable`. والافتراض هنا يُطابق العقد لا يُداريه.
+         */
         getInabaCorrespondenceLogMock.mockReset();
+        getInabaCorrespondenceLogMock.mockReturnValue([]);
         patchParentInabaCorrespondenceLogMock.mockReset();
         buildDossierActionFullContentMock.mockReset();
         buildDossierActionPayloadJsonMock.mockReset();

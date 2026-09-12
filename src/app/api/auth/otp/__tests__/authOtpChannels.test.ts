@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../security/adminMailer.ts', () => ({
+vi.mock('../../../security/adminMailer.ts', () => ({
     isAdminMailerConfigured: () => false,
     sendAdminMail: vi.fn(),
 }));
