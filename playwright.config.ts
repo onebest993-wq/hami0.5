@@ -39,11 +39,20 @@ export default defineConfig({
   /* workers: افتراضي متوازي محلياً؛ CI=1. استخدم PW_WORKERS=1 عند تذبذب dev server */
   workers: process.env.CI ? 1 : process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : undefined,
   
-  /* Reporter to use */
+  /*
+   * Reporter to use.
+   *
+   * `github` على CI فقط: يُصدر ::error:: لكل اختبار ساقط، فتظهر أسماؤه ورسائله في
+   * تعليقات التشغيل — وهي متاحة عبر واجهة GitHub العامّة، بخلاف سجلّات الوظائف التي
+   * تتطلّب اعتماداً. قيس ٢٠٢٦-٠٩-١٢ في أوّل تشغيل CI لهذا الفرع: بوّابتا التنفيذ
+   * والدعاوى حمراوان ولا سبيل لمعرفة أيّ اختبارٍ سقط فيهما. والمُبلِّغون الثلاثة
+   * يبقون معه فلا يُفقد تقرير ولا سجلّ.
+   */
   reporter: [
     ['html'],
     ['json', { outputFile: 'test-results/results.json' }],
     ['junit', { outputFile: 'test-results/junit.xml' }],
+    ...(process.env.CI ? [['github'] as const] : []),
   ],
   
   /* Shared settings for all the projects below */
