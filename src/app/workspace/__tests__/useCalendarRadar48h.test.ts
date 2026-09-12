@@ -13,6 +13,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarCloud';
 import { resetCalendarCloudLoaderForTests } from '@/app/services/calendar/calendarCloudLoader';
+import { toBaghdadYmd } from '@/app/utils/baghdadTime';
 import { useCalendarRadar48h } from '../useCalendarRadar48h';
 
 const getEventsMock = vi.fn();
@@ -48,10 +49,34 @@ function baseEvent(over: Partial<CalendarEvent>): CalendarEvent {
     };
 }
 
+/**
+ * ساعةُ الجهاز ليست إطار هذه الحقول.
+ *
+ * `date`/`time` في حدث التقويم **نصٌّ بتوقيت بغداد** — هكذا يقرؤهما الخطّاف عبر
+ * `baghdadDayRange`/`todayBaghdadYmd`، وهكذا يكتبهما المنتج. وكان المثبِّت يبنيهما من
+ * `getFullYear`/`getHours` أي بساعة الجهاز، فيتطابق الإطاران على جهازٍ عند +03:00
+ * ويفترقان ثلاث ساعات على أيّ جهازٍ آخر — فيُكتب «بعد ٣ ساعات» موعداً يقع خارج النافذة.
+ * وهذا سببُ حمرة سبعة اختباراتٍ هنا على العدّاء (UTC) وخضرتها محلياً.
+ *
+ * ولا تُثبَّت `TZ` في تهيئة vitest: ذلك يُخفي الفرق ولا يُصلحه، ويُبقي المثبِّت
+ * يفترض ما لا يفترضه المنتج.
+ */
+function baghdadHm(d: Date): string {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Baghdad',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(d);
+    const h = parts.find((p) => p.type === 'hour')?.value ?? '00';
+    const m = parts.find((p) => p.type === 'minute')?.value ?? '00';
+    return `${h}:${m}`;
+}
+
 function inHours(hoursFromNow: number, base: Partial<CalendarEvent> = {}): CalendarEvent {
     const d = new Date(Date.now() + hoursFromNow * 60 * 60 * 1000);
-    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const ymd = toBaghdadYmd(d) ?? '';
+    const hm = baghdadHm(d);
     return baseEvent({ ...base, date: ymd, time: hm, id: base.id ?? `evt-${hoursFromNow}` });
 }
 
