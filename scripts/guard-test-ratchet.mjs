@@ -21,9 +21,18 @@ const toPosix = (p) => p.split(sep).join('/');
 
 function runVitest() {
     const cli = join(ROOT, 'node_modules', 'vitest', 'vitest.mjs');
+    /*
+     * على CI يُضاف مُبلِّغ `github-actions` إلى مُبلِّغ JSON لا بدلاً منه. والسبب مقيس:
+     * حين سقطت هذه الخطوة على العدّاء لم تحمل تعليقاتها إلا `exit code 1`، والتقرير
+     * الكامل يُرفع أثراً — وتنزيلُ الآثار يتطلّب اعتماداً حتى على مستودعٍ عموميّ.
+     * والمُبلِّغ يُصدر `::error::` لكلّ اختبار ساقط، والتعليقات متاحة بلا اعتماد.
+     * فالخيط الوحيد لمعرفة **أيّ** اختبار يسقط على CI دون أن يسقط محلياً.
+     */
+    const reporters = ['--reporter=json', `--outputFile=${REPORT}`];
+    if (process.env.CI) reporters.push('--reporter=github-actions');
     const args = existsSync(cli)
-        ? [cli, 'run', '--reporter=json', `--outputFile=${REPORT}`]
-        : [join(ROOT, 'node_modules', '.bin', 'vitest'), 'run', '--reporter=json', `--outputFile=${REPORT}`];
+        ? [cli, 'run', ...reporters]
+        : [join(ROOT, 'node_modules', '.bin', 'vitest'), 'run', ...reporters];
     try {
         execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
     } catch {
