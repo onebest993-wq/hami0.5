@@ -263,15 +263,35 @@ describe('execution section scenario coverage honesty', () => {
         expect(chromeEscape).toContain('hasExecutionArchivePreviewLayer');
         expect(chromeEscape).not.toContain('embedded={embedded}');
         const focMain = read('src/app/components/lawyer/FinancialOperationsCenter.tsx');
-        expect(focMain).toContain('onGuarantorRequest={onGuarantorRequest}');
+        /**
+         * كان هنا `onGuarantorRequest={onGuarantorRequest}` — اسمٌ زال في إعادة الهيكلة
+         * `f2fdef53` ولم يُحدَّث التوكيد، فبقي يطلب ما لا وجود له. **والميزة لم تزل:**
+         * تحوّلت من نداءٍ واحد إلى سلسلةٍ مُسمّاة، وحذفُ «مسار طلب القرارات المنفصل» من
+         * هذه الواجهة **قرارُ تصميمٍ منصوصٌ عليه** في `SettlementGuarantorBadge.tsx:11-14`
+         * لا سهو. فيُثبَّت هنا ما هو قائمٌ ويُحرَس، لا الاسم الزائل.
+         *
+         * ولم يُكتشف هذا التقادم سنةً لأنّ الاختبار كان يموت قبله عند قراءة ملفٍّ مُهمَل.
+         */
+        expect(focMain).toContain(
+            'showAmountGuarantorRequest={settlementContext.showAmountGuarantorRequest}',
+        );
+        expect(focMain).toContain('onPersistSettlementGuarantor={onPersistSettlementGuarantor}');
         expect(focMain).toContain('onEvictionLedgerActivated,');
-        expect(focMain).not.toMatch(/onGuarantorRequest: _onGuarantorRequest/);
         expect(focMain).not.toMatch(/onEvictionLedgerActivated: _onEvictionLedgerActivated/);
         const focBody = read(
             'src/app/components/lawyer/FinancialOperationsCenter/components/FocCreditorExpandedBody.tsx',
         );
-        expect(focBody).toContain('foc-amount-guarantor-request');
-        expect(focBody).toContain('طلب كفيل ضامن للمبلغ');
+        /*
+         * الشرط المُلزِم: الشارة لا تُعرض إلا ببوّابة العرض **ومسار الحفظ معاً** — فلا
+         * يظهر للمحامي زرُّ كفيلٍ لا شيء خلفه يحفظ ما يُدخله.
+         */
+        expect(focBody).toContain('showAmountGuarantorRequest && onPersistSettlementGuarantor');
+        expect(focBody).toContain('<SettlementGuarantorBadge');
+        expect(focBody).toContain('onPersist={onPersistSettlementGuarantor}');
+        const guarantorBadge = read(
+            'src/app/components/lawyer/FinancialOperationsCenter/components/SettlementGuarantorBadge.tsx',
+        );
+        expect(guarantorBadge).toContain('data-testid="foc-amount-guarantor-request"');
         const focCollect = read(
             'src/app/components/lawyer/FinancialOperationsCenter/useFocCollectionActions.ts',
         );
