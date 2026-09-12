@@ -369,10 +369,19 @@ if (missingSpecs.length > 0) {
 }
 ok(`Phase2.5 manifest: ${EXECUTION_GATE_E2E_SPECS.length} spec(s) present on disk`);
 
+/*
+ * `CANONICAL_SPAWN_OPTS` لا وجود له في هذا الملفّ — اسمٌ جاء مع نسخِ النمط من
+ * بوّابةٍ شقيقة ولم يُنسخ معه تعريفه، فكان هذا السطر يرمي `ReferenceError` قبل أن
+ * يبدأ أيّ اختبار. ولا يُستبدل بـ`SPAWN_OPTS` المحلّي: فيه `shell: true`، وهذا
+ * النداء يُشغّل `process.execPath` — وهو على ويندوز `C:\Program Files\nodejs\node.exe`
+ * بمسافاتٍ في مساره — فتشغيلُه عبر صدفةٍ يكسره. والخياران الباقيان لا لزوم لهما هنا:
+ * `maxBuffer` لا معنى له مع `stdio: 'inherit'`، و`timeout` العشر دقائق أقصرُ من
+ * مصفوفة E2E فيُدخل عطلاً جديداً — ومهلةُ الوظيفة في سير العمل تكفي.
+ */
 const e2eRun = spawnSync(
     process.execPath,
     [resolve(PROJECT_ROOT, 'scripts', 'run-execution-e2e.mjs')],
-    { stdio: 'inherit', cwd: PROJECT_ROOT, ...CANONICAL_SPAWN_OPTS },
+    { stdio: 'inherit', cwd: PROJECT_ROOT, windowsHide: true },
 );
 if (e2eRun.status !== 0) {
     fail(`Phase2.5 E2E exit=${e2eRun.status} → FAIL`);
