@@ -7,10 +7,25 @@ import {
     resetLawyerProfileBootWarmPendingForTests,
 } from '@/app/services/profile/profileBootWarmPending';
 import { resetUserIdentityUiStateForTests } from '@/app/services/profile/userIdentityUiState';
+import { resetPeekBootSessionCacheForTests } from '@/boot/peekBootSessionUserId';
 
 describe('peekForumFirstPaintChrome', () => {
     beforeEach(() => {
         localStorage.clear();
+        /**
+         * `peekBootSessionUserId` يحتفظ بالجلسة في ذاكرةٍ على مستوى الوحدة ولا يُعيد
+         * المسح بعد أوّل نتيجةٍ غير فارغة (`peekBootSessionUserId.ts:39-46`) — وهذا
+         * **مقصودٌ في الإنتاج** ومنصوصٌ عليه في `:48-53`: جلسة الإقلاع لا تتغيّر بلا
+         * إعادة تحميلٍ كاملة.
+         *
+         * لكنّ `localStorage.clear()` وحده لا يمسّ تلك الذاكرة، فكانت الحالة الأولى
+         * (تضبط جلسةً باسم «أحمد مهدي») تُسرّب اسمها إلى الحالات التالية، فتسقط ثلاثٌ
+         * منها بتوقّع «المحامي» أو فراغٍ بينما تقرأ اسماً من حالةٍ سابقة.
+         *
+         * والدالّة موضوعةٌ لهذا الغرض بالذات، ويستدعيها اختبار الوحدة الشقيق
+         * (`src/boot/__tests__/peekBootSessionUserId.test.ts:12`) — وكانت ناقصةً هنا وحدها.
+         */
+        resetPeekBootSessionCacheForTests();
         deleteProfileWarmCacheRaw();
         resetLawyerProfileBootWarmPendingForTests();
         resetUserIdentityUiStateForTests();
