@@ -180,8 +180,13 @@ jobs:
       - name: No new lint errors, no new Rules-of-Hooks violations
         run: npm run guard:lint
 
+      # `github-actions` يُصدر ::error:: لكل اختبار ساقط، فتظهر الأسماء والرسائل في
+      # تعليقات التشغيل — وهي متاحة عبر واجهة GitHub العامّة، بخلاف سجلّات الوظائف
+      # التي تتطلّب اعتماداً. قيس ٢٠٢٦-٠٩-١٢: هذه الخطوة سقطت على CI ومرّت محلياً
+      # ٣٣٠/٣٣٠، ولم يكن ثمّة سبيل لمعرفة أيّ اختبارٍ سقط. والمُبلِّغ الافتراضي يبقى
+      # معه فلا يُفقد السجلّ القابل للقراءة.
       - name: Security test suite (wife validator, CSRF, CSP, red team, kv-proxy, upload sanitizer)
-        run: npm run test:security
+        run: npm run test:security -- --reporter=default --reporter=github-actions
 
       - name: No newly failing tests
         run: npm run guard:tests
