@@ -34,6 +34,27 @@
  *   ٣. §٢·٥: التزامٌ يُعدّل ملفّ خطّ أساسٍ **قائماً** يجب أن تكون بادئته
  *      `baseline(`. وإنشاءُ خطٍّ جديد لمِسنَنةٍ جديدة حالةٌ لا يذكرها الميثاق —
  *      تُطبع كملاحظة ولا تُسقط الحارس (قرار المالك معلّق، انظر REVIEW_REPORT F4).
+ *   ٤. §٢·١ في شقّه الثاني: التزامُ `docs(` **لا يُحرّك شفرة**. انظر أدناه — فحدُّه
+ *      قِيس على التاريخ ولم يُنقل عن توصية.
+ *
+ * ### القاعدة الرابعة: لماذا «لا شفرة» لا «`.md` وحدها»
+ *
+ * §٢·١ يقول: «`docs(scope):` — `.md` only, no TSX/TS/CSS». وشقّاه غير متطابقين،
+ * فالأوّل أوسع من الثاني. **فقِيس أيّهما يصف الواقع** — ١٨ التزام `docs(` منذ الحقبة،
+ * **اثنان** يلمسان غير `.md`:
+ *
+ *   `dcedd788` → `.audit/E2E_FULL_RUN_2026-09-12.json`  — **بيانُ قياسٍ لا شفرة، وهو شرعيّ**
+ *   `79315b66` → أربعة `.ts` تحت `src/app/domain/lawsuit/`  — **مخالفة حقيقية**
+ *
+ * فحرفيّةُ «`.md` وحدها» كانت ستُجرّم بياناً بريئاً، وحرفيّةُ «no TSX/TS/CSS» وحدها
+ * تترك `.mjs` طليقاً — **و`.audit/` وحدها فيها ١٠٧ سكربتات `.mjs` عاملة**، فإذنٌ
+ * بالمجلَّد يفتح باب شحن أداةٍ تحت لافتة «توثيق». فالحدّ المشحون:
+ *
+ *   يُسمح: أيّ `*.md` · وما تحت `.audit/` أو `perf-reports/` **ما لم يكن قابلاً للتنفيذ**
+ *   يُمنع: كلّ `.ts .tsx .js .jsx .mjs .cjs` أينما كان، وكلّ ما سوى ذلك خارج المجلَّدين
+ *
+ * وطُبّقت القواعد الأربع على **٥٣ التزاماً منذ الحقبة بلا أيّ إعفاء**، فسقط واحد:
+ * `79315b66`. فالحدّ مقيسٌ لا مُقدَّر، ونطاقُ أثره معلومٌ قبل شحنه.
  *
  * ولا يتخطّى هذا الحارس نفسه صامتاً: إن كان التاريخ ضحلاً (CI بـfetch-depth
  * الافتراضي) فهو يسقط ويقول ما يُصلحه، لأن حارساً يصمت عند العجز ليس حارساً.
@@ -57,22 +78,65 @@ const SUBJECT_RE = new RegExp(`^(${ALLOWED_PREFIXES.join('|')})\\(([^)]+)\\): \\
 const ZVE_PHRASE = 'Zero Visual Edits = confirmed';
 const ZVE_APPROVED = 'Visual Edits = approved';
 
+/** §٢·١ شقّاً ثانياً: ما يُعدّ شفرةً فلا يمسّه `docs(` أينما كان. */
+const EXECUTABLE_EXT = /\.(?:m|c)?[jt]sx?$/;
+
+/** مجلَّدا القياس والتقارير: بياناتُهما ليست شفرة، فتُسمح لـ`docs(` — والقابل للتنفيذ مُستثنى أعلاه. */
+const DATA_DIRS = ['.audit/', 'perf-reports/'];
+
 /**
  * مخالفاتٌ وقعت وتُسجَّل ولا تُعاد كتابة التاريخ لأجلها (§٢·٦ روحاً: لا يُعاد
  * كتابة تاريخٍ منشور، وهذا فرعٌ يعمل عليه أكثر من طرف). كلٌّ بسببه.
+ *
+ * **والإعفاء مقيَّدٌ بقاعدته** — لا إعفاءَ شاملاً. وكان الشكل السابق يُخطّي الالتزام
+ * كلّه (`continue`)، فيُسقط عنه قواعد يجتازها أصلاً؛ وهذا يُوسّع الثغرة بلا سبب.
+ * فصار لكلّ مُسجَّلٍ قائمةُ القواعد التي أُعفي منها، وما عداها يُفحص كأيّ التزام.
+ *
+ * و`preEpoch` تعني أنّ الالتزام **قبل حقبة الفرض**، فهو خارج المدى أصلاً ولا يُستشار:
+ * يبقى هنا سجلّاً لِما رُصد ولِمَ لم يُعَد كتابة التاريخ، لا آلةً عاملة.
  */
 const GRANDFATHERED = new Map([
     [
         'b798b803',
-        'بادئة perf( خارج الستّ. المحتوى سليم (vite.config.mts وحده، بلا شفرة منتج) ' +
-            'وفوقه ٣٣ التزاماً. رُصد في مراجعة ٢٠٢٦-٠٩-١١ (F2)، وضمُّ perf إلى §٢·١ قرارُ مالك.',
+        {
+            rules: ['PREFIX'],
+            preEpoch: true,
+            reason:
+                'بادئة perf( خارج الستّ. المحتوى سليم (vite.config.mts وحده، بلا شفرة منتج) ' +
+                'وفوقه ٣٣ التزاماً. رُصد في مراجعة ٢٠٢٦-٠٩-١١ (F2)، وضمُّ perf إلى §٢·١ قرارُ مالك.',
+        },
     ],
     [
         'a18a1e22',
-        'Revert آليّ من git: لا بادئة ولا عبارة ZVE. سببه موثّق في ' +
-            '.audit/STATE_2026-09-11_FOUNDATION_NIGHT.md §٢. رُصد في مراجعة ٢٠٢٦-٠٩-١١ (F3).',
+        {
+            rules: ['PREFIX', 'ZVE'],
+            preEpoch: true,
+            reason:
+                'Revert آليّ من git: لا بادئة ولا عبارة ZVE. سببه موثّق في ' +
+                '.audit/STATE_2026-09-11_FOUNDATION_NIGHT.md §٢. رُصد في مراجعة ٢٠٢٦-٠٩-١١ (F3).',
+        },
+    ],
+    [
+        '79315b66',
+        {
+            rules: ['DOCS_SCOPE'],
+            reason:
+                'بادئة docs(audit) على التزامٍ يحمل معها **نقلَ طابقٍ** (T21): أربعة ملفّات من ' +
+                '`components/lawyer/lawyerShared/` إلى `domain/lawsuit/`. وقِيس محتواها: ' +
+                '`R100` في الأربعة — إعادةُ تسميةٍ خالصة بلا حرفٍ متغيّر، أي `refactor(` بتعريف §٢·١ ' +
+                'نفسه، ومهمّتان في التزامٍ واحد (§٢·٢). فالعطل في اللافتة والذرّية لا في الشفرة. ' +
+                'ومنشورٌ وفوقه أكثر من ثلاثين التزاماً، و§٢·٦ يمنع إعادة كتابة تاريخٍ منشور — فيُسجَّل. ' +
+                'والإعفاء من DOCS_SCOPE وحدها: بادئته وعبارةُ التجميد وخطوطُ الأساس تُفحص كما تُفحص لغيره.',
+        },
     ],
 ]);
+
+/** §٢·١: هل يُخالف هذا الملفّ حدَّ `docs(`؟ */
+function violatesDocsScope(file) {
+    if (file.endsWith('.md')) return false;
+    if (DATA_DIRS.some((dir) => file.startsWith(dir)) && !EXECUTABLE_EXT.test(file)) return false;
+    return true;
+}
 
 function git(args) {
     return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -96,6 +160,8 @@ const hashes = git(['rev-list', '--no-merges', `${epoch}..HEAD`]).split('\n').fi
 
 const failures = [];
 const notes = [];
+/** كلّ إعفاءٍ استُهلك فعلاً — ليُقال في النهاية أيُّها لم يَعُد له داعٍ. */
+const exemptionsUsed = new Set();
 
 for (const hash of hashes) {
     const short = hash.slice(0, 8);
@@ -105,33 +171,50 @@ for (const hash of hashes) {
     const subject = (newline === -1 ? raw : raw.slice(0, newline)).trim();
     const body = newline === -1 ? '' : raw.slice(newline + 1);
 
-    const excuse = [...GRANDFATHERED.keys()].find((k) => hash.startsWith(k));
-    if (excuse) continue;
+    const excuseKey = [...GRANDFATHERED.keys()].find((k) => hash.startsWith(k));
+    const excused = (rule) => {
+        if (!excuseKey || !GRANDFATHERED.get(excuseKey).rules.includes(rule)) return false;
+        exemptionsUsed.add(`${excuseKey}:${rule}`);
+        return true;
+    };
 
-    if (!SUBJECT_RE.test(subject)) {
+    if (!SUBJECT_RE.test(subject) && !excused('PREFIX')) {
         failures.push(
             `${short}  بادئة غير مسموحة أو بلا نطاق — المسموح: ${ALLOWED_PREFIXES.join(' · ')}\n` +
                 `          ${subject.slice(0, 100)}`,
         );
     }
 
-    if (!body.includes(ZVE_PHRASE) && !body.includes(ZVE_APPROVED)) {
+    if (!body.includes(ZVE_PHRASE) && !body.includes(ZVE_APPROVED) && !excused('ZVE')) {
         failures.push(
             `${short}  بلا «${ZVE_PHRASE}» في الجسد (§٢·٤)\n          ${subject.slice(0, 100)}`,
         );
     }
 
-    /* §٢·٥ — تعديلُ خطّ أساسٍ قائم يستلزم بادئة baseline( */
-    const changed = git(['show', '--name-status', '--format=', hash])
+    /*
+     * الحقولُ ثلاثةٌ في إعادة التسمية (`R100\told\tnew`) واثنان فيما عداها، **والوجهة
+     * هي الأخيرة دائماً**. وقراءةُ الحقل الثاني وحده تُسمّي المصدرَ القديم في النقل،
+     * فيُحاكَم مسارٌ لم يَعُد موجوداً — وهو ما يُسقط قاعدةَ `docs(` على الوجه الخطأ.
+     */
+    const entries = git(['show', '--name-status', '--format=', hash])
         .split('\n')
         .filter(Boolean)
         .map((line) => line.split('\t'))
-        .filter(([, file]) => file && /baseline.*\.json$/.test(file));
+        .filter((parts) => parts.length >= 2 && parts[parts.length - 1]);
 
-    const modifiedBaselines = changed.filter(([status]) => status.startsWith('M')).map(([, f]) => f);
-    const addedBaselines = changed.filter(([status]) => status.startsWith('A')).map(([, f]) => f);
+    const touched = entries.map((parts) => parts[parts.length - 1]);
 
-    if (modifiedBaselines.length > 0 && !subject.startsWith('baseline(')) {
+    /* §٢·٥ — تعديلُ خطّ أساسٍ قائم يستلزم بادئة baseline( */
+    const changed = entries.filter((parts) => /baseline.*\.json$/.test(parts[parts.length - 1]));
+
+    const modifiedBaselines = changed
+        .filter((parts) => parts[0].startsWith('M'))
+        .map((parts) => parts[parts.length - 1]);
+    const addedBaselines = changed
+        .filter((parts) => parts[0].startsWith('A'))
+        .map((parts) => parts[parts.length - 1]);
+
+    if (modifiedBaselines.length > 0 && !subject.startsWith('baseline(') && !excused('BASELINE')) {
         failures.push(
             `${short}  يُعدّل خطّ أساسٍ قائماً بلا بادئة baseline( — §٢·٥\n` +
                 `          ${modifiedBaselines.join(', ')}`,
@@ -144,11 +227,41 @@ for (const hash of hashes) {
                 'حالةٌ لا يذكرها §٤ صراحةً؛ قرار المالك معلّق (REVIEW_REPORT F4)',
         );
     }
+
+    /* §٢·١ — التزامُ توثيقٍ لا يُحرّك شفرة */
+    if (subject.startsWith('docs(')) {
+        const offending = touched.filter(violatesDocsScope);
+        if (offending.length > 0 && !excused('DOCS_SCOPE')) {
+            failures.push(
+                `${short}  بادئة docs( على ملفّاتٍ خارج حدّها (§٢·١) — ${offending.length} ملفّاً\n` +
+                    `          ${offending.slice(0, 6).join(', ')}${offending.length > 6 ? ' …' : ''}\n` +
+                    '          المسموح: *.md أينما كان · وغيرُ القابل للتنفيذ تحت .audit/ أو perf-reports/',
+            );
+        }
+    }
 }
 
+/*
+ * إعفاءٌ لا يُستهلَك يُوهم بحراسةٍ أضيق ممّا هي، فيُعلَن بدل أن يُنسى. والمُسجَّل
+ * قبل الحقبة خارج المدى بحكم التعريف، فلا يُعدّ نسياناً — ويُقال ذلك صراحةً.
+ */
+for (const [key, entry] of GRANDFATHERED) {
+    if (entry.preEpoch) continue;
+    const unused = entry.rules.filter((rule) => !exemptionsUsed.has(`${key}:${rule}`));
+    if (unused.length > 0) {
+        notes.push(
+            `${key}  إعفاءٌ لم يُستهلَك (${unused.join(' · ')}) — المخالفة زالت أو خرج من المدى، ` +
+                'فيُحذف من GRANDFATHERED',
+        );
+    }
+}
+
+const activeExemptions = [...GRANDFATHERED.values()].filter((e) => !e.preEpoch).length;
+
 console.log(
-    `[commit-conventions] فُحص ${hashes.length} التزاماً منذ ${epoch.slice(0, 8)} ` +
-        `، و${GRANDFATHERED.size} مسجَّلان بسببٍ مكتوب`,
+    `[commit-conventions] فُحص ${hashes.length} التزاماً منذ ${epoch.slice(0, 8)}، ` +
+        `و${activeExemptions} إعفاءً مقيَّداً بقاعدته داخل المدى ` +
+        `(و${GRANDFATHERED.size - activeExemptions} سجلّاً لِما قبل الحقبة، لا يُستشار)`,
 );
 
 for (const note of notes) console.log(`[commit-conventions] ملاحظة — ${note}`);
