@@ -83,6 +83,15 @@ jobs:
       - name: Heavy screen static closures stay within budget
         run: npm run guard:screen-closure
 
+      # مُخرَجا Vercel مولَّدان ومُستثنيان في .gitignore (سطرا ٥١–٥٢)، ويذكرهما نصّاً
+      # اختباران وحارسُ الوحدات الميتة. فعلى قرص أيّ مطوّر هما موجودان، وعلى استنساخٍ
+      # نظيف غائبان — فيرى الحارس التالي انقطاعين لا وجود لهما في المصدر.
+      # كُشف هذا في **أوّل تشغيل CI في تاريخ الفرع** (٢٠٢٦-٠٩-١٢): محلياً ٢ مقطوعة
+      # مقابل خطّ أساس ٣ فيمرّ، وعلى CI ٤ فيسقط. التوليد قبل الفحص يجعل الاثنين يريان
+      # الشجرة نفسها. وكلا المولّدين محليّان بحتاً: لا شبكة ولا متغيّرات بيئة.
+      - name: Generate Vercel API artifacts (gitignored, needed by path guards)
+        run: npm run generate:vercel-api && npm run bundle:vercel-api
+
       # حارس الوحدات الميتة يقرأ الاستيرادات وحدها، والاختبارات البنيوية تقرأ الملفّات
       # بمسار نصّي. فحذف ملفٍّ «لا يستورده أحد» كسر إحدى عشرة مجموعة اختبار مرّة.
       - name: String-path file references still resolve
