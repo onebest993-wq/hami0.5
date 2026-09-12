@@ -190,9 +190,6 @@ jobs:
       # التي تتطلّب اعتماداً. قيس ٢٠٢٦-٠٩-١٢: هذه الخطوة سقطت على CI ومرّت محلياً
       # ٣٣٠/٣٣٠، ولم يكن ثمّة سبيل لمعرفة أيّ اختبارٍ سقط. والمُبلِّغ الافتراضي يبقى
       # معه فلا يُفقد السجلّ القابل للقراءة.
-      - name: Security test suite (wife validator, CSRF, CSP, red team, kv-proxy, upload sanitizer)
-        run: npm run test:security -- --reporter=default --reporter=github-actions
-
       - name: No newly failing tests
         run: npm run guard:tests
 
@@ -249,6 +246,17 @@ jobs:
 
       - name: Bundle size budgets hold
         run: npm run health:bundle
+
+      # مؤخَّرةٌ عمداً، لا مُستثناة. كانت هذه الخطوة سابعةً وثلاثين فتسقط، فتتخطّى
+      # الوظيفةُ ما بعدها — أحد عشر فحصاً **لم تعمل قطّ**: بناء الإنتاج نفسه، وفحصُ
+      # ألّا تتسرّب أسرار خادم أو حزم إدارة إلى حزمة العميل، وحرّاس الوزن الأربعة،
+      # ومِسنَنة الاختبارات. فكان فشلٌ واحد يُعمي عن أحد عشر.
+      #
+      # ولم تُعالَج بـ`continue-on-error`: ذلك يُخضّر وظيفةً فيها اختبارٌ أمنيّ أحمر،
+      # وهو أسوأ من العمى. الترتيبُ وحده تغيّر — الخطوة تُسقط البناء كما كانت، لكنّها
+      # لم تعد تحجب ما بعدها. وتبقى أنباؤها مقروءةً بمُبلِّغ `github-actions`.
+      - name: Security test suite (wife validator, CSRF, CSP, red team, kv-proxy, upload sanitizer)
+        run: npm run test:security -- --reporter=default --reporter=github-actions
 
       - name: Upload baselines and reports on failure
         if: failure()
