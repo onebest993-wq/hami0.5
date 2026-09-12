@@ -34,36 +34,45 @@ if (/Circular chunk:/i.test(buildOutput)) {
     process.exit(1);
 }
 
-const report = run(process.execPath, ['scripts/report-chunk-sizes.mjs'], { stdio: 'inherit' });
-if (report.status !== 0) {
-    process.exit(report.status || 1);
+/**
+ * ما فوق **مُنتِج** — البناء ودوائرُ الحزم — فسقوطُه يُنهي كلّ شيء لأنّ ما بعده يقرأ ما
+ * ينتجه. وما دونه **مستهلكون مستقلّون**: كلٌّ يقرأ `dist` بنفسه ولا يحتاج جاره.
+ *
+ * **وكانوا مسلسلين بـ`process.exit` عند أوّل سقوط — وهذا ما آذانا فعلاً.**
+ * قيس ٢٠٢٦-٠٩-١٢، أوّل يومٍ تعمل فيه هذه الخطوة على العدّاء أصلاً: سقط
+ * `chunk-baseline` (قياسٌ كاذب من خطّ أساسٍ متقادم) **فحجب الخمسة بعده**؛ ولمّا صُحّح
+ * ظهر `check-min-chunk-size` (رقمٌ متقادم) **فحجب ما بعده**؛ ولمّا صُحّح ظهر
+ * `first-open-shared-tax` — **وهو وحده العطل الحقيقيّ**. ثلاثُ دوراتٍ وثلاثةُ أبنية
+ * لرؤية ما كان يمكن أن يُقال في تشغيلةٍ واحدة.
+ *
+ * **فالتسلسل هنا ليس ترتيباً بل آلةُ إخفاء:** كلّ فحصٍ كاذبٍ يحجب صادقاً خلفه، وكلّما
+ * زادت الحلقة زاد الاحتمال. والقاعدة: **اجمع الأحكام، ثمّ اسقط مرّةً واحدة.**
+ */
+const CONSUMERS = [
+    { name: 'report-chunk-sizes', argv: ['scripts/report-chunk-sizes.mjs'] },
+    { name: 'chunk-baseline', argv: ['scripts/chunk-baseline.mjs', 'diff', '--fail'] },
+    { name: 'check-min-chunk-size', argv: ['scripts/check-min-chunk-size.mjs', '--fail'] },
+    { name: 'check-named-chunk-budget', argv: ['scripts/check-named-chunk-budget.mjs'] },
+    { name: 'first-open-shared-tax', argv: ['scripts/guard-first-open-shared-tax.mjs'] },
+    { name: 'clean-mojibake', argv: ['scripts/clean-mojibake.mjs', '--check'] },
+];
+
+const failed = [];
+for (const check of CONSUMERS) {
+    console.log(`\n─── ${check.name} ───`);
+    const result = run(process.execPath, check.argv, { stdio: 'inherit' });
+    if (result.status !== 0) failed.push({ name: check.name, status: result.status ?? 1 });
 }
 
-const diff = run(process.execPath, ['scripts/chunk-baseline.mjs', 'diff', '--fail']);
-process.stdout.write(diff.stdout ?? '');
-process.stderr.write(diff.stderr ?? '');
-if (diff.status !== 0) {
-    process.exit(diff.status || 1);
+if (failed.length) {
+    console.error(
+        `\n[verify-production-build] FAIL — ${failed.length} من ${CONSUMERS.length} فحصاً سقط:`,
+    );
+    for (const f of failed) console.error(`  - ${f.name} (exit=${f.status})`);
+    console.error('\nكلُّها شُغِّلت رغم سقوط بعضها — فلا فحصَ يحجب أخاه، والقائمة أعلاه كاملة.');
+    process.exit(1);
 }
 
-const minChunk = run(process.execPath, ['scripts/check-min-chunk-size.mjs', '--fail'], { stdio: 'inherit' });
-if (minChunk.status !== 0) {
-    process.exit(minChunk.status || 1);
-}
-
-const namedChunks = run(process.execPath, ['scripts/check-named-chunk-budget.mjs'], { stdio: 'inherit' });
-if (namedChunks.status !== 0) {
-    process.exit(namedChunks.status || 1);
-}
-
-const sharedTax = run(process.execPath, ['scripts/guard-first-open-shared-tax.mjs'], { stdio: 'inherit' });
-if (sharedTax.status !== 0) {
-    process.exit(sharedTax.status || 1);
-}
-
-const mojibake = run(process.execPath, ['scripts/clean-mojibake.mjs', '--check'], { stdio: 'inherit' });
-if (mojibake.status !== 0) {
-    process.exit(mojibake.status || 1);
-}
-
-console.log('[verify-production-build] OK — no circular chunks, chunk regression within budget, named caps OK');
+console.log(
+    `\n[verify-production-build] OK — ${CONSUMERS.length}/${CONSUMERS.length} فحوصٍ اجتازت (لا حزم دائرية، والأحجام والإغلاق ضمن خطوط الأساس)`,
+);
