@@ -34,7 +34,14 @@ function runVitest() {
         ? [cli, 'run', ...reporters]
         : [join(ROOT, 'node_modules', '.bin', 'vitest'), 'run', ...reporters];
     try {
-        execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+        /*
+         * `stdio: 'inherit'` لا التقاط. أوّل تشغيلٍ بعد إضافة مُبلِّغ `github-actions`
+         * لم يُنتج تعليقةً واحدة، والسبب هنا: `execFileSync` يلتقط stdout في قيمة
+         * الإرجاع افتراضياً، و**أوامر Actions (`::error::`) تُقرأ من stdout** — فكان
+         * المُبلِّغ يكتب إلى بالوعة. وقيمةُ الإرجاع غير مستعملة أصلاً: التقرير يُقرأ
+         * من القرص أدناه. فالتوريث لا يُفقد شيئاً ويُوصل الأسماء.
+         */
+        execFileSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
     } catch {
         // كود خروج غير صفري متوقّع مع وجود فشل — التقرير هو المصدر
     }
