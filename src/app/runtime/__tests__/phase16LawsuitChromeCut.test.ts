@@ -118,7 +118,13 @@ describe('phase-16 lawsuit chrome first-paint', () => {
         );
         expect(src).toContain('executionDashboardPortalLazy');
         expect(src).toContain('LazyExecutionDashboardPortal');
-        expect(src).toContain('isPreloaded()');
+        /*
+         * كان `toContain('isPreloaded()')`: تخطّي `Suspense` عند الجاهزية. ذلك التفرّعُ يهدم الإضبارةَ المفتوحة (قِيس
+         * في E2E ٢٠٢٦-٠٩-١٣)، فصار الغلافُ دائماً — والمحمَّلُ يُرسم مباشرةً داخله بلا غطاء (محروسٌ سلوكياً في
+         * `executionOverlayEntriesWarmNoFlash.test.tsx`).
+         */
+        expect(src).toContain('<Suspense');
+        expect(src).not.toMatch(/\.isPreloaded\(\)/);
         expect(src).toContain('portalProps');
         expect(src).toMatch(/\bopen,\s*$/m);
         expect(src).not.toContain("from '@/app/components/lawyer/dashboard/ExecutionDashboardPortal'");

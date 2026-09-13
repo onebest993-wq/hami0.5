@@ -15,7 +15,13 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         expect(main).not.toContain('executionDossierHostFile');
     });
 
-    it('OverlayEntry يستخدم نفس preloadable Portal ويتخطى Suspense عند الجاهزية', () => {
+    /**
+     * **كان يشترط `isPreloaded()` في المدخل** — أي تخطّيَ `Suspense` حين تكون البوّابة محمَّلة. وقِيس ٢٠٢٦-٠٩-١٣
+     * في E2E أنّ ذلك التفرّع **يهدم الإضبارة المفتوحة كلَّها** عند أوّل إعادة رسمٍ بعد اكتمال التحميل (تبديلُ نوع
+     * العنصر). **وغرضُه — لا وميضَ حين تكون جاهزة — باقٍ بلا تفرّع:** البوّابةُ المحمَّلة تُرسم مباشرةً داخل
+     * `Suspense`، ويحرس ذلك سلوكياً `executionOverlayEntriesWarmNoFlash.test.tsx`.
+     */
+    it('OverlayEntry يستخدم نفس preloadable Portal داخل Suspense دائماً — بلا تفرّع على الجاهزية', () => {
         const entry = readFileSync(
             join(
                 root,
@@ -24,7 +30,8 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
             'utf8',
         );
         expect(entry).toContain('executionDashboardPortalLazy');
-        expect(entry).toContain('isPreloaded()');
+        expect(entry).toContain('<Suspense');
+        expect(entry).not.toMatch(/\.isPreloaded\(\)/);
         expect(entry).toContain('open,');
         expect(entry).not.toContain('lazyWithRetry');
         expect(entry).toContain('ExecutionDossierInstantPaintCover');

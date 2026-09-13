@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 import type { DossierMetaEditSectionProps } from './DossierMetaEditSection';
 import type { PartyEditModalProps } from './PartyEditModal';
 import type { TimelineEvent } from '@/app/types/execution';
@@ -156,9 +155,6 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
     } = props;
 
-    /* الغلافُ يُقرَّر عند التركيب: نزعُه بعد اكتمال التحميل كان يهدم نموذجَ تعديل الإضبارة المفتوح */
-    const dossierMetaEditColdAtMount = useColdAtMount(() => LazyDossierMetaEditSection.isPreloaded());
-
     const showTimelineEditModal = Boolean(timelineEditDraft);
     const showPartyEditModal = Boolean(editPartyTarget);
     const showHeirsQuickViewModal = Boolean(heirsQuickView);
@@ -267,28 +263,6 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showEditDossierMetaModal ? (
-            !dossierMetaEditColdAtMount ? (
-                <LazyDossierMetaEditSection
-                    showEditDossierMetaModal={showEditDossierMetaModal}
-                    dossierMetaDraft={dossierMetaDraft}
-                    isEvictionExecutionModule={
-                        dossierMetaEditIsEvictionExecutionModule ?? isEvictionExecutionModule
-                    }
-                    setShowEditDossierMetaModal={(open) => {
-                        if (open) {
-                            setShowEditDossierMetaModal(true);
-                            return;
-                        }
-                        if (typeof onCloseEditDossierMetaModal === 'function') {
-                            onCloseEditDossierMetaModal();
-                            return;
-                        }
-                        setShowEditDossierMetaModal(false);
-                    }}
-                    setDossierMetaDraft={setDossierMetaDraft}
-                    saveDossierMetaDraft={saveDossierMetaDraft}
-                />
-            ) : (
             <Suspense
                 fallback={
                     <ExecutionNamedOverlayInstantFrame
@@ -325,7 +299,6 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                     saveDossierMetaDraft={saveDossierMetaDraft}
                 />
             </Suspense>
-            )
             ) : null}
 
             {showPartyEditModal ? (

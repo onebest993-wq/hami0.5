@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 import { LazyExecutionDashboardShellOverlays } from '../executionDashboardShellOverlaysLazy';
 import { ExecutionShellOverlayInstantPaint } from './ExecutionShellOverlayInstantPaint';
 
@@ -7,9 +6,9 @@ import { ExecutionShellOverlayInstantPaint } from './ExecutionShellOverlayInstan
  * برميل نوافذ الإضبارة — يُركَّب فقط عند نية نافذة.
  * انتظار البرميل هيكل فوري يعمل، لا فراغ كحلي.
  *
- * **وغلافُ `Suspense` يُقرَّر عند التركيب لا في كلّ رسم** (`useColdAtMount`): كان يُنزع عند أوّل
- * إعادة رسمٍ بعد اكتمال التحميل، فتُهدم كلُّ نافذةٍ مفتوحة — قِيس: مركزُ القرارات يُركَّب من
- * جديد بعد ضغط «القرارات السابقة» فيضيع الضغط.
+ * **وغلافُ `Suspense` دائمٌ لا يُقرَّر بالجاهزية في الرسم:** كان يُنزع عند أوّل إعادة رسمٍ بعد اكتمال
+ * التحميل، فتُهدم كلُّ نافذةٍ مفتوحة — قِيس: مركزُ القرارات يُركَّب من جديد بعد ضغط «القرارات السابقة»
+ * فيضيع الضغط. والبرميلُ المحمَّل يُرسم مباشرةً، فلا يعلّق ولا يظهر الهيكل.
  */
 export function ExecutionShellOverlaysEntry({
     open,
@@ -24,23 +23,16 @@ export function ExecutionShellOverlaysEntry({
     scope: Record<string, unknown>;
     followupSnapshot: Record<string, unknown>;
 }): React.ReactElement | null {
-    const coldAtMount = useColdAtMount(() => LazyExecutionDashboardShellOverlays.isPreloaded());
     if (!open) return null;
 
-    const live = (
-        <LazyExecutionDashboardShellOverlays
-            showUnifiedExecutionModal={showUnifiedExecutionModal}
-            unifiedModalTab={unifiedModalTab ?? null}
-            scope={scope}
-            followupSnapshot={followupSnapshot}
-        />
-    );
-
-    if (!coldAtMount) {
-        return live;
-    }
-
     return (
-        <Suspense fallback={<ExecutionShellOverlayInstantPaint scope={scope} />}>{live}</Suspense>
+        <Suspense fallback={<ExecutionShellOverlayInstantPaint scope={scope} />}>
+            <LazyExecutionDashboardShellOverlays
+                showUnifiedExecutionModal={showUnifiedExecutionModal}
+                unifiedModalTab={unifiedModalTab ?? null}
+                scope={scope}
+                followupSnapshot={followupSnapshot}
+            />
+        </Suspense>
     );
 }

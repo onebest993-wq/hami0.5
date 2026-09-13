@@ -3,13 +3,15 @@
  *
  * العطل: مكوّنٌ رُكّب بارداً يعرض المحتوى داخل `Suspense`، ثمّ يكتمل التحميل، **فأوّلُ إعادة رسمٍ**
  * تُرجعه بلا غلاف — نوعُ عنصرٍ آخر في الموضع نفسه، فيُهدم كلُّ ما تحته بلا أيّ setter. قِيس في E2E
- * على ستّة مواضع (مركزُ القرارات يُضيع الضغطة، والإضبارةُ كلُّها تُهدم)، والعلاجُ `useColdAtMount`.
+ * على ستّة مواضع (مركزُ القرارات يُضيع الضغطة، والإضبارةُ كلُّها تُهدم)، **والعلاجُ `Suspense` دائماً** — والمحمَّلُ
+ * لا يعلّق داخله. *(وثبّت الحلُّ الأوّل القرارَ بخطّافٍ عند التركيب، فكبّر مدخلَين مراقَبين فوق `chunk-baseline` على
+ * CI؛ فالغلافُ الدائم أصغرُ منه وأبسط.)*
  *
  * **وهذا الحارس يُسقط الأشكالَ الثلاثة التي وقع بها العطلُ فعلاً:**
  *   ١. تفرّعٌ مباشر:            `X.isPreloaded() ? <A/> : <B/>`
  *   ٢. رجوعٌ مبكّر:              `if (X.isPreloaded()) { return live; }`
  *   ٣. متغيّرٌ يُحسب في الرسم:   `const ready = … X.isPreloaded() …` ثمّ يُتفرَّع عليه
- * **ويُجيز** ما يُحسب مرّةً عند التركيب (`useColdAtMount(…)` · `useState(() => …)`) وما في المؤثّرات.
+ * **ويُجيز** ما يُحسب مرّةً عند التركيب (`useState(() => …)` وكلَّ خطّافٍ يبدأ بـ`use`) وما في المؤثّرات.
  *
  * **وحدُّه المعلَن:** مطابقةُ نصّ لا تحليلُ شجرة — يفوته تفرّعٌ يُبنى بطريقٍ رابع. والمُستثنى
  * أدناه يبدّل **غطاءً بغطاء**، فلا محتوى معروضاً يُهدم.
@@ -69,7 +71,7 @@ describe('لا تفرّعَ على isPreloaded() في الرسم', () => {
         expect(caught('return X.isPreloaded() ? <A /> : <B />;')).toBe(true);
         expect(caught('if (LazyX.isPreloaded()) {\n        return live;\n    }')).toBe(true);
         expect(caught("const preloaded = typeof L.isPreloaded === 'function' ? L.isPreloaded() : false;")).toBe(true);
-        expect(caught('const cold = useColdAtMount(() => LazyX.isPreloaded());')).toBe(false);
+        expect(caught('const cold = usePinnedFlag(() => LazyX.isPreloaded());')).toBe(false);
         expect(caught('const [ready, setReady] = useState(() => LazyX.isPreloaded());')).toBe(false);
         expect(caught('if (LazyX.isPreloaded()) {\n            setReady(true);\n            return;')).toBe(false);
         expect(caught("if (typeof L.isPreloaded === 'function' && L.isPreloaded()) return;")).toBe(false);
