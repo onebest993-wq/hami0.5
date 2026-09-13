@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPerfBudget } from './load-perf-budget.mjs';
+import { chunkPrefix } from './lib/chunkPrefix.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const baselinePath = path.join(__dirname, 'chunk-baseline.json');
@@ -32,10 +33,6 @@ function collect() {
         .filter((r) => WATCH.some((w) => r.file.includes(w)))
         .sort((a, b) => b.rawKb - a.rawKb);
     return { capturedAt: new Date().toISOString(), rows };
-}
-
-function chunkPrefix(file) {
-    return file.replace(/-[a-zA-Z0-9]+\.js$/, '');
 }
 
 const cmd = process.argv[2] || 'save';
