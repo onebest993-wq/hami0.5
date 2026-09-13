@@ -228,13 +228,49 @@ const summary = {
     numFailedTestSuites: report.numFailedTestSuites ?? 0,
 };
 
-if (process.argv.includes('--save')) {
+/**
+ * **الفَلَتاتُ الموسومة لا تُحفظ في خطّ الأساس — قرارُ المالك ٢٠٢٦-٠٩-١٤** («ويبقى أن تقرر هل تُحتسب فيه
+ * حالة التوقيت المتذبذبة المعروفة» — فوُكِّل الحكم).
+ *
+ * خطُّ الأساس للإرث **الحتميّ**، والفَلَتةُ محكومةٌ بـ`KNOWN_TIMING_FLAKES` وسقفِها في كلّ تشغيلة. وكان الحفظُ
+ * يكتب **كلَّ** ما سقط، فلو وقعت فَلَتةٌ أثناءه **لنالت سماحاً ثانياً صامتاً بلا سقف**، وبقيت مسموحةً ولو
+ * أُزيلت من القائمة — ولأبلغ الحارسُ «now pass» في أغلب التشغيلات. **وقد وقعت فعلاً** في تقرير البوّابة
+ * الذي بُني عليه الحفظُ التالي.
+ */
+function savedFailures() {
+    const excludedKnownFlakes = failures.filter((f) => KNOWN_FLAKE_KEYS.has(f));
+    const kept = failures.filter((f) => !KNOWN_FLAKE_KEYS.has(f));
+    return { kept, excludedKnownFlakes };
+}
+
+function writeBaseline(label) {
+    const { kept, excludedKnownFlakes } = savedFailures();
     writeFileSync(
         BASELINE_PATH,
-        JSON.stringify({ savedAt: new Date().toISOString(), ...summary, failures }, null, 2),
+        JSON.stringify(
+            {
+                savedAt: new Date().toISOString(),
+                ...summary,
+                numFailedTests: kept.length,
+                failures: kept,
+                excludedKnownFlakes,
+            },
+            null,
+            2,
+        ),
         'utf8',
     );
-    console.log(`[test ratchet] baseline saved: ${failures.length} failing tests of ${summary.numTotalTests}`);
+    console.log(`[test ratchet] ${label}: ${kept.length} failing tests of ${summary.numTotalTests}`);
+    if (excludedKnownFlakes.length) {
+        console.log(
+            `[test ratchet] ${excludedKnownFlakes.length} known timing flake(s) NOT saved — governed by KNOWN_TIMING_FLAKES and its per-run ceiling:`,
+        );
+        for (const f of excludedKnownFlakes) console.log(`  ~ ${f}`);
+    }
+}
+
+if (process.argv.includes('--save')) {
+    writeBaseline('baseline saved');
     process.exit(0);
 }
 
@@ -243,12 +279,7 @@ if (!existsSync(BASELINE_PATH)) {
         console.error('[test ratchet] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
         process.exit(1);
     }
-    writeFileSync(
-        BASELINE_PATH,
-        JSON.stringify({ savedAt: new Date().toISOString(), ...summary, failures }, null, 2),
-        'utf8',
-    );
-    console.log(`[test ratchet] baseline saved (local auto-init): ${failures.length} failing tests of ${summary.numTotalTests}`);
+    writeBaseline('baseline saved (local auto-init)');
     process.exit(0);
 }
 
