@@ -77,6 +77,8 @@ function runVitest() {
     return JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
 }
 
+const SUITE_FAILED_WITHOUT_TEST = '(suite failed with no failing test: not loaded, or a hook threw)';
+
 /**
  * يجمع الاختبارات الفاشلة بمفتاح مستقر: مسار الملف + العنوان الكامل.
  *
@@ -87,9 +89,19 @@ function collectFailures(report) {
     const failures = [];
     for (const suite of report.testResults ?? []) {
         const file = toPosix(relative(ROOT, suite.name ?? ''));
+        let failedInSuite = 0;
         for (const t of suite.assertionResults ?? []) {
-            if (t.status === 'failed') failures.push(`${file} :: ${(t.fullName || t.title || '').trim()}`);
+            if (t.status === 'failed') {
+                failures.push(`${file} :: ${(t.fullName || t.title || '').trim()}`);
+                failedInSuite += 1;
+            }
         }
+        /*
+         * **ملفٌّ سقط بلا توكيدٍ ساقط يُعدّ بمفتاح ملفّه** — لم يُحمَّل (استيرادٌ لا يُحلّ) أو رمى خطّافُه قبل
+         * الاختبارات. كان لا يُعدّ، فيموت الملفُّ كلُّه بصمت. ووقع: نقلُ `sameOriginApiProbe` (`dfaf68bd`) ترك في
+         * اختباره استيراداً لا يُحلّ، فلم تعمل اختباراتُه الستّة أربعةَ أيّام والبوّابةُ خضراء (`42e2253a`).
+         */
+        if (suite.status === 'failed' && failedInSuite === 0) failures.push(`${file} :: ${SUITE_FAILED_WITHOUT_TEST}`);
     }
     return failures.sort();
 }
