@@ -1,7 +1,12 @@
 # Hami-app — Tier-1 Production Hardening: CLAUDE.md
 
 > **ملف التعليمات الرسمي لمراجعة المستقلين والاعتمادات المستقبلية.**
-> **Version:** v10.5.0-tier1-hardened · **Branch:** improve/current · **Node:** 24.x (`cat .nvmrc`)
+> **Version:** `package.json` → `version` · **Node:** `.nvmrc` · **Branch:** `git rev-parse --abbrev-ref HEAD`
+>
+> *صُحّح ٢٠٢٦-٠٩-١٣: كان السطر يثبّت «Branch: improve/current» والعمل يجري على*
+> *`fix/production-hardening` منذ أسابيع، و`improve/current` فرعٌ آخر قائم. **وحقيقةٌ***
+> ***تتغيّر كلّ يوم لا تُكتب في وثيقة، بل يُكتب الأمرُ الذي يقولها.*** *وهذا المبدأ*
+> *يسري على §٤ و§٦ أدناه أيضاً.*
 
 ---
 
@@ -39,7 +44,10 @@
 3. **One-rule fail = amend**: إذا اخفق guard، لا تدمج تصحيحه مع مهمة أخرى؛ اعمل amend أو commit منفصل.
 4. **Zero Visual Edits flag**: رسالة الـ commit **مستحقة** إفادة `Zero Visual Edits = confirmed` إلا في حال تعديل واجهة صريح بموافقة المستخدم.
 5. **Baseline: prefix REQUIRED for `--save`**: أي `--save` لـ ratchet **يجب** أن يبدأ بـ `baseline(scope):` مع سبب موثق + موافقة المستخدم verbatim في رسالة الـ commit.
-6. **No force push** مطلقًا على الأفرع الرسمية (improve/current · main · release/*).
+6. **No force push** مطلقًا على أيّ فرعٍ منشور — `main` · `release/*` · وكلُّ فرعِ عملٍ
+   دُفع إلى `origin`. *(صُحّح ٢٠٢٦-٠٩-١٣: كان يُسمّي `improve/current` وحده، والعمل
+   يجري على فرعٍ آخر منذ أسابيع. **قاعدةٌ تُسمّي أفرعاً بأسمائها تتقادم؛ فالمعيار**
+   **«أمنشورٌ هو؟» لا اسمُه.**)*
 
 ---
 
@@ -126,6 +134,15 @@
 
 > **وحتى يُشحن ذلك الحارس، البوّابة الكاملة إلزاميةٌ بلا استثناء.** هذا البند **لا
 > يفتح شيئاً اليوم**؛ يشترط ثمنَ فتحه.
+>
+> ### وله أجلٌ يسقط به — أُضيف ٢٠٢٦-٠٩-١٣
+>
+> **بندٌ نائمٌ في ميثاق خطرُه أنّه يُقرأ يوماً بغير ما قُصد.** قارئٌ عجلٌ يرى عنوان
+> «بوّابةٌ متناسبة» ولا يقرأ شروطه الثلاثة، فيظنّ المجموعةَ الفرعية مباحة. وقد كتبتُ
+> هذا البند بنفسي، **فتركُه بلا أجلٍ انحيازٌ لصالحي**.
+>
+> **فإن لم يُشحن حارسُه ومعه اختبارُه السلبيّ — يُحذف هذا القسم كلّه.** ولا يُمدَّد
+> إلا بكلمةٍ من المالك. **والنصُّ الذي لا يصير آلةً يُحذف، ولا يُورَّث.**
 
 **ولماذا:** ٢٩ حارساً يُنجَزون في **٢ دقيقة و٥٨ ثانية**، و`guard:tests` وحده يستغرق ما
 بقي من الـ١٥ دقيقة (١٢٬٢٣٣ اختباراً) — أي **نحو ٨٠٪ من زمن البوّابة**، ولا يمسّه التزامُ
@@ -138,25 +155,41 @@
 
 ## §4 — 6 Ratchet Baselines + Save Policy
 
-| Ratchet | Baseline (locked JSON) | POST-T2 actual | Trend allowed | `--save` only if |
-|---|---|---|---|---|
-| tsc errors | **`956`** `.audit/tsc-ratchet-baseline.json` | **`955`** | ≤ baseline فقط | baseline: prefix + سبب موثق |
-| lint errors | **`11`** `.audit/lint-baseline.json` | **`11`** | ≤ baseline فقط | baseline: prefix |
-| dead exports | **`1885`** `.audit/dead-exports-baseline.json` | **`1878`** | ≤1885 فقط | baseline: prefix |
-| test failures | **`21`** `.audit/test-ratchet-baseline.json` | **`13`** | ≤ baseline فقط | baseline: prefix + flakes documented |
-| arch boundaries 4-floor | `244` (1/129/114) `.audit/architecture-boundaries-baseline.json` | **`212`** (1/127/84) | ≤244 فقط | baseline: prefix + T21 violation reason |
-
-| import closure broken | `0` | `0` | **فقط 0** | غير مسموح به أبدًا — لا --save |
-
-> **صُحّح ٢٠٢٦-٠٩-١٠:** كان الجدول يذكر `.audit/tsc-baseline.json` وهو **غير موجود**
-> (الحارس يقرأ `tsc-ratchet-baseline.json`)، ويذكر خطّ أساس ١٨٨٨ للتصديرات الميتة
-> والملفّ يقول ١٨٨٥. **خطّ الأساس في الملفّ هو الحُجّة، لا الجدول.**
+> **لا أرقامَ في هذا الجدول — وذلك تصحيحٌ لا نقص.**
 >
-> **وصُحّح ٢٠٢٦-٠٩-١٢ بقراءة الملفّات نفسها وسجلّ بوّابةٍ خضراء:** كان عمودُ الأساس فارغاً
-> في ثلاثة صفوف، **وعمودُ «الحاليّ» يحمل الأساس في صفّ الاختبارات** (١٣ هو الحاليّ لا
-> الأساس؛ `numFailedTests` في الملفّ **٢١**). والمُصحَّح: tsc أساسُه ٩٥٦ · lint **١١** لا
-> ١٧٧ · التصديرات الميتة الحاليّ **١٨٧٨** لا ١٨٨١ · الطوابق الأربعة **٢١٢** (1/127/84)
-> لا ٢١٩. **ولا يُنقل رقمٌ إلى هنا إلا من ملفّ الأساس أو من سجلّ تشغيلةٍ خضراء.**
+> كان الجدول يُكرّر قيماً تعيش في ملفّات JSON، **فأخطأ مرّتين وصُحّح مرّتين**
+> (٢٠٢٦-٠٩-١٠ و٢٠٢٦-٠٩-١٢: ملفٌّ لا وجود له، وخطّ أساسٍ خاطئ، وعمودٌ يحمل «الحاليّ»
+> مكان «الأساس»). **وما يُكرَّر بيدٍ يتقادم ثالثة** — وحراسةُ نسخةٍ مكرّرة أضعفُ من
+> حذفها. **فحُذفت النسخة، وبقي مكانُ الحقيقة والأمرُ الذي يقولها.**
+
+| Ratchet | مكانُ الحقيقة | الاتّجاه المسموح |
+|---|---|---|
+| tsc errors | `.audit/tsc-ratchet-baseline.json` | ≤ baseline فقط |
+| lint errors | `.audit/lint-baseline.json` | ≤ baseline فقط |
+| dead exports | `.audit/dead-exports-baseline.json` | ≤ baseline فقط |
+| test failures | `.audit/test-ratchet-baseline.json` | ≤ baseline فقط (+ flakes موثّقة) |
+| arch boundaries 4-floor | `.audit/architecture-boundaries-baseline.json` | ≤ baseline فقط |
+| import closure broken | — | **صفرٌ حصراً، ولا `--save` أبداً** |
+
+**وأرقامُها تُقرأ بأمرٍ لا بالعين:**
+
+```bash
+node scripts/run-gate-wave0.mjs      # كلّ مِسنَنة تطبع: baseline → current
+```
+
+**ولا يُنقل رقمٌ من هنا إلى وثيقةٍ أخرى.** ومن أراد رقماً فليُشغّل الأمر: **الملفُّ هو
+الحُجّة، ولا حُجّة في جدول.**
+
+> **سجلُّ التقادم — يبقى لأنّه سببُ حذف الأرقام، لا لأنّ أرقامه تُستعمل:**
+>
+> **٢٠٢٦-٠٩-١٠:** الجدول يذكر `.audit/tsc-baseline.json` وهو **غير موجود** (الحارس يقرأ
+> `tsc-ratchet-baseline.json`)، ويذكر ١٨٨٨ للتصديرات الميتة والملفّ يقول ١٨٨٥.
+>
+> **٢٠٢٦-٠٩-١٢:** عمودُ الأساس فارغٌ في ثلاثة صفوف، **وعمودُ «الحاليّ» يحمل الأساس في صفّ
+> الاختبارات**؛ وlint كان ١٧٧ والملفّ يقول ١١.
+>
+> **مرّتان في يومين على وثيقةٍ يقرؤها مراجعٌ مستقلّ.** ولم يُصحَّح الجدول ثالثةً — حُذفت
+> أرقامُه. **والدرس الذي يُنقل: لا تُصحّح نسخةً مكرّرة، احذفها.**
 
 ### Save Policy:
 ```
@@ -190,26 +223,26 @@
 
 ## §6 — 20 Critical Paths (Clickable file:// links)
 
-1. [package.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/package.json) — Stack pins + 31 guards scripts
-2. [.nvmrc](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.nvmrc) — Node 24.x pin
-3. [capacitor.config.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/capacitor.config.ts) — native shell config
-4. [vite.config.mts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/vite.config.mts) — Bundler + manualChunks + build sourcemaps
-5. [tsconfig.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/tsconfig.json) + [tsconfig.app.json](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/tsconfig.app.json) — strict options
-6. [eslint.config.js](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/eslint.config.js) — global ESLint (لا يحتوي T21 blocks)
-7. [.audit/eslint-arch-boundaries.config.js](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.audit/eslint-arch-boundaries.config.js) — T21 dedicated config
-8. [src/app/runtime/eventConstants.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/runtime/eventConstants.ts) — T1 SSOT 45 events
-9. [src/app/bootstrap/LOADER_HYDRATOR_ORDER.md](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/LOADER_HYDRATOR_ORDER.md) — T3 33-entry registry
-10. [src/app/bootstrap/bootReveal.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/bootstrap/bootReveal.ts#L119-L147) — markBootRevealDone + SecureStore kickoff
-11. [src/app/services/SecureStoreService.ts](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/src/app/services/SecureStoreService.ts#L1993-L2017) — idle deferral dual mechanism
-12. [scripts/run-gate-wave0.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/run-gate-wave0.mjs) — Official 31/31 runner cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
-13. [scripts/guard-tsc-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-tsc-ratchet.mjs) — tsc ratchet (`.audit/tsc-ratchet-baseline.json`)
-14. [scripts/guard-lint-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-lint-ratchet.mjs) — lint ratchet **11** (`totalErrors` في `.audit/lint-baseline.json`)
-15. [scripts/guard-test-ratchet.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-test-ratchet.mjs) — test ratchet **21** + `MAX_ALLOWED_FLAKES_PER_RUN` = **13** (`:196`)
-16. [scripts/guard-dead-exports.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-dead-exports.mjs) — dead exports 1885
-17. [scripts/guard-architecture-boundaries.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/guard-architecture-boundaries.mjs) — T21 4-floor JSON 244 (حالياً **212**)
-18. [scripts/sync-security-headers.mjs](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/scripts/sync-security-headers.mjs) — vercel + _headers triple sync
-19. [.github/workflows/quality-gate.yml](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/.github/workflows/quality-gate.yml) — CI gate entry (32 related guards)
-20. [supabase/migrations/](file:///c:/Users/HEX%20STORE/Downloads/New%20folder/supabase/migrations/) — 15 search_path hardened files (T2)
+1. [package.json](package.json) — Stack pins + 31 guards scripts
+2. [.nvmrc](.nvmrc) — Node 24.x pin
+3. [capacitor.config.ts](capacitor.config.ts) — native shell config
+4. [vite.config.mts](vite.config.mts) — Bundler + manualChunks + build sourcemaps
+5. [tsconfig.json](tsconfig.json) + [tsconfig.app.json](tsconfig.app.json) — strict options
+6. [eslint.config.js](eslint.config.js) — global ESLint (لا يحتوي T21 blocks)
+7. [.audit/eslint-arch-boundaries.config.js](.audit/eslint-arch-boundaries.config.js) — T21 dedicated config
+8. [src/app/runtime/eventConstants.ts](src/app/runtime/eventConstants.ts) — T1 SSOT 45 events
+9. [src/app/bootstrap/LOADER_HYDRATOR_ORDER.md](src/app/bootstrap/LOADER_HYDRATOR_ORDER.md) — T3 33-entry registry
+10. [src/app/bootstrap/bootReveal.ts](src/app/bootstrap/bootReveal.ts#L119-L147) — markBootRevealDone + SecureStore kickoff
+11. [src/app/services/SecureStoreService.ts](src/app/services/SecureStoreService.ts#L1993-L2017) — idle deferral dual mechanism
+12. [scripts/run-gate-wave0.mjs](scripts/run-gate-wave0.mjs) — Official 31/31 runner cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
+13. [scripts/guard-tsc-ratchet.mjs](scripts/guard-tsc-ratchet.mjs) — tsc ratchet (`.audit/tsc-ratchet-baseline.json`)
+14. [scripts/guard-lint-ratchet.mjs](scripts/guard-lint-ratchet.mjs) — lint ratchet **11** (`totalErrors` في `.audit/lint-baseline.json`)
+15. [scripts/guard-test-ratchet.mjs](scripts/guard-test-ratchet.mjs) — test ratchet **21** + `MAX_ALLOWED_FLAKES_PER_RUN` = **13** (`:196`)
+16. [scripts/guard-dead-exports.mjs](scripts/guard-dead-exports.mjs) — dead exports 1885
+17. [scripts/guard-architecture-boundaries.mjs](scripts/guard-architecture-boundaries.mjs) — T21 4-floor JSON 244 (حالياً **212**)
+18. [scripts/sync-security-headers.mjs](scripts/sync-security-headers.mjs) — vercel + _headers triple sync
+19. [.github/workflows/quality-gate.yml](.github/workflows/quality-gate.yml) — CI gate entry (32 related guards)
+20. [supabase/migrations/](supabase/migrations/) — 15 search_path hardened files (T2)
 
 ---
 
@@ -259,6 +292,17 @@
    >
    > **وغيابُ المالك لا يوسّع الحدّ ولا يضيّقه:** ما خُوِّل يسري في غيابه، وما لم يُخوَّل
    > لا يُفعل بحجّة الغياب؛
+   > ### ضعفٌ بنيويّ في هذا الاستثناء — يُعلَن ولا يُداوى بنصٍّ أكثر
+   >
+   > **أُقرّ ٢٠٢٦-٠٩-١٣:** هذا الاستثناء وشروطُه **صاغها المنفِّذ نفسه**. وأيّاً بلغت
+   > إحكامَ الصياغة، **فالمحكومُ هو من كتب حكمه** — وهذا لا يُصلحه مزيدُ نصٍّ من اليد
+   > نفسها، لأنّ كلّ سطرٍ إضافيّ يزيد المشكلة لا ينقصها.
+   >
+   > **فالعلاج نقلُ الحكم إلى غيره، لا تحسينُ الصياغة:** كلُّ استعمالٍ لهذه الصلاحية
+   > **يُدرَج في موجز المراجعة** باسم التزامه واقتباس إذنه وما فُحص قبله، **ليُحاكَم من
+   > مراجعٍ مستقلّ** (§٧ المرحلة ٥: لا يُعتمد self-review). فالشرطُ الذي يحميك ليس
+   > حُسنَ نيّتي، بل **أنّ ما فعلتُه معروضٌ مُجمَّعاً على من يُسقطه**.
+   >
    > **(د)** الإذن **لا يُفترض سريانه** إلى محادثةٍ جديدة ولا إلى بندٍ لم يُذكر.
    > **وإذنٌ عامّ لا يُغني عن موافقةٍ مخصوصة حيث اشترطها الميثاق** (§٤ مثلاً) — وقبولُ
    > العامّ بدل المخصوص هو ما طُعن فيه في `df26ff64` (F4)، فلا يُكرَّر بحجّة هذا السطر.
