@@ -15,9 +15,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const SCRIPT = resolve(process.cwd(), 'scripts/guard-commit-conventions.mjs');
@@ -100,6 +100,63 @@ describe('guard-commit-conventions — أسنانُ الترميز', () => {
         const result = runGuard(dir, epoch);
 
         expect(result.out).not.toContain('U+');
+        expect(result.code).toBe(0);
+    });
+
+    /**
+     * **الطَّورُ السابقُ للالتزام.** البوّابة تسبق الالتزام، فالطورُ التاريخيّ يفحص
+     * الرسالةَ التي **قبل** التي تُكتب — تأخُّرٌ بالتزامٍ واحد أوقع مخالفتين في يومٍ
+     * واحد. وهذه الحالاتُ الثلاث **هما المخالفتان نفساهما** ومعهما ضابطةٌ موجبة.
+     */
+    function runPending(repo: string, message: string | Buffer): { code: number; out: string } {
+        const file = join(repo, 'pending-msg.txt');
+        writeFileSync(file, message);
+        try {
+            const out = execFileSync(process.execPath, [SCRIPT, '--pending', file], {
+                cwd: repo,
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe'],
+            });
+            return { code: 0, out };
+        } catch (error) {
+            const err = error as { status?: number; stdout?: string; stderr?: string };
+            return { code: err.status ?? 1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+        }
+    }
+
+    function stage(repo: string, relative: string): void {
+        const target = join(repo, relative);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, 'placeholder\n', 'utf8');
+        run(['add', relative], repo);
+    }
+
+    it('الطورُ المعلّق يُسقط بادئة docs( على سكربتٍ مُدرَج — المخالفةُ الأولى', () => {
+        stage(dir, 'scripts/core-boot-production-gate.mjs');
+        const result = runPending(dir, `docs(audit): تصحيحُ وثائق\n\n${VALID_BODY}\n`);
+
+        expect(result.code).not.toBe(0);
+        expect(result.out).toContain('docs(');
+        expect(result.out).toContain('core-boot-production-gate.mjs');
+    });
+
+    it('الطورُ المعلّق يُسقط علامةَ الترتيب في الموضوع — المخالفةُ الثانية', () => {
+        stage(dir, 'docs/note.md');
+        const withBom = Buffer.concat([
+            Buffer.from([0xef, 0xbb, 0xbf]),
+            Buffer.from(`docs(audit): موضوعٌ سليمٌ بعدها\n\n${VALID_BODY}\n`, 'utf8'),
+        ]);
+        const result = runPending(dir, withBom);
+
+        expect(result.code).not.toBe(0);
+        expect(result.out).toContain('U+FEFF');
+    });
+
+    it('الطورُ المعلّق يمرّ على رسالةٍ سليمة وملفّ `.md` — ضابطةٌ موجبة', () => {
+        stage(dir, 'docs/note.md');
+        const result = runPending(dir, `docs(audit): تصحيحٌ سليم\n\n${VALID_BODY}\n`);
+
+        expect(result.out).not.toContain('FAIL');
         expect(result.code).toBe(0);
     });
 

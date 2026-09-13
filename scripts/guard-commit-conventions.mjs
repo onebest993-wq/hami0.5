@@ -61,6 +61,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 /**
  * آخر التزامٍ قبل هبوط هذا الحارس. الفحص يبدأ بعده حصراً.
@@ -220,23 +221,76 @@ function resolveEpoch() {
     }
 }
 
-const epoch = resolveEpoch();
-const hashes = git(['rev-list', '--no-merges', `${epoch}..HEAD`]).split('\n').filter(Boolean);
+/**
+ * **طَورٌ سابقٌ للالتزام — ولماذا وُجد.**
+ *
+ * البوّابة تُشغَّل **قبل** الالتزام، وهذا الحارس يقرأ التاريخ — **فالرسالةُ التي تُكتب
+ * لا تُفحص أبداً، بل التي قبلها.** تأخُّرٌ بالتزامٍ واحد، وقع أثرُه مرّتين في يومٍ واحد
+ * (٢٠٢٦-٠٩-١٣): بادئةُ `docs(` على سكربت، وBOM في موضوعٍ كتبته أداةٌ تُضيفه —
+ * **وكلتاهما لزمها `amend` بعد وقوعها**، ولم يكن في العُدّة ما يسبقها.
+ *
+ *     node scripts/guard-commit-conventions.mjs --pending <ملفّ الرسالة>
+ *
+ * يفحص **الرسالةَ المعلّقة** مع `git diff --cached --name-status` بالقواعد نفسها، قبل
+ * أن يصير الالتزام تاريخاً. **ولا إعفاءات في هذا الطور:** الإعفاءُ يُمنح لتاريخٍ منشور
+ * لا يُعاد كتابته، **وما لم يُلتزَم بعدُ يُصلَح لا يُعفى**.
+ *
+ * **ولا يُغني عن الطور التاريخيّ ولا يُلغيه:** ذاك يفحص المدى كلَّه، وهذا واحداً.
+ */
+const pendingIndex = process.argv.indexOf('--pending');
+const pendingMessageFile = pendingIndex === -1 ? null : process.argv[pendingIndex + 1];
+if (pendingIndex !== -1 && !pendingMessageFile) {
+    console.error('[commit-conventions] FAIL — `--pending` بلا مسار ملفّ الرسالة.');
+    process.exit(1);
+}
+
+/** `STATUS\tمسار` أو `R100\tقديم\tجديد` — والوجهةُ هي الأخيرة دائماً. */
+function parseNameStatus(text) {
+    return text
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => line.split('\t'))
+        .filter((parts) => parts.length >= 2 && parts[parts.length - 1]);
+}
+
+const epoch = pendingMessageFile ? null : resolveEpoch();
+
+const units = pendingMessageFile
+    ? [
+          {
+              label: 'PENDING ',
+              hash: '',
+              raw: readFileSync(pendingMessageFile, 'utf8'),
+              entries: parseNameStatus(git(['diff', '--cached', '--name-status'])),
+          },
+      ]
+    : git(['rev-list', '--no-merges', `${epoch}..HEAD`])
+          .split('\n')
+          .filter(Boolean)
+          .map((hash) => ({
+              label: hash.slice(0, 8),
+              hash,
+              raw: git(['show', '-s', '--format=%B', hash]),
+              entries: parseNameStatus(git(['show', '--name-status', '--format=', hash])),
+          }));
 
 const failures = [];
 const notes = [];
 /** كلّ إعفاءٍ استُهلك فعلاً — ليُقال في النهاية أيُّها لم يَعُد له داعٍ. */
 const exemptionsUsed = new Set();
 
-for (const hash of hashes) {
-    const short = hash.slice(0, 8);
+for (const unit of units) {
+    const short = unit.label;
     /* %B هو الرسالة كاملةً: أوّل سطرٍ هو الموضوع وما بعده الجسد — نداءٌ واحد بلا فاصل */
-    const raw = git(['show', '-s', '--format=%B', hash]);
+    const raw = unit.raw;
     const newline = raw.indexOf('\n');
     const subject = (newline === -1 ? raw : raw.slice(0, newline)).trim();
     const body = newline === -1 ? '' : raw.slice(newline + 1);
 
-    const excuseKey = [...GRANDFATHERED.keys()].find((k) => hash.startsWith(k));
+    /* الرسالةُ المعلّقة بلا تجزئة، فلا إعفاء لها — وذلك مقصود لا أثرٌ جانبيّ. */
+    const excuseKey = unit.hash
+        ? [...GRANDFATHERED.keys()].find((k) => unit.hash.startsWith(k))
+        : undefined;
     const excused = (rule) => {
         if (!excuseKey || !GRANDFATHERED.get(excuseKey).rules.includes(rule)) return false;
         exemptionsUsed.add(`${excuseKey}:${rule}`);
@@ -280,11 +334,7 @@ for (const hash of hashes) {
      * هي الأخيرة دائماً**. وقراءةُ الحقل الثاني وحده تُسمّي المصدرَ القديم في النقل،
      * فيُحاكَم مسارٌ لم يَعُد موجوداً — وهو ما يُسقط قاعدةَ `docs(` على الوجه الخطأ.
      */
-    const entries = git(['show', '--name-status', '--format=', hash])
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => line.split('\t'))
-        .filter((parts) => parts.length >= 2 && parts[parts.length - 1]);
+    const entries = unit.entries;
 
     const touched = entries.map((parts) => parts[parts.length - 1]);
 
@@ -330,6 +380,8 @@ for (const hash of hashes) {
  * قبل الحقبة خارج المدى بحكم التعريف، فلا يُعدّ نسياناً — ويُقال ذلك صراحةً.
  */
 for (const [key, entry] of GRANDFATHERED) {
+    /* في الطور المعلّق لم يُمسح مدىً، فغيابُ الاستهلاك لا يدلّ على شيء. */
+    if (pendingMessageFile) break;
     if (entry.preEpoch) continue;
     const unused = entry.rules.filter((rule) => !exemptionsUsed.has(`${key}:${rule}`));
     if (unused.length > 0) {
@@ -343,9 +395,12 @@ for (const [key, entry] of GRANDFATHERED) {
 const activeExemptions = [...GRANDFATHERED.values()].filter((e) => !e.preEpoch).length;
 
 console.log(
-    `[commit-conventions] فُحص ${hashes.length} التزاماً منذ ${epoch.slice(0, 8)}، ` +
-        `و${activeExemptions} إعفاءً مقيَّداً بقاعدته داخل المدى ` +
-        `(و${GRANDFATHERED.size - activeExemptions} سجلّاً لِما قبل الحقبة، لا يُستشار)`,
+    pendingMessageFile
+        ? `[commit-conventions] فُحصت رسالةٌ معلّقة (${pendingMessageFile}) و${units[0].entries.length} ` +
+          'ملفّاً مُدرَجاً — بلا إعفاءات، وبلا مسحِ تاريخ'
+        : `[commit-conventions] فُحص ${units.length} التزاماً منذ ${epoch.slice(0, 8)}، ` +
+          `و${activeExemptions} إعفاءً مقيَّداً بقاعدته داخل المدى ` +
+          `(و${GRANDFATHERED.size - activeExemptions} سجلّاً لِما قبل الحقبة، لا يُستشار)`,
 );
 
 for (const note of notes) console.log(`[commit-conventions] ملاحظة — ${note}`);
