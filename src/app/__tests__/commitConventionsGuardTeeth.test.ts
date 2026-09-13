@@ -165,6 +165,43 @@ describe('حدّ docs( — §٢·١', () => {
     });
 });
 
+describe('ترميزُ الرسالة — §٢ وحادثتان وقعتا', () => {
+    /**
+     * يُعيد إنتاج الفساد بالآلية نفسها التي أنتجته: بايتات UTF-8 تُقرأ أحاديّةَ
+     * البايت (كما يفعل `Get-Content -Raw` في PowerShell 5.1) ثمّ تُرمَّز UTF-8 ثانيةً.
+     */
+    const doubleEncode = (text: string): string => Buffer.from(text, 'utf8').toString('latin1');
+
+    it('يسقط على ترميزٍ مزدوج في الجسد حتى والبادئةُ سليمة — فالقاعدة تعمل وحدها', () => {
+        write('a.md', 'a\n');
+        commit('fix(app): a perfectly valid subject', `${ZVE}\n\n${doubleEncode('نصٌّ عربيّ فاسد')}`);
+
+        const { code, out } = runGuard();
+
+        expect(code).toBe(1);
+        expect(out).toContain('U+00');
+        /* ولا يُتّهم البريء: البادئة وعبارة التجميد سليمتان فلا تُذكران */
+        expect(out).not.toContain('بادئة غير مسموحة');
+    });
+
+    it('يسقط على علامة الترتيب U+FEFF ويُسمّيها — وهي التي كسرت بادئةً من قبل', () => {
+        write('b.md', 'b\n');
+        commit('﻿docs(audit): a subject preceded by a byte-order mark');
+
+        const { code, out } = runGuard();
+
+        expect(code).toBe(1);
+        expect(out).toContain('U+FEFF');
+    });
+
+    it('يمرّ على رسالةٍ عربيةٍ سليمة — الضابطة التي تمنع القاعدة من تجريم العربية', () => {
+        write('c.md', 'c\n');
+        commit('fix(app): إصلاحٌ عربيٌّ سليمُ الترميز', `${ZVE}\n\nجسدٌ عربيٌّ فيه تشكيلٌ وعلاماتُ ترقيم — «مثلاً».`);
+
+        expect(runGuard().code).toBe(0);
+    });
+});
+
 describe('قواعد لم تتغيّر — تُعاد لأنّ تحليل الحقول تغيّر تحتها', () => {
     it('يسقط تعديلُ خطّ أساسٍ قائم بلا بادئة baseline( — §٢·٥', () => {
         write('.audit/tsc-ratchet-baseline.json', '{"max":10}\n');
