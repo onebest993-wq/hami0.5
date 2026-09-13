@@ -24,6 +24,10 @@ on:
       - 'src/app/components/lawyer/execution/**'
       - 'src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/**'
       - 'src/app/components/lawyer/seizedAssetsManager/**'
+      # غلافُ القسم ودرعُ نقره (٢٠٢٦-٠٩-١٣): ١١ ملفّاً تحت dashboard/Execution* يستضيف
+      # الإضبارةَ والأرشيفَ والإنشاء، والدرعُ فيه كسر هذه البوّابة — ولم يكن شيءٌ منها هنا.
+      - 'src/app/components/lawyer/dashboard/Execution*'
+      - 'src/app/hooks/useOverlayGhostClickShield.ts'
       # طبقات التنفيذ
       - 'src/app/application/execution/**'
       - 'src/app/domain/execution/**'
@@ -63,6 +67,10 @@ on:
       - 'src/app/components/lawyer/execution/**'
       - 'src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/**'
       - 'src/app/components/lawyer/seizedAssetsManager/**'
+      # غلافُ القسم ودرعُ نقره (٢٠٢٦-٠٩-١٣): ١١ ملفّاً تحت dashboard/Execution* يستضيف
+      # الإضبارةَ والأرشيفَ والإنشاء، والدرعُ فيه كسر هذه البوّابة — ولم يكن شيءٌ منها هنا.
+      - 'src/app/components/lawyer/dashboard/Execution*'
+      - 'src/app/hooks/useOverlayGhostClickShield.ts'
       # طبقات التنفيذ
       - 'src/app/application/execution/**'
       - 'src/app/domain/execution/**'
@@ -121,3 +129,18 @@ jobs:
 
       - name: Execution production gate
         run: npm run gate:execution
+
+      # كانت هذه البوّابة تسقط منذ إنشائها (٨ تشغيلات، صفرُ نجاح) بلا دليلٍ يُقرأ: التعليقات
+      # تحمل رسالةَ التوكيد وحدها («element(s) not found»)، **ولا تحمل مخرَجَ المتصفّح**.
+      # و`playwright.config.ts` يلتقط لقطةً وفيديو وأثراً عند السقوط — **ثمّ كانت تُرمى**،
+      # لأنّ هذه الخطوة لم تكن موجودة. فيبقى الدليلُ سبعةَ أيّام لمن يقرأ الآثار.
+      - name: Upload Playwright evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-gate-playwright
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
