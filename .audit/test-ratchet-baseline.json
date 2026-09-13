@@ -1,29 +1,13 @@
 {
-  "savedAt": "2026-09-07T00:32:49.769Z",
-  "numTotalTests": 11916,
-  "numFailedTests": 21,
-  "numFailedTestSuites": 29,
+  "savedAt": "2026-09-13T23:46:24.346Z",
+  "numTotalTests": 12308,
+  "numFailedTests": 2,
+  "numFailedTestSuites": 6,
   "failures": [
     "src/app/api/auth/adversarialAssault.test.ts :: WAVE K — Resubmit / demotion / stale rejection السجل المحلي pending يتقدّم على app_metadata rejected البالي",
-    "src/app/application/execution/followup/__tests__/followupActionRegistry.test.ts :: resolveFollowupHiddenActions employee financial lists buried personal without detention paths",
-    "src/app/application/execution/followup/__tests__/followupActionRegistry.test.ts :: resolveFollowupHiddenActions treats alimony claim type as personal guarantor claim",
-    "src/app/components/lawyer/ExecutionDashboard/__tests__/executionOverlayNativeBackInnerSilentHonesty.test.ts :: execution overlay native-back and inner-silent honesty صف المدين المحجوز يحجز شريحة 44px بدل فراغ عند شارات الكسولة",
-    "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionDashboardStatusViews.test.tsx :: ExecutionDashboardStatusViews هيكل التحميل توأم InstantFrame مع خروج 44px يعمل",
-    "src/app/components/lawyer/FinancialOperationsCenter/__tests__/settlementContext.test.ts :: settlement lifecycle sync with ledger remaining new settlement after breach clears guarantor gate back to standby",
-    "src/app/components/lawyer/FinancialOperationsCenter/__tests__/settlementContext.test.ts :: settlementContext shows due actions on due date and keeps guarantor badge while settlement pending",
-    "src/app/components/lawyer/FinancialOperationsCenter/__tests__/settlementContext.test.ts :: settlementContext shows panel and hides entry button while pending settlement exists",
-    "src/app/components/lawyer/FinancialOperationsCenter/__tests__/settlementContext.test.ts :: settlementContext shows pending summary when panel is open",
-    "src/app/components/lawyer/dashboard/__tests__/ExecutionDashboardBootChrome.test.tsx :: ExecutionDashboardBootChrome renders above the execution archive shell stacking context",
-    "src/app/components/lawyer/dashboard/__tests__/lawsuitsResourceHonesty.test.ts :: lawsuits resource honesty بذرة E2E تكتب مقاطع الدعوى ولا تعيد زرع المرآة بعد hydrate",
-    "src/app/components/lawyer/dashboard/__tests__/peekForumFirstPaintChrome.test.ts :: peekForumFirstPaintChrome لا يرسم حقل name القصير من الجلسة حتى يصل الملف المحلي",
-    "src/app/components/lawyer/dashboard/__tests__/peekForumFirstPaintChrome.test.ts :: peekForumFirstPaintChrome يخفي الحرف أثناء تسخين الملف حتى لا يومض فوق الشعار",
-    "src/app/components/lawyer/dashboard/__tests__/peekForumFirstPaintChrome.test.ts :: peekForumFirstPaintChrome يعود إلى المحامي عند غياب الجلسة",
-    "src/app/runtime/__tests__/bootClosureHonesty.test.ts :: boot closure honesty النواة تختم المنتج كهاتف/لوحي من أول بايت — بلا native=1 على Vite",
-    "src/app/runtime/__tests__/executionSectionScenarioCoverageHonesty.test.ts :: execution section scenario coverage honesty بوابة E2E الرسمية تغطي الفتح والإضبارة والحفظ والتبويب والملاحظات",
-    "src/app/runtime/__tests__/perceivedBootWaitCutHonesty.test.ts :: perceived boot wait cut honesty جذع الدعاوى خارج إغلاق المنزل الأول — Provider بلا useLawsuitFilesState",
-    "src/app/services/__tests__/secureApiClient.bffSigning.test.ts :: SecureAPIClient BFF signing يلغي التوقيع إذا تجاوزت المهلة",
-    "src/app/utils/__tests__/dossierTombstonesUnreadFailClosed.test.ts :: شواهد الحذف unread ليست قائمة فارغة أصل مشفّر بارد للتنفيذ لا يُعدّ مقروءاً",
-    "src/app/utils/__tests__/dossierTombstonesUnreadFailClosed.test.ts :: شواهد الحذف unread ليست قائمة فارغة أصل مشفّر بارد للدعاوى لا يُعدّ مقروءاً",
-    "src/app/utils/__tests__/executionStorageBundleDeleteIsolation.test.ts :: deleting one dossier leaves prefix-neighbour dossiers intact purges a key family nobody remembered to enumerate"
+    "src/app/services/__tests__/secureApiClient.bffSigning.test.ts :: SecureAPIClient BFF signing يلغي التوقيع إذا تجاوزت المهلة"
+  ],
+  "excludedKnownFlakes": [
+    "src/app/services/__tests__/calendarContractAudit.test.ts :: calendar contract audit — فحص مجهري للربط سيناريو كامل: نشط → يظهر، أرشفة+محذوف → يختفي، يدوي يبقى"
   ]
 }
