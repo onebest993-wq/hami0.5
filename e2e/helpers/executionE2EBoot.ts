@@ -21,8 +21,41 @@ type ExecDossierCrashWindow = Window & { __HAMI_EXEC_DOSSIER_CRASH?: string };
  * Playwright pointermove بعد scroll كان يُحسب سحباً فيفشل فتح الأرشيف على preview.
  */
 export async function clickNativeElement(locator: Locator): Promise<void> {
-    await locator.evaluate((el) => {
+    await locator.evaluate(async (el) => {
         const target = el as HTMLElement;
+        /*
+         * درعُ النقرة الشبح (`useOverlayGhostClickShield`) يبتلع pointerup/click في طور
+         * الالتقاط ١٨٠ م.ث بعد تركيب الطبقة — والضغطُ هنا يقع لحظةَ ظهور الزرّ، أسرعَ من
+         * أيّ إنسان، فكان يُبتلع ولا يُستدعى onPress. قِيس ٢٠٢٦-٠٩-١٣: تعطيلُ الدرع أنجح
+         * «مركز القرارات» (كان يسقط دائماً) و«المتابعة» ٩/٩ (كانت تتذبذب).
+         *
+         * فيُنتظر زوالُ `data-hami-ghost-shield="armed"` **في مهمّة الصفحة نفسها** — بلا
+         * فجوةِ ذهابٍ وإيابٍ يُعاد فيها التسليح — **وبسقفٍ يُسمّي العطل** إن علِق الدرع أو
+         * أُعيد تسليحه، بدل أن يُعلّق الاختبار حتى مهلته الكبرى بلا سبب.
+         */
+        const armed = target.closest('[data-hami-ghost-shield="armed"]');
+        if (armed) {
+            await new Promise<void>((resolve, reject) => {
+                let settled = false;
+                const finish = (error?: Error) => {
+                    if (settled) return;
+                    settled = true;
+                    observer.disconnect();
+                    window.clearTimeout(cap);
+                    if (error) reject(error);
+                    else resolve();
+                };
+                const observer = new MutationObserver(() => {
+                    if (armed.getAttribute('data-hami-ghost-shield') !== 'armed') finish();
+                });
+                observer.observe(armed, { attributes: true, attributeFilter: ['data-hami-ghost-shield'] });
+                const cap = window.setTimeout(
+                    () => finish(new Error('ghost-click shield still armed after 2000ms — stuck or re-armed')),
+                    2_000,
+                );
+                if (armed.getAttribute('data-hami-ghost-shield') !== 'armed') finish();
+            });
+        }
         target.scrollIntoView({ block: 'center', inline: 'center' });
         const rect = target.getBoundingClientRect();
         const x = rect.left + Math.max(rect.width / 2, 1);
