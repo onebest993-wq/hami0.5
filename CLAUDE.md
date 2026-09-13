@@ -3,29 +3,40 @@
 > **ملف التعليمات الرسمي لمراجعة المستقلين والاعتمادات المستقبلية.**
 > **Version:** `package.json` → `version` · **Node:** `.nvmrc` · **Branch:** `git rev-parse --abbrev-ref HEAD`
 >
-> *صُحّح ٢٠٢٦-٠٩-١٣: كان السطر يثبّت «Branch: improve/current» والعمل يجري على*
-> *`fix/production-hardening` منذ أسابيع، و`improve/current` فرعٌ آخر قائم. **وحقيقةٌ***
-> ***تتغيّر كلّ يوم لا تُكتب في وثيقة، بل يُكتب الأمرُ الذي يقولها.*** *وهذا المبدأ*
-> *يسري على §٤ و§٦ أدناه أيضاً.*
+> **قواعدُ هذا الملفّ مُلزِمة، وليس فيه سرد.** و**لماذا** صار كلُّ بندٍ إلى ما هو عليه —
+> الحادثةُ والقياسُ والخطأُ الذي صُحّح بعده — في [`.audit/CHARTER_HISTORY.md`](.audit/CHARTER_HISTORY.md).
+>
+> **ومبدأٌ يسري على الملفّ كلّه:** **حقيقةٌ تتغيّر لا تُكتب هنا، بل يُكتب الأمرُ الذي
+> يقولها.** فلا رقمَ خطِّ أساسٍ ولا اسمَ فرعٍ ولا عدّةَ حرّاسٍ تُنسخ إلى هنا — تُقرأ من
+> مكانها. *(هذا المبدأ نفسه كُتب بعد أن أخطأ §٣ ثلاث مرّات و§٤ مرّتين.)*
 
 ---
 
-## §1 — Tech Stack & Versions (Pin-Exact unless stated)
+## §1 — Tech Stack (مكانُ كلّ تثبيت — لا نسخةٌ مكرّرة)
 
-| Layer | Package | Pinned version | Source |
-|---|---|---|---|
-| Runtime | Node.js | `24.x` | `.nvmrc` |
-| Core | React | `18` | `package.json` `dependencies` |
-| Bundler | Vite | `7` | `package.json` `devDependencies` |
-| Language | TypeScript | `5.9` | `package.json` `devDependencies` |
-| Styling | Tailwind CSS | `4` | `package.json` `devDependencies` |
-| State | Zustand | `4.x` | `package.json` `dependencies` |
-| Native | Capacitor | `8` (+ plugins same major) | `package.json` |
-| BaaS/Auth/RPC | Supabase (supabase-js) | `2.108` | `package.json` |
-| E2E | Playwright | latest stable lockfile | `package.json` |
-| Unit/integration | Vitest | pinned | `package.json` |
-| Telemetry | Sentry (client + cap plugin) | pinned 8.x matching major | `package.json` |
-| Package manager | npm (strict lockfile-3) | Node 24 default | `.npmrc` |
+| Layer | Package | مكانُ التثبيت |
+|---|---|---|
+| Runtime | Node.js | `.nvmrc` |
+| Core | React (+ `react-dom`) | `package.json` `dependencies` |
+| Bundler | Vite (+ `@vitejs/plugin-react`) | `package.json` `dependencies` |
+| Language | TypeScript | `package.json` `devDependencies` |
+| Styling | Tailwind CSS (+ `@tailwindcss/vite`) | `package.json` `dependencies` |
+| State | Zustand | `package.json` `dependencies` |
+| Native | Capacitor (النواةُ والإضافات بمجالٍ رئيسيٍّ واحد) | `package.json` `dependencies` |
+| BaaS/Auth/RPC | `@supabase/supabase-js` | `package.json` `dependencies` |
+| E2E | `@playwright/test` | `package.json` `devDependencies` |
+| Unit/integration | Vitest (+ `@vitest/coverage-v8`) | `package.json` `devDependencies` |
+| Telemetry | `@sentry/react` (لا إضافةَ Capacitor) | `package.json` `dependencies` |
+| Package manager | npm (strict lockfile-3) | `.npmrc` · `package-lock.json` |
+
+**والنسخُ تُقرأ بأمرٍ لا من هنا:**
+
+```bash
+node -e "const p=require('./package.json');console.log(p.dependencies,p.devDependencies)"
+```
+
+> *(كان هذا الجدول يحمل النسخ فتقادم في أربعة صفوف — Zustand ومجالٌ رئيسيٌّ كامل،
+> وSentry ومجالان، وVite وTailwind في القسم الخطأ. [`CHARTER_HISTORY.md §١`](.audit/CHARTER_HISTORY.md).)*
 
 ---
 
@@ -35,7 +46,9 @@
    ```
    fix(scope):     — bug-correction only (no feature)
    feat(scope):    — new behavior (gate:wave0 MUST PASS)
-   docs(scope):    — .md only, no TSX/TS/CSS
+   docs(scope):    — لا يُحرّك شفرة. يُسمح: أيّ *.md · وما تحت .audit/ أو
+                     perf-reports/ ما لم يكن قابلاً للتنفيذ (.ts .tsx .js .jsx .mjs .cjs)
+                     — وهو ما يفرضه guard:commit-conventions حرفاً
    refactor(scope):— behavior equivalent, T1/T2/T3 style examples
    chore(scope):   — dep bumps, ci-tweaks only (no logic)
    baseline(scope):— RARE — ONLY for --save ratchet baseline corrections
@@ -45,33 +58,23 @@
 4. **Zero Visual Edits flag**: رسالة الـ commit **مستحقة** إفادة `Zero Visual Edits = confirmed` إلا في حال تعديل واجهة صريح بموافقة المستخدم.
 5. **Baseline: prefix REQUIRED for `--save`**: أي `--save` لـ ratchet **يجب** أن يبدأ بـ `baseline(scope):` مع سبب موثق + موافقة المستخدم verbatim في رسالة الـ commit.
 6. **No force push** مطلقًا على أيّ فرعٍ منشور — `main` · `release/*` · وكلُّ فرعِ عملٍ
-   دُفع إلى `origin`. *(صُحّح ٢٠٢٦-٠٩-١٣: كان يُسمّي `improve/current` وحده، والعمل
-   يجري على فرعٍ آخر منذ أسابيع. **قاعدةٌ تُسمّي أفرعاً بأسمائها تتقادم؛ فالمعيار**
-   **«أمنشورٌ هو؟» لا اسمُه.**)*
+   دُفع إلى `origin`. **والمعيار «أمنشورٌ هو؟» لا اسمُه.**
 
 ---
 
-## §3 — Quality Gates (31 Registered Guards)
+## §3 — Quality Gates (القائمةُ مُشتقّة لا معدودة)
 
 > Runner الرسمي: `node scripts/run-gate-wave0.mjs` (يكتشف npm.cmd + shell:true على Windows تلقائيًا — لا `npm run gate:wave0` مباشر).
 
-> **هذا الجدول مُشتقّ من `scripts["gate:wave0"]` في `package.json` بالترتيب نفسه.**
-> وكان قبل ٢٠٢٦-٠٩-١٠ يذكر ثلاثة حرّاس **لا وجود لهم** (`guard:install` ·
-> `guard:lockfile-parity` · `guard:cloud-delete-audit`) ويُسقط تسعةً قائمين —
-> أي أنّ السجلّ الرسمي كان خاطئاً في اثني عشر صفّاً. صُحّح بالقياس.
+> **الحرّاسُ وترتيبُهم وعدّتُهم يُشتقّون بأمرٍ، لا بعدّ صفوف هذا الجدول:**
 >
-> **وصُحّح ٢٠٢٦-٠٩-١٢ ثانيةً:** كان العنوان يقول ٢٨ والواقع **٣١**، والجدول يُسقط ثلاثةً
-> أُضيفت بعده: `guard:commit-conventions` · `guard:gate-harness-paths` ·
-> `guard:root-pointer-events`. **والقائمة أعلاه اشتُقّت بأمرٍ من `package.json` لا بالعين**
-> (`scripts["gate:wave0"]` ← مطابقة `npm run guard:*` بالترتيب) — وهو ما يشترطه هذا
-> السطر على نفسه. **فمَن وجد عدداً رابعاً فليُعِد الاشتقاق، لا أن يعدّ الصفوف.**
+> ```bash
+> node -e "const s=require('./package.json').scripts['gate:wave0'];const m=[...s.matchAll(/npm run (guard:[A-Za-z0-9:_-]+)/g)].map(x=>x[1]);console.log(m.length, m)"
+> ```
 >
-> **وصُحّح الصفُّ الأوّل ٢٠٢٦-٠٩-١٣:** كان يَنسب إلى `826cd335` فحصَ «لا BOM»،
-> **ولم يكن في الحارس شيءٌ من ذلك** — `git show --stat 826cd335` يُنشئ الملفّ في ١٦٦
-> سطراً، وليس فيها ذكرُ BOM. وصفٌ أكبر من الشيء، وهو بعينه ما طُعن فيه في F3.
-> **فجُعل صادقاً بدل أن يُحذف:** شُحن فحصُ ترميزٍ يمنع علامةَ الترتيب **ومحارفَ التحكّم**
-> معاً، وأُعيد الصفّ إلى وصف ما يُشغَّل فعلاً. **ولا يُكتب في هذا الجدول فحصٌ لا يُقابله
-> سطرٌ في سكربته.**
+> **والجدولُ أدناه وصفٌ لكلّ حارسٍ لا تعدادٌ له** — فمَن وجد اختلافاً فالأمرُ هو الحُجّة.
+> **ولا يُكتب فيه فحصٌ لا يُقابله سطرٌ في سكربته.**
+> *(أخطأ هذا الجدول ثلاث مرّات قبل هذه القاعدة — [`CHARTER_HISTORY.md §٣`](.audit/CHARTER_HISTORY.md).)*
 
 | # | Gate script (`package.json` name) | الموصوفة |
 |---|---|---|
@@ -87,19 +90,19 @@
 | 10 | `guard:peer-conflicts` | peer-deps zero-conflict بعد strict install |
 | 11 | `guard:native-foundation` | Capacitor pinned + native-ready templates موجود |
 | 12 | `guard:cold-entry` | index.html لا يحتوي Google Fonts على critical path |
-| 13 | `guard:screen-closure` | LawsuitArchiveChrome +3 شاشات داخل KB ميزانيتها |
+| 13 | `guard:screen-closure` | إغلاقُ الشاشات المسجّلة داخل ميزانيةِ كلٍّ منها (بالكيلوبايت) |
 | 14 | `guard:source-paths` | ملفات الـ source روابطها غير معطلة — **ويقرأ `.md` أيضاً** |
 | 15 | `guard:tailwind-source` | Tailwind source content ملموس، لا يكرر السورس |
-| 16 | `guard:injected-globals` | define ↔ declare ↔ استعمال متطابقة ×5 |
+| 16 | `guard:injected-globals` | define ↔ declare ↔ استعمال متطابقة لكلّ عَلَمٍ مُحقَن |
 | 17 | `guard:ci-covers-guards` | كل `guard:*` مربوط بـCI أو بالبوّابة، والمستثنى بسببٍ مكتوب |
 | 18 | `guard:gate-harness-paths` | عُدّة البوّابات: مرشّحات المسارات وخطوات التشغيل (أُضيف `00ecf4a4`؛ وأسنانه ناقصة في أربع صيغ YAML — F3) |
 | 19 | `guard:supabase-info-boundary` | `info.ts` محصور في devFallbackConfig وحده |
-| 20 | `guard:tracked-secrets` | 11+ tracked secrets لا تُكرَّم في committed files |
+| 20 | `guard:tracked-secrets` | لا سرَّ من قائمة الحارس يظهر في ملفٍّ متتبَّع |
 | 21 | `guard:shell-auth-prod` | production shell auth fail-closed |
-| 22 | `guard:prod-env-contract` | 13+ VITE_ keys documented + parity + BFF/Auth closed |
+| 22 | `guard:prod-env-contract` | مفاتيحُ `VITE_` موثّقةٌ + parity + BFF/Auth مُغلَقان |
 | 23 | `guard:security-headers` | vercel.json · vercel-hq.json · public/_headers في تزامن تام |
 | 24 | `guard:tsc` | TS diagnostics ≤ baseline أحادي الاتجاه (لكل ملفّ) |
-| 25 | `guard:cloud-types` | 6 ملفات سحابية حاسمة clean types |
+| 25 | `guard:cloud-types` | الملفّاتُ السحابية الحاسمة (قائمةُ الحارس) بلا أخطاء أنواع |
 | 26 | `guard:lint` | ESLint ≤ baseline |
 | 27 | `guard:execution-window-confirm` | execution paths لا تستخدم `window.confirm` |
 | 28 | `guard:execution-modal-mobile` | execution modals dvh + pointer-events safe |
@@ -107,22 +110,27 @@
 | 30 | `guard:tests` | Vitest failing ≤ baseline؛ KNOWN_TIMING_FLAKES بسقفٍ موثّق |
 | 31 | `guard:architecture-boundaries` | 4 طوابق T21 (api/services/domain+application) ≤ baseline |
 
-### ستّة حرّاس خارج البوّابة — ولكلٍّ سببه
+### حرّاسٌ خارج البوّابة — صنفان، ولكلٍّ سببه
 
-خمسةٌ تحتاج `dist` فلا معنى لطلبها قبل بناء، **ويُشغّلها CI**:
-`guard:cold-entry:dist` · `guard:boot-critical-weight` · `guard:lawyer-inner-weight` ·
-`guard:first-open-shared-tax` · `guard:dist-secrets`.
+**والقائمةُ تُشتقّ لا تُعدّ** (فرقُ كلّ `guard:*` عن المُسجَّلين في `gate:wave0`):
 
-والسادس `guard:baseline` **يكتب** خطوط الأساس بدل فحصها، فتشغيله يمحو المِسنَنة —
-وهو مسجَّل في `NOT_FOR_CI` بسببه، ومعفىً من البوّابة صراحةً بـ`alsoExemptFromWave0`.
+```bash
+node -e "const p=require('./package.json');const g=new Set([...p.scripts['gate:wave0'].matchAll(/npm run (guard:[A-Za-z0-9:_-]+)/g)].map(x=>x[1]));console.log(Object.keys(p.scripts).filter(k=>/^guard:/.test(k)&&!g.has(k)))"
+```
+
+**الصنف الأوّل — يحتاج `dist`**، فلا معنى لطلبه قبل بناء، **ويُشغّله CI بعد البناء**.
+**والصنف الثاني — `guard:baseline` وحده:** **يكتب** خطوط الأساس بدل فحصها، فتشغيله يمحو
+المِسنَنة — وهو مسجَّل في `NOT_FOR_CI` بسببه، ومعفىً من البوّابة صراحةً
+بـ`alsoExemptFromWave0`. **وربطُ كلٍّ منهما بـCI محروسٌ بـ`guard:ci-covers-guards`**،
+فالسهوُ يسقط بالحارس لا بمراجعةِ هذا السطر.
 
 ### بوّابةٌ متناسبة — رخصةٌ مشروطةٌ بثلاثة، لا إعفاء
 
-**الأصل: الـ٣١ كاملةً قبل كلّ commit.** ويجوز تشغيل **مجموعةٍ فرعية** بدلها **إذا
+**الأصل: البوّابة كاملةً قبل كلّ commit.** ويجوز تشغيل **مجموعةٍ فرعية** بدلها **إذا
 تحقّقت الثلاثة معاً، وإلا فالكلّ**:
 
-1. **الافتراض هو الكلّ.** أيّ ملفٍّ في التغيير لا يقع في صنفٍ **معلَنٍ** مسبقاً ⇒ الـ٣١
-   كاملة. الفشل إلى الأمان، لا إلى التخطّي. **وتعذُّرُ التحليل ليس نجاحاً** — وهذا
+1. **الافتراض هو الكلّ.** أيّ ملفٍّ في التغيير لا يقع في صنفٍ **معلَنٍ** مسبقاً ⇒
+   البوّابة كاملة. الفشل إلى الأمان، لا إلى التخطّي. **وتعذُّرُ التحليل ليس نجاحاً** — وهذا
    بعينه عطلُ `guard:gate-harness-paths` (F3): «بلا مرشّح ⇐ تخطٍّ» حوّل كلّ فشلٍ إلى
    أخضر. لا يُعاد.
 2. **الاشتقاق بالقياس لا بالعين.** لكلّ صنفٍ تُثبَت مجموعتُه **بما يقرؤه كلّ حارسٍ
@@ -135,32 +143,17 @@
 > **وحتى يُشحن ذلك الحارس، البوّابة الكاملة إلزاميةٌ بلا استثناء.** هذا البند **لا
 > يفتح شيئاً اليوم**؛ يشترط ثمنَ فتحه.
 >
-> ### وله أجلٌ يسقط به — أُضيف ٢٠٢٦-٠٩-١٣
->
-> **بندٌ نائمٌ في ميثاق خطرُه أنّه يُقرأ يوماً بغير ما قُصد.** قارئٌ عجلٌ يرى عنوان
-> «بوّابةٌ متناسبة» ولا يقرأ شروطه الثلاثة، فيظنّ المجموعةَ الفرعية مباحة. وقد كتبتُ
-> هذا البند بنفسي، **فتركُه بلا أجلٍ انحيازٌ لصالحي**.
->
-> **فإن لم يُشحن حارسُه ومعه اختبارُه السلبيّ — يُحذف هذا القسم كلّه.** ولا يُمدَّد
-> إلا بكلمةٍ من المالك. **والنصُّ الذي لا يصير آلةً يُحذف، ولا يُورَّث.**
-
-**ولماذا:** ٢٩ حارساً يُنجَزون في **٢ دقيقة و٥٨ ثانية**، و`guard:tests` وحده يستغرق ما
-بقي من الـ١٥ دقيقة (١٢٬٢٣٣ اختباراً) — أي **نحو ٨٠٪ من زمن البوّابة**، ولا يمسّه التزامُ
-`.md` بحال. **والكلفة ليست الوقت بل ما يفعله الوقت بالسلوك:** بوّابةٌ بهذا الثمن تدفع
-إلى **جمع مهمّتين في التزامٍ واحد** هرباً من بوّابةٍ ثانية — وهو بعينه ما أنتج
-`79315b66` (F1). فالقاعدتان — الذرّية والبوّابة — تتشادّان، وهذا البند يفكّ الشدّ
-**دون أن يُرخّص التخطّي**.
+> **وله أجلٌ يسقط به:** إن لم يُشحن حارسُه **ومعه اختبارُه السلبيّ** — **يُحذف هذا
+> القسم كلّه**، ولا يُمدَّد إلا بكلمةٍ من المالك. **والنصُّ الذي لا يصير آلةً يُحذف
+> ولا يُورَّث.** *(ولماذا كُتب، ولماذا له أجل — [`CHARTER_HISTORY.md §٣`](.audit/CHARTER_HISTORY.md).)*
 
 ---
 
 ## §4 — 6 Ratchet Baselines + Save Policy
 
-> **لا أرقامَ في هذا الجدول — وذلك تصحيحٌ لا نقص.**
->
-> كان الجدول يُكرّر قيماً تعيش في ملفّات JSON، **فأخطأ مرّتين وصُحّح مرّتين**
-> (٢٠٢٦-٠٩-١٠ و٢٠٢٦-٠٩-١٢: ملفٌّ لا وجود له، وخطّ أساسٍ خاطئ، وعمودٌ يحمل «الحاليّ»
-> مكان «الأساس»). **وما يُكرَّر بيدٍ يتقادم ثالثة** — وحراسةُ نسخةٍ مكرّرة أضعفُ من
-> حذفها. **فحُذفت النسخة، وبقي مكانُ الحقيقة والأمرُ الذي يقولها.**
+> **لا أرقامَ في هذا الجدول — وذلك تصحيحٌ لا نقص.** ما يُكرَّر بيدٍ يتقادم، **وحراسةُ
+> نسخةٍ مكرّرة أضعفُ من حذفها.** فبقي مكانُ الحقيقة والأمرُ الذي يقولها.
+> *(أخطأ هذا الجدول مرّتين في يومين — [`CHARTER_HISTORY.md §٤`](.audit/CHARTER_HISTORY.md).)*
 
 | Ratchet | مكانُ الحقيقة | الاتّجاه المسموح |
 |---|---|---|
@@ -179,17 +172,6 @@ node scripts/run-gate-wave0.mjs      # كلّ مِسنَنة تطبع: baseline 
 
 **ولا يُنقل رقمٌ من هنا إلى وثيقةٍ أخرى.** ومن أراد رقماً فليُشغّل الأمر: **الملفُّ هو
 الحُجّة، ولا حُجّة في جدول.**
-
-> **سجلُّ التقادم — يبقى لأنّه سببُ حذف الأرقام، لا لأنّ أرقامه تُستعمل:**
->
-> **٢٠٢٦-٠٩-١٠:** الجدول يذكر `.audit/tsc-baseline.json` وهو **غير موجود** (الحارس يقرأ
-> `tsc-ratchet-baseline.json`)، ويذكر ١٨٨٨ للتصديرات الميتة والملفّ يقول ١٨٨٥.
->
-> **٢٠٢٦-٠٩-١٢:** عمودُ الأساس فارغٌ في ثلاثة صفوف، **وعمودُ «الحاليّ» يحمل الأساس في صفّ
-> الاختبارات**؛ وlint كان ١٧٧ والملفّ يقول ١١.
->
-> **مرّتان في يومين على وثيقةٍ يقرؤها مراجعٌ مستقلّ.** ولم يُصحَّح الجدول ثالثةً — حُذفت
-> أرقامُه. **والدرس الذي يُنقل: لا تُصحّح نسخةً مكرّرة، احذفها.**
 
 ### Save Policy:
 ```
@@ -221,9 +203,12 @@ node scripts/run-gate-wave0.mjs      # كلّ مِسنَنة تطبع: baseline 
 
 ---
 
-## §6 — 20 Critical Paths (Clickable file:// links)
+## §6 — 20 Critical Paths
 
-1. [package.json](package.json) — Stack pins + 31 guards scripts
+> **مساراتٌ لا أرقام، وروابطُ نسبيةٌ لا مطلقة** — فالقسم وظيفتُه أن يفتحها مراجعٌ ليس
+> المالك. *([`CHARTER_HISTORY.md §٦`](.audit/CHARTER_HISTORY.md).)*
+
+1. [package.json](package.json) — Stack pins + `guard:*` scripts + `gate:wave0`
 2. [.nvmrc](.nvmrc) — Node 24.x pin
 3. [capacitor.config.ts](capacitor.config.ts) — native shell config
 4. [vite.config.mts](vite.config.mts) — Bundler + manualChunks + build sourcemaps
@@ -234,15 +219,15 @@ node scripts/run-gate-wave0.mjs      # كلّ مِسنَنة تطبع: baseline 
 9. [src/app/bootstrap/LOADER_HYDRATOR_ORDER.md](src/app/bootstrap/LOADER_HYDRATOR_ORDER.md) — T3 33-entry registry
 10. [src/app/bootstrap/bootReveal.ts](src/app/bootstrap/bootReveal.ts#L119-L147) — markBootRevealDone + SecureStore kickoff
 11. [src/app/services/SecureStoreService.ts](src/app/services/SecureStoreService.ts#L1993-L2017) — idle deferral dual mechanism
-12. [scripts/run-gate-wave0.mjs](scripts/run-gate-wave0.mjs) — Official 31/31 runner cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
+12. [scripts/run-gate-wave0.mjs](scripts/run-gate-wave0.mjs) — العدّاءُ الرسميّ، cross-platform (القائمة تُشتقّ من `scripts["gate:wave0"]`، فلا تتباعد)
 13. [scripts/guard-tsc-ratchet.mjs](scripts/guard-tsc-ratchet.mjs) — tsc ratchet (`.audit/tsc-ratchet-baseline.json`)
-14. [scripts/guard-lint-ratchet.mjs](scripts/guard-lint-ratchet.mjs) — lint ratchet **11** (`totalErrors` في `.audit/lint-baseline.json`)
-15. [scripts/guard-test-ratchet.mjs](scripts/guard-test-ratchet.mjs) — test ratchet **21** + `MAX_ALLOWED_FLAKES_PER_RUN` = **13** (`:196`)
-16. [scripts/guard-dead-exports.mjs](scripts/guard-dead-exports.mjs) — dead exports 1885
-17. [scripts/guard-architecture-boundaries.mjs](scripts/guard-architecture-boundaries.mjs) — T21 4-floor JSON 244 (حالياً **212**)
+14. [scripts/guard-lint-ratchet.mjs](scripts/guard-lint-ratchet.mjs) — lint ratchet (`totalErrors` في `.audit/lint-baseline.json`)
+15. [scripts/guard-test-ratchet.mjs](scripts/guard-test-ratchet.mjs) — test ratchet (`.audit/test-ratchet-baseline.json`) + سقفُ الفَلَتات الموسومة في السكربت
+16. [scripts/guard-dead-exports.mjs](scripts/guard-dead-exports.mjs) — dead exports (`.audit/dead-exports-baseline.json`)
+17. [scripts/guard-architecture-boundaries.mjs](scripts/guard-architecture-boundaries.mjs) — T21 4-floor (`.audit/architecture-boundaries-baseline.json`)
 18. [scripts/sync-security-headers.mjs](scripts/sync-security-headers.mjs) — vercel + _headers triple sync
-19. [.github/workflows/quality-gate.yml](.github/workflows/quality-gate.yml) — CI gate entry (32 related guards)
-20. [supabase/migrations/](supabase/migrations/) — 15 search_path hardened files (T2)
+19. [.github/workflows/quality-gate.yml](.github/workflows/quality-gate.yml) — مدخلُ بوّابة CI (وتغطيتُه محروسةٌ بـ`guard:ci-covers-guards`، لا بعددٍ مكتوب هنا)
+20. [supabase/migrations/](supabase/migrations/) — هجراتُ T2، ومنها المُقسّاة بـ`search_path`
 
 ---
 
@@ -268,10 +253,6 @@ node scripts/run-gate-wave0.mjs      # كلّ مِسنَنة تطبع: baseline 
    > **(ج)** **ما لا يُستردّ يُنفَّذ بتخويلٍ صريحٍ من المالك — حاضراً كان أم غائباً —
    > ولا يُعاد استئذانه في كلّ مرّة.**
    >
-   > *(عُدّل ٢٠٢٦-٠٩-١٣ بإذنٍ حرفيّ. وكان: «ما لا يُستردّ يُطلب في كلّ مرّة ولو اتّسع
-   > الإذن … وغيابُ المالك لا يوسّع الحدّ». والسبب: الصيغة القديمة كانت تُعطّل عملاً
-   > مأذوناً فيه صراحةً كلّما غاب المالك، فتُحوّل الحيطة إلى جمود.)*
-   >
    > **والتخويل مشروطٌ بشرطٍ واحدٍ لا يسقط: ألّا يقع فعلٌ ولا قرار إلا بعد دراسةٍ
    > وتعمّقٍ وتحقّقٍ واحتراف.** وهذا الشرط ليس وصفاً أخلاقياً يُقاس بالنيّة، بل **أربعةُ
    > التزاماتٍ تُفحص قبل كلّ فعلٍ لا يُستردّ**:
@@ -292,68 +273,48 @@ node scripts/run-gate-wave0.mjs      # كلّ مِسنَنة تطبع: baseline 
    >
    > **وغيابُ المالك لا يوسّع الحدّ ولا يضيّقه:** ما خُوِّل يسري في غيابه، وما لم يُخوَّل
    > لا يُفعل بحجّة الغياب؛
-   > ### ضعفٌ بنيويّ في هذا الاستثناء — يُعلَن ولا يُداوى بنصٍّ أكثر
-   >
-   > **أُقرّ ٢٠٢٦-٠٩-١٣:** هذا الاستثناء وشروطُه **صاغها المنفِّذ نفسه**. وأيّاً بلغت
-   > إحكامَ الصياغة، **فالمحكومُ هو من كتب حكمه** — وهذا لا يُصلحه مزيدُ نصٍّ من اليد
-   > نفسها، لأنّ كلّ سطرٍ إضافيّ يزيد المشكلة لا ينقصها.
-   >
-   > **فالعلاج نقلُ الحكم إلى غيره، لا تحسينُ الصياغة:** كلُّ استعمالٍ لهذه الصلاحية
-   > **يُدرَج في موجز المراجعة** باسم التزامه واقتباس إذنه وما فُحص قبله، **ليُحاكَم من
-   > مراجعٍ مستقلّ** (§٧ المرحلة ٥: لا يُعتمد self-review). فالشرطُ الذي يحميك ليس
-   > حُسنَ نيّتي، بل **أنّ ما فعلتُه معروضٌ مُجمَّعاً على من يُسقطه**.
-   >
    > **(د)** الإذن **لا يُفترض سريانه** إلى محادثةٍ جديدة ولا إلى بندٍ لم يُذكر.
-   > **وإذنٌ عامّ لا يُغني عن موافقةٍ مخصوصة حيث اشترطها الميثاق** (§٤ مثلاً) — وقبولُ
-   > العامّ بدل المخصوص هو ما طُعن فيه في `df26ff64` (F4)، فلا يُكرَّر بحجّة هذا السطر.
+   > **وإذنٌ عامّ لا يُغني عن موافقةٍ مخصوصة حيث اشترطها الميثاق** (§٤ مثلاً).
    >
-   > **ولماذا كُتب:** كان الملفّ يشترط موافقةً على `spec.md`+`tasks.md` قبل أيّ كود،
-   > وميثاقُ المالك المُملى يمنح صلاحيةً موسّعة تنسخ ذلك — فكان المستودع **يشهد بمخالفةٍ
-   > على تنفيذٍ مأذون** (F13). والتعارضُ بين وثيقتين يُدار بالاجتهاد حتى يُحسم، والاجتهادُ
-   > في النصّ أسوأ من نصٍّ صريح.
-4. **Phase 4 — Implement (Current Phase):** تنفيذ كل مهمة بالترتيب:
+   > **وضعفُ هذا الاستثناء مُعلَنٌ لا مُداوى: صاغه المنفِّذ نفسه**، ولا يُصلحه مزيدُ نصٍّ
+   > من اليد نفسها. **فالعلاج نقلُ الحكم:** كلُّ استعمالٍ لهذه الصلاحية **يُدرَج في موجز
+   > المراجعة** باسم التزامه واقتباس إذنه وما فُحص قبله، **ليُحاكَم من مستقلّ**
+   > (المرحلة ٥ أدناه).
+4. **Phase 4 — Implement:** تنفيذ كل مهمة بالترتيب:
    - ✅  **Commit ذري لكل مهمة** (prefix Conventional Commits الصحيح)
-   - ✅  `run-gate-wave0.mjs` exit=0 قبل كل commit
-   - ✅  6 ratchets ≤baselines
+   - ✅  `run-gate-wave0.mjs` exit=0 **على الشجرة التي تُلتزم** قبل كل commit
+   - ✅  كلُّ المِسنَنات ≤ خطوطِ أساسها (§٤)
    - ✅  Zero Visual Edits مؤكد في رسالة commit
 
    > ### إتمامُ العمل — التزامٌ ذاتيّ لا يُنتظر فيه سؤال
    >
-   > **أُضيف ٢٠٢٦-٠٩-١٣ بإذنٍ حرفيّ من المالك**، ونصُّ طلبه: «عملك يجب ان تكمله ان كان
-   > به نقص او عيب … وانت من تتحرّك وتتأكّد من تلقاء نفسك دون الحاجة الى سؤالك».
-   >
-   > **وما كان قبله ولماذا لم يكفِ:** أقربُ نصّ كان في المرحلة ٥ («مهامٌ مُنفّذة، **أو
-   > مع تعليق موثق بموافقة المستخدم**») — وهو ضعيفٌ في موضعين: يقع في مرحلة **المراجعة**
-   > لا التنفيذ، **ويجعل التعليق مشروطاً بموافقة المالك**، فيُقرأ إذناً بالتسليم الناقص
-   > لمن سأل. **والسؤالُ ليس بديلاً عن الإتمام.**
+   > **أُضيف ٢٠٢٦-٠٩-١٣ بإذنٍ حرفيّ:** «عملك يجب ان تكمله ان كان به نقص او عيب … وانت
+   > من تتحرّك وتتأكّد من تلقاء نفسك دون الحاجة الى سؤالك».
    >
    > **القاعدة:** لا يُسلَّم عملٌ فيه نقصٌ أو عيبٌ **يعرفه المنفِّذ**. ومَن وجد نقصاً في
    > عمله **يُتمّه من تلقاء نفسه** ولا يستأذن في إتمامه — فالإذنُ يُطلب لما لا يُستردّ،
    > **لا لإنهاء ما بدأه**. وسؤالُ المالك «أأكمل؟» عن عيبٍ في عملي **تعطيلٌ باسم الحيطة**.
+   > **والسؤالُ ليس بديلاً عن الإتمام.**
    >
-   > **وأربعةٌ تُفحص قبل أن يُقال «تمّ»** — وكلٌّ منها وقع فعلاً فكُتب:
+   > **وأربعةٌ تُفحص قبل أن يُقال «تمّ»** (وكلٌّ منها وقع — السجلّ في `CHARTER_HISTORY`):
    >
    > 1. **الحلُّ الرخيص عيبٌ لا علاج.** وأوضحُ صوره: **تسميةُ عطلٍ بلا قياس علاجه.**
-   >    (وقع: كُشف أنّ خمس بوّابات أقسام تخضرّ بلا أن تعمل، **ولم يُقَس ماذا يحدث لو
-   >    مُرِّرت أعلامها** — فنصفُ عملٍ لا عمل.) ومنها: إسكاتُ أحمر · رفعُ عتبةٍ بلا قياس
-   >    نطاقها · وصفٌ في وثيقةٍ بدل آلةٍ تفرضه.
+   >    ومنها: إسكاتُ أحمر · رفعُ عتبةٍ بلا قياس نطاقها · وصفٌ في وثيقةٍ بدل آلةٍ تفرضه.
    > 2. **القياسُ المعلَّق يُحسم أو يُسمّى معلّقاً بسببه.** «لا أزعم أنّها تسقط ولا أنّها
    >    تمرّ» **موقفٌ مؤقّت لا خلاصة**؛ إن أمكن حسمُه بتشغيلةٍ أخرى فيُشغَّل.
-   >    (وقع: `core-boot`.)
    > 3. **يُفحَص المُخرَج بالأداة التي شُحنت له.** مَن شحن فحصاً ثمّ لم يُجرِه على
-   >    مخرجاته هو **أوّلُ من يخرقه**. (وقع: دخل بايت NUL في موجز المراجعة نفسه بعد
-   >    ساعتين من شحن فحص محارف التحكّم، **فأمسكه الفحصُ لا كاتبُه**.)
+   >    مخرجاته هو **أوّلُ من يخرقه**.
    > 4. **ما أدخلتَه أنت تُصلحه أنت.** أثرٌ جانبيّ ناتجٌ عن تغييري **ليس ديناً موروثاً**
-   >    يُكتفى بوصفه. (وقع: `.gitattributes` غيّر تجزئة حزم القوانين.)
+   >    يُكتفى بوصفه.
    >
    > **وما يجوز تركه، حصراً — ويُسمّى ولا يُسكت عنه:** قرارٌ هو للمالك بطبيعته (سياسةُ
    > بيانات · مالٌ · محتوىً تشغيليّ لا يملكه المنفِّذ) · أو ما يتطلّب وصولاً لا يملكه
    > المنفِّذ · أو عملٌ مقيسٌ يتجاوز نطاق المهمّة صراحةً. **ولكلٍّ يُكتب: ما قِيس · ولماذا
    > تُرك · وما الذي يفتحه.** وما عدا ذلك **يُتمّ**.
 5. **Phase 5 — Review:** مستقل يتحقق من:
-   - 13/13 مهام مُنفّذة — **والمتروك يُقبل فقط ضمن الحصر في المرحلة ٤ أعلاه، ومعه
-     قياسُه وسببُه**؛ «موافقةُ المالك» وحدها لا تُبرّر تسليماً ناقصاً
-   - 31/31 gates PASS ×3 runs متتالية (Determinism)
+   - كلُّ مهمّةٍ في `tasks.md` مُنفّذة — **والمتروك يُقبل فقط ضمن الحصر في المرحلة ٤
+     أعلاه، ومعه قياسُه وسببُه**؛ «موافقةُ المالك» وحدها لا تُبرّر تسليماً ناقصاً
+   - البوّابة كاملةً PASS ×3 runs متتالية (Determinism)
    - كل TR في كل مهمة مُحقّق ب دليل حقيقي (grep / run / hash / screenshot)
    - **لا يُعتمد self-review:** نفس اللاعب لا يُحكم على عمله
 
