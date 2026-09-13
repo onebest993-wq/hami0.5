@@ -50,9 +50,22 @@ function runCommand(label, command, argsList) {
 
 function runNpm(label, argsList) {
     console.log(`\n=== ${label} ===`);
+    /*
+     * **`shell: true` على ويندوز إلزاميّ، لا تحسين.** `npm` هناك ملفُّ `.cmd`،
+     * و**Node يرفض تشغيله بلا غلاف** فيُرجع `EINVAL` فوراً (منذ CVE-2024-27980).
+     *
+     * وتظهر العلّة فقط عند الاستدعاء المباشر (`node scripts/…`) — وهو **الأمر الذي
+     * تكتبه مصفوفة `section-gates.yml` حرفاً** — لأنّ `npm_execpath` لا يُضبط حينها
+     * فيسقط النداء إلى المسار الثاني. قِيس ٢٠٢٦-٠٩-١٣: البوّابة تسقط في **صفر ثانية**
+     * شاكيةً «TypeScript failed» **والمترجمُ لم يعمل قطّ** — تشخيصٌ كاذب لعطلٍ غير موجود.
+     *
+     * والمُشغّل الرسميّ `run-gate-wave0.mjs:59-66` يفعل هذا منذ البداية؛ **فهذه موافقةٌ
+     * له لا اختراع**.
+     */
+    const isWin = process.platform === 'win32';
     const result = npmExecPath
         ? spawnSync(process.execPath, [npmExecPath, ...argsList], { stdio: 'inherit' })
-        : spawnSync(bin('npm'), argsList, { stdio: 'inherit' });
+        : spawnSync(bin('npm'), argsList, { stdio: 'inherit', shell: isWin });
     if (result.status !== 0) {
         fail(`${label} failed`);
         process.exit(1);
@@ -94,9 +107,24 @@ const envExample = readFileSync('.env.production.example', 'utf8');
     'ADMIN_ACCESS_KEY',
 ].forEach((key) => requireEnvDoc(envExample, key));
 
-runNpm('TypeScript', ['run', 'typecheck']);
-// أخطاء فقط — تحذيرات no-explicit-any التاريخية خارج نطاق بوابة العمليات (مثل W4)
-runNpm('ESLint errors', ['run', 'lint:errors']);
+/*
+ * **يُستدعى ما يفرضه المستودع فعلاً، لا ما تمنّاه هذا السكربت.** وقِيس الاثنان
+ * ٢٠٢٦-٠٩-١٣ فكانا معطوبين، وكلاهما يمنع هذه البوّابة من المرور **مهما كانت الشفرة**:
+ *
+ *   `npm run lint:errors`  →  **أمرٌ غير مُعرَّف في `package.json` إطلاقاً** (`Missing script`).
+ *   `npm run typecheck`    →  `tsc --noEmit` على شفرةٍ خطُّ أساسها **٩٥٦ خطأً** في §٤،
+ *                             فيخرج بـ2 دائماً. قِيس: `status=2`.
+ *
+ * والنيّة المكتوبة فوق السطر الثاني كانت «أخطاء فقط — تحذيرات no-explicit-any
+ * التاريخية خارج النطاق»، **وهي بعينها دلالةُ المِسنَنة**. فيُستدعى الحارسان اللذان
+ * يفرضهما §٤ ويشغّلهما كلُّ ما في المستودع: لا انحدار، لا صفرٌ لم يوجد قطّ.
+ *
+ * **ولم يكن هذا تليينَ معيار:** «صفر خطأ» لم يكن معياراً قائماً بل تعذُّراً دائماً.
+ * ومن أراد لهذه البوّابة صرامةً أشدّ من §٤ فذاك سطرٌ واحد يُعاد — **وقرارُ مالك، لأنّه
+ * يُخالف مِسنَنةً مُعلَنة لا يُصلح عطلاً**.
+ */
+runNpm('TypeScript (ratchet §٤)', ['run', 'guard:tsc']);
+runNpm('ESLint (ratchet §٤)', ['run', 'guard:lint']);
 runNpm('Security audit', ['run', 'health:security']);
 runNpm('Resource audit', ['run', 'health:resources']);
 runNpm('Production build verification', ['run', 'verify:production-build']);
