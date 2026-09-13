@@ -12,12 +12,29 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 
 const ROOT = process.cwd();
 const BASELINE = '.audit/test-ratchet-baseline.json';
 const REPORT = '.audit/vitest-run.json';
 const toPosix = (p) => p.split(sep).join('/');
+
+/**
+ * **مداخلُ اختبارٍ لا مسارُ إنتاج — ولماذا لزمت.**
+ *
+ * هذا الحارس يُشغّل ١٢٬٢٦٣ اختباراً (نحو ثلثَي ساعةٍ من زمن البوّابة)، **فإثباتُ أسنانه
+ * بتشغيله متعذّر عملياً** — وحارسٌ لا يُختبَر زينةٌ لا حارس. والمدخلان يُبدّلان
+ * **مصدرَ التقرير وخطَّ الأساس وحدهما**، فيُفحص الحكمُ في ثوانٍ.
+ *
+ * **وخطُّ الأساس الحقيقيّ لا يُمسّ**: كتابةُ خطّ أساسٍ أثناء إثبات الأسنان أتلفت ملفّاً
+ * فعلاً في هذا المستودع من قبل. وحين لا يُضبط المتغيّران، السلوكُ هو نفسه حرفاً.
+ */
+const REPORT_PATH = process.env.HAMI_TEST_RATCHET_REPORT
+    ? resolve(process.env.HAMI_TEST_RATCHET_REPORT)
+    : join(ROOT, REPORT);
+const BASELINE_PATH = process.env.HAMI_TEST_RATCHET_BASELINE
+    ? resolve(process.env.HAMI_TEST_RATCHET_BASELINE)
+    : join(ROOT, BASELINE);
 
 function runVitest() {
     const cli = join(ROOT, 'node_modules', 'vitest', 'vitest.mjs');
@@ -28,6 +45,14 @@ function runVitest() {
      * والمُبلِّغ يُصدر `::error::` لكلّ اختبار ساقط، والتعليقات متاحة بلا اعتماد.
      * فالخيط الوحيد لمعرفة **أيّ** اختبار يسقط على CI دون أن يسقط محلياً.
      */
+    /* تقريرٌ مُزوَّد ⇐ لا تُشغَّل المجموعة. مدخلُ اختبارٍ فقط؛ بلا المتغيّر يعمل كما كان. */
+    if (process.env.HAMI_TEST_RATCHET_REPORT) {
+        if (!existsSync(REPORT_PATH)) {
+            console.error(`[test ratchet] supplied report not found at ${REPORT_PATH}`);
+            process.exit(2);
+        }
+        return JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
+    }
     const reporters = ['--reporter=json', `--outputFile=${REPORT}`];
     if (process.env.CI) reporters.push('--reporter=github-actions');
     const args = existsSync(cli)
@@ -45,11 +70,11 @@ function runVitest() {
     } catch {
         // كود خروج غير صفري متوقّع مع وجود فشل — التقرير هو المصدر
     }
-    if (!existsSync(join(ROOT, REPORT))) {
+    if (!existsSync(REPORT_PATH)) {
         console.error(`[test ratchet] vitest produced no report at ${REPORT}`);
         process.exit(2);
     }
-    return JSON.parse(readFileSync(join(ROOT, REPORT), 'utf8'));
+    return JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
 }
 
 /**
@@ -205,7 +230,7 @@ const summary = {
 
 if (process.argv.includes('--save')) {
     writeFileSync(
-        join(ROOT, BASELINE),
+        BASELINE_PATH,
         JSON.stringify({ savedAt: new Date().toISOString(), ...summary, failures }, null, 2),
         'utf8',
     );
@@ -213,13 +238,13 @@ if (process.argv.includes('--save')) {
     process.exit(0);
 }
 
-if (!existsSync(join(ROOT, BASELINE))) {
+if (!existsSync(BASELINE_PATH)) {
     if (process.env.CI === 'true') {
         console.error('[test ratchet] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
         process.exit(1);
     }
     writeFileSync(
-        join(ROOT, BASELINE),
+        BASELINE_PATH,
         JSON.stringify({ savedAt: new Date().toISOString(), ...summary, failures }, null, 2),
         'utf8',
     );
@@ -227,7 +252,7 @@ if (!existsSync(join(ROOT, BASELINE))) {
     process.exit(0);
 }
 
-const base = JSON.parse(readFileSync(join(ROOT, BASELINE), 'utf8'));
+const base = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
 const added = multisetDiff(failures, base.failures ?? []);
 const fixed = multisetDiff(base.failures ?? [], failures);
 
@@ -261,6 +286,28 @@ if (addedAllowFlakes.length > 0) {
     }
 }
 
+/**
+ * **حُكمُ الحارس يُعلَّق، لا يُطبع نصّاً وحسب — وهذا عطلٌ مقيسٌ لا احتياط.**
+ *
+ * قِيس ٢٠٢٦-٠٩-١٣ على `4d1bcbc3`: سقطت وظيفةُ `gate` وحملت **سبع تعليقات** —
+ * خمسُ اختباراتٍ ساقطة وخطأُ خروجٍ عامّ وتحذيرُ Node. **وخمستُها في خطّ الأساس**، أي
+ * ليست انحداراً بحكم هذا الحارس نفسه. فالتعليقاتُ **لا تُفسّر السقوط**، لأنّها كلَّها
+ * من مُبلِّغ vitest (`--reporter=github-actions`) الذي يُبلّغ كلَّ ساقطٍ سواءٌ أكان في
+ * الأساس أم لا — **وحُكمُ المِسنَنة، وهو الفاصل، كان stdout عادياً**.
+ *
+ * وسجلّاتُ Actions تحتاج اعتماداً، **فبقي سببُ السقوط مجهولاً**. وهو بعينه العمى
+ * الذي أُصلح في `verify-production-build.mjs` (`d132d9f2`): أداةٌ تسقط بلا أن تقول
+ * لماذا، بينما القناةُ المقروءة بلا اعتماد متاحة.
+ *
+ * **والفرق الذي يصنعه هذا التعليق:** يقول **أيُّ** اختبارٍ خرق المِسنَنة — لا أيُّ
+ * اختبارٍ سقط. وهما مختلفان، **والثاني وحده كان يصل**.
+ */
+function annotateVerdict(title, lines) {
+    if (!process.env.GITHUB_ACTIONS) return;
+    const body = lines.join('%0A').replace(/\r/g, '');
+    console.log(`::error title=guard:tests: ${title}::${body}`);
+}
+
 if (addedReal.length || addedAllowFlakes.length > MAX_ALLOWED_FLAKES_PER_RUN) {
     console.log('');
     if (addedAllowFlakes.length > MAX_ALLOWED_FLAKES_PER_RUN) {
@@ -268,11 +315,23 @@ if (addedReal.length || addedAllowFlakes.length > MAX_ALLOWED_FLAKES_PER_RUN) {
             `FAIL: allowed-flake ceiling breached — ${addedAllowFlakes.length} flake(s) exceeds MAX_ALLOWED_FLAKES_PER_RUN=${MAX_ALLOWED_FLAKES_PER_RUN}. Treating all as real regression (anti-abuse guard).`,
         );
         for (const f of addedAllowFlakes) console.log(`  + ${f}`);
+        annotateVerdict(
+            'allowed-flake ceiling breached',
+            [
+                `${addedAllowFlakes.length} known flake(s) exceed MAX_ALLOWED_FLAKES_PER_RUN=${MAX_ALLOWED_FLAKES_PER_RUN}`,
+                ...addedAllowFlakes.slice(0, 20),
+            ],
+        );
     }
     if (addedReal.length) {
         console.log(`FAIL: ${addedReal.length} NEW UNDOCUMENTED regression(s) — hard fail:`);
         for (const f of addedReal.slice(0, 40)) console.log(`  + ${f}`);
         if (addedReal.length > 40) console.log(`  ... and ${addedReal.length - 40} more`);
+        annotateVerdict(`${addedReal.length} new undocumented regression(s)`, [
+            'These are NOT in .audit/test-ratchet-baseline.json and NOT in KNOWN_TIMING_FLAKES:',
+            ...addedReal.slice(0, 20),
+            ...(addedReal.length > 20 ? [`... and ${addedReal.length - 20} more`] : []),
+        ]);
     }
     process.exit(1);
 }
