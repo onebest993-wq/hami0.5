@@ -10,4 +10,5 @@ export const EXECUTION_GATE_E2E_SPECS = [
     'e2e/execution-notes-persist.spec.ts',
     'e2e/execution-followup-tabs.spec.ts',
     'e2e/decisions-storage-persist.spec.ts',
+    'e2e/execution-debtor-badges-slot.spec.ts',
 ];

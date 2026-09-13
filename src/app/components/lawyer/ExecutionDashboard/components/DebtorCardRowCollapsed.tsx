@@ -8,13 +8,24 @@ import { PartyCardCollapsedNameSlot } from './PartyCardCollapsedNameSlot';
 import { PreloadableOverlayGate } from '../preloadableOverlayGate';
 import { LazyDebtorCardRowBadgesCluster } from '../debtorCardRowBadgesClusterLazy';
 import { PARTY_SIGNALS_SCROLL_ROW } from '@/app/components/lawyer/execution/partySignalsScrollRow';
+import {
+    PARTY_BADGE_ICON_SIZE,
+    PARTY_BADGE_PILL_BOX_CLASS,
+} from '@/app/components/lawyer/execution/partyBadgeShell';
 
+/**
+ * هيكلُ انتظار الشارات الكسولة — **بصندوق الشارة نفسه** (حدٌّ وحشوٌ وسطرُ نصٍّ وأيقونة)، فيأخذ
+ * ارتفاعَها بالبناء. كان ارتفاعاً ثابتاً أطولَ من الشارات، فيقفز ما تحت الصفّ حين تحلّ محلّه.
+ */
 const DEBTOR_BADGES_PAINT_SLOT = (
     <div
-        className="h-8 min-h-[32px] w-24 shrink-0 rounded-lg border border-white/8 bg-white/[0.04]"
+        className={`${PARTY_BADGE_PILL_BOX_CLASS} w-24 rounded-lg border-white/8 bg-white/[0.04]`}
         aria-hidden
         data-testid="debtor-badges-paint-slot"
-    />
+    >
+        <span className="block shrink-0" style={{ width: PARTY_BADGE_ICON_SIZE, height: PARTY_BADGE_ICON_SIZE }} />
+        <span className="invisible whitespace-nowrap">حجز</span>
+    </div>
 );
 
 export type DebtorCardRowCollapsedProps = DebtorCardRowBadgesClusterProps & {

@@ -106,12 +106,22 @@ describe('execution overlay native-back and inner-silent honesty', () => {
         );
     });
 
-    it('صف المدين المحجوز يحجز شريحة 44px بدل فراغ عند شارات الكسولة', () => {
+    /**
+     * **كان يشترط `min-h-[44px]` — شريحةً بعرض الصفّ من تصميمٍ قبل `f2fdef53`.** ذلك الالتزامُ صيّر الصفَّ
+     * صفَّ إشاراتٍ أفقياً، فبقي التوكيدُ يحرس ارتفاعاً لا يطابق شيئاً. **وقِيس ٢٠٢٦-٠٩-١٤ في الصفّ الحيّ:**
+     * الشريحةُ الثابتة أطولُ من الشارة، فيقفز ما تحتها حين تحلّ الشاراتُ محلّها.
+     *
+     * **فما يحرسه الآن هو الغرضُ لا الرقم:** شريحةٌ بدل فراغ (كما كان) **مبنيّةٌ من صندوق الشارة نفسه**.
+     * والتطابقُ الفعليّ في المتصفّح يحرسه `e2e/execution-debtor-badges-slot.spec.ts`.
+     */
+    it('صف المدين المحجوز يحجز شريحةً بصندوق الشارة نفسه بدل فراغ عند شارات الكسولة', () => {
         const row = read(
             'src/app/components/lawyer/ExecutionDashboard/components/DebtorCardRowCollapsed.tsx',
         );
         expect(row).toContain('debtor-badges-paint-slot');
-        expect(row).toContain('min-h-[44px]');
+        expect(row).toContain('PARTY_BADGE_PILL_BOX_CLASS');
+        /* ارتفاعٌ ثابتٌ مكتوبٌ باليد هو بعينه ما انفصل عن الشارات */
+        expect(row).not.toMatch(/className="h-\d+ min-h-\[\d+px\] w-24/);
         expect(row).toContain('PreloadableOverlayGate');
         expect(row).toContain('debtorCardRowBadgesClusterLazy');
         expect(row).not.toContain('fallback={null}');
