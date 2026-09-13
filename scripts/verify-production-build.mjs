@@ -18,19 +18,72 @@ function run(cmd, args, opts = {}) {
     return result;
 }
 
-const build = isWindows
-    ? run(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm run build'])
-    : run('npm', ['run', 'build']);
+/**
+ * **أوامرُ سير العمل تُقرأ بلا اعتماد — لكنّها لم تكن تُكتب في كلّ مسارٍ يسقط.**
+ *
+ * قِيس ٢٠٢٦-٠٩-١٣ على تشغيلة `#46` (`4d1bcbc3`): الخطوة ٣٩ سقطت في **٢٨ ثانية** —
+ * وهو زمنُ البناء وحده — **وبلا تعليقةٍ واحدة تقول لماذا**. والسبب أنّ التعليق كان
+ * موصولاً بالمستهلكين الستّة أدناه فحسب، **ومسارا الفشل قبلهم** (سقوطُ البناء ودورانُ
+ * الحزم) يخرجان بـ`process.exit` صامتَين.
+ *
+ * فالمستودع كان يدّعي أنّ سقوط هذه الخطوة «مقروءٌ بلا اعتماد» — **وهو صحيحٌ في ستّة
+ * مسارات من ثمانية، والفجوة في المسار الذي وقع فعلاً.** ووصفٌ أوسعُ من الآلة هو ما
+ * يمنعه §٣ من الميثاق.
+ */
+function annotate(title, message) {
+    const escaped = String(message)
+        .replace(/%/g, '%25')
+        .replace(/\r/g, '')
+        .replace(/\n/g, '%0A');
+    console.log(`::error title=${title}::${escaped}`);
+}
+
+/** أنفعُ الأسطر وحدها — التعليقة محدودة الطول، والضجيج يُغرق الإشارة. */
+function usefulLines(text, limit = 12) {
+    return text
+        .split(/\r?\n/)
+        .filter((l) => /FAIL|BLOCKED|error|Error|✗|exceed|regression|missing|Circular/i.test(l))
+        .slice(-limit)
+        .join('\n');
+}
+
+/**
+ * أمرُ البناء. و`HAMI_VERIFY_BUILD_ARGV` **للاختبار وحده** — به يُثبَت أنّ مسارَي
+ * الفشل أدناه يُعلّقان فعلاً، بلا إعطاب بناءٍ حقيقيّ. ومسارُ الإنتاج حين لا يُضبط
+ * المتغيّر **هو نفسه حرفاً** كما كان.
+ *
+ * **ومصفوفةُ argv لا سلسلةُ غلاف** — قِيس: تمريرُ `node "<مسار فيه فراغ>"` عبر
+ * `cmd /d /s /c` وصل إلى node مقطوعاً عند أوّل فراغ. فالمصفوفة تتجاوز الاقتباس كلَّه،
+ * **ولا تفتح باب حقنٍ في سكربتِ تحقّقٍ يعمل على العدّاء**.
+ */
+const overrideArgv = process.env.HAMI_VERIFY_BUILD_ARGV
+    ? JSON.parse(process.env.HAMI_VERIFY_BUILD_ARGV)
+    : null;
+const shell = process.env.ComSpec || 'cmd.exe';
+const build = overrideArgv
+    ? run(overrideArgv[0], overrideArgv.slice(1))
+    : isWindows
+      ? run(shell, ['/d', '/s', '/c', 'npm run build'])
+      : run('npm', ['run', 'build']);
 const buildOutput = `${build.stdout ?? ''}${build.stderr ?? ''}`;
 process.stdout.write(build.stdout ?? '');
 process.stderr.write(build.stderr ?? '');
 
 if (build.status !== 0) {
+    console.error(`[verify-production-build] BLOCKED: build failed (exit=${build.status ?? 1})`);
+    annotate(
+        'verify-production-build: build',
+        usefulLines(buildOutput) || `npm run build exited with ${build.status ?? 1}`,
+    );
     process.exit(build.status || 1);
 }
 
 if (/Circular chunk:/i.test(buildOutput)) {
     console.error('[verify-production-build] BLOCKED: circular manual chunks detected in vite build');
+    annotate(
+        'verify-production-build: circular-chunks',
+        usefulLines(buildOutput) || 'Circular chunk detected in vite build',
+    );
     process.exit(1);
 }
 
@@ -70,14 +123,10 @@ const CONSUMERS = [
  * `GET /check-runs/{job}/annotations` **بلا اعتماد**. فالمخرَج يُلتقط ليُحوَّل إلى
  * تعليقات، **ويُكتب كما هو أيضاً** لئلّا يخسر قارئ السجلّ شيئاً — وهذا هو الخطأ
  * المعاكس الذي وقع في `5d1d6260` (التقاطٌ بلا كتابة).
+ *
+ * *(و`annotate` مُعرَّفةٌ أعلاه، لأنّ مسارَي البناء والدوران يسبقان هذه الحلقة
+ * ويحتاجانها — وكان غيابُها عنهما هو عطلُ `#46`.)*
  */
-function annotate(title, message) {
-    const escaped = String(message)
-        .replace(/%/g, '%25')
-        .replace(/\r/g, '')
-        .replace(/\n/g, '%0A');
-    console.log(`::error title=${title}::${escaped}`);
-}
 
 const failed = [];
 for (const check of CONSUMERS) {
