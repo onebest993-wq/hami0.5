@@ -1,10 +1,15 @@
 import React, { Suspense } from 'react';
+import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 import { LazyExecutionDashboardShellOverlays } from '../executionDashboardShellOverlaysLazy';
 import { ExecutionShellOverlayInstantPaint } from './ExecutionShellOverlayInstantPaint';
 
 /**
  * برميل نوافذ الإضبارة — يُركَّب فقط عند نية نافذة.
  * انتظار البرميل هيكل فوري يعمل، لا فراغ كحلي.
+ *
+ * **وغلافُ `Suspense` يُقرَّر عند التركيب لا في كلّ رسم** (`useColdAtMount`): كان يُنزع عند أوّل
+ * إعادة رسمٍ بعد اكتمال التحميل، فتُهدم كلُّ نافذةٍ مفتوحة — قِيس: مركزُ القرارات يُركَّب من
+ * جديد بعد ضغط «القرارات السابقة» فيضيع الضغط.
  */
 export function ExecutionShellOverlaysEntry({
     open,
@@ -19,6 +24,7 @@ export function ExecutionShellOverlaysEntry({
     scope: Record<string, unknown>;
     followupSnapshot: Record<string, unknown>;
 }): React.ReactElement | null {
+    const coldAtMount = useColdAtMount(() => LazyExecutionDashboardShellOverlays.isPreloaded());
     if (!open) return null;
 
     const live = (
@@ -30,7 +36,7 @@ export function ExecutionShellOverlaysEntry({
         />
     );
 
-    if (LazyExecutionDashboardShellOverlays.isPreloaded()) {
+    if (!coldAtMount) {
         return live;
     }
 

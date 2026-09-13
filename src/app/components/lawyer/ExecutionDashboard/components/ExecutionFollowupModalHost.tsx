@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect } from 'react';
+import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 
 import { FollowupModalStoreProvider, type FollowupModalSnapshot } from '../followupModalContext';
 import { EMPTY_FOLLOWUP_MODAL_SNAPSHOT } from '../hooks/emptyFollowupModalSnapshot';
@@ -19,6 +20,8 @@ type ExecutionFollowupModalHostProps = {
 export function ExecutionFollowupModalHost({ open: openFromProp, snapshot }: ExecutionFollowupModalHostProps) {
     const storeOpen = useExecutionDashboardStore((s) => s.modals.showUnifiedExecutionModal);
     const open = storeOpen || openFromProp;
+    /* الغلافُ يُقرَّر عند التركيب: نزعُه بعد اكتمال التحميل كان يهدم لوحةَ المحضر المعروضة */
+    const portalColdAtMount = useColdAtMount(() => LazyExecutionFollowupModalPortal.isPreloaded());
 
     const tabToPrefetch =
         typeof snapshot.unifiedModalTab === 'string' && snapshot.unifiedModalTab.length > 0
@@ -36,7 +39,7 @@ export function ExecutionFollowupModalHost({ open: openFromProp, snapshot }: Exe
     const snapshotReady = snapshot !== EMPTY_FOLLOWUP_MODAL_SNAPSHOT;
     const portal = !snapshotReady ? (
         <ExecutionFollowupInstantFrame />
-    ) : LazyExecutionFollowupModalPortal.isPreloaded() ? (
+    ) : !portalColdAtMount ? (
         <LazyExecutionFollowupModalPortal />
     ) : (
         <Suspense fallback={<ExecutionFollowupInstantFrame />}>

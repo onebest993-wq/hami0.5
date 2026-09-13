@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 import type { FollowupModalSnapshot } from '../followupModalContext';
 import { LazyExecutionFollowupModalHost } from '../executionFollowupHostLazy';
 import { useExecutionFollowupModalSnapshot } from '../hooks/useExecutionFollowupModalSnapshot';
@@ -18,9 +19,11 @@ export function ExecutionFollowupOverlayEntry({
     snapshot: FollowupModalSnapshot;
 }): React.ReactElement | null {
     const stableSnapshot = useExecutionFollowupModalSnapshot(open, () => snapshot);
+    /* الغلافُ يُقرَّر عند التركيب: نزعُه بعد اكتمال التحميل كان يهدم المحضرَ المفتوح بتبويبه */
+    const coldAtMount = useColdAtMount(() => LazyExecutionFollowupModalHost.isPreloaded());
     if (!open) return null;
 
-    if (LazyExecutionFollowupModalHost.isPreloaded()) {
+    if (!coldAtMount) {
         return <LazyExecutionFollowupModalHost open snapshot={stableSnapshot} />;
     }
 

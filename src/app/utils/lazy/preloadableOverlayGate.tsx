@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
+import { useColdAtMount } from './useColdAtMount';
 
 export type PreloadableLike<P> = React.ComponentType<P> & {
     isPreloaded?: () => boolean;
@@ -6,10 +7,14 @@ export type PreloadableLike<P> = React.ComponentType<P> & {
 };
 
 /**
- * إن اكتمل preload تُرسم النافذة في نفس الـ commit.
+ * إن اكتمل preload قبل التركيب تُرسم النافذة في نفس الـ commit.
  * وإلا هيكل فوري يعمل حتى تُقيَّم الوحدة — ثم يُعاد الرسم فور اكتمال
  * `preload` (مسار Suspense وحده كان يبقى على الهيكل في بعض بيئات الاختبار
  * وعند السباق مع useEffect).
+ *
+ * **والاختيارُ بين الطريقين يُثبَّت عند التركيب** (`useColdAtMount`). كان يُعاد حسابُه في كلّ
+ * رسم، فإعادةُ الرسم التي يُطلقها `preload` نفسُه كانت تنزع `Suspense` من حول نافذةٍ عُرضت —
+ * فتُهدم وتُركَّب من جديد وتضيع حالتُها.
  */
 export function PreloadableOverlayGate<P extends object>({
     lazy: Lazy,
@@ -20,7 +25,9 @@ export function PreloadableOverlayGate<P extends object>({
     lazyProps: P;
     fallback: React.ReactNode;
 }): React.ReactElement {
-    const preloaded = typeof Lazy.isPreloaded === 'function' ? Lazy.isPreloaded() : false;
+    const coldAtMount = useColdAtMount(
+        () => typeof Lazy.isPreloaded === 'function' && Lazy.isPreloaded(),
+    );
     const [, setPreloadEpoch] = useState(0);
 
     useEffect(() => {
@@ -35,7 +42,7 @@ export function PreloadableOverlayGate<P extends object>({
         };
     }, [Lazy]);
 
-    if (preloaded) {
+    if (!coldAtMount) {
         return <Lazy {...lazyProps} />;
     }
     return (

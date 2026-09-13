@@ -1,4 +1,5 @@
 import React, { Suspense, useCallback, useEffect } from 'react';
+import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 import { setExecutionDossierNavHandlers } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDossierNavRegistry';
@@ -22,6 +23,8 @@ export function LawyerDashboardExecutionDossierOverlayEntry({
 }: Props): React.ReactElement {
     const { setActiveFile, handleUpdateExecutionFile } = dossier;
     const { setArchiveType } = archive;
+    /* الغلافُ يُقرَّر عند التركيب: نزعُه بعد اكتمال تحميل البوّابة كان يهدم الإضبارة المفتوحة كلَّها */
+    const coldAtMount = useColdAtMount(() => LazyExecutionDashboardPortal.isPreloaded());
 
     const backToArchive = useCallback(() => setActiveFile(null), [setActiveFile]);
     const exitToHome = useCallback(() => {
@@ -47,7 +50,7 @@ export function LawyerDashboardExecutionDossierOverlayEntry({
         open,
     };
 
-    if (LazyExecutionDashboardPortal.isPreloaded()) {
+    if (!coldAtMount) {
         return <LazyExecutionDashboardPortal {...portalProps} />;
     }
 

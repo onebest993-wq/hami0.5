@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { useColdAtMount } from '@/app/utils/lazy/useColdAtMount';
 import type { DossierMetaEditSectionProps } from './DossierMetaEditSection';
 import type { PartyEditModalProps } from './PartyEditModal';
 import type { TimelineEvent } from '@/app/types/execution';
@@ -155,6 +156,9 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
     } = props;
 
+    /* الغلافُ يُقرَّر عند التركيب: نزعُه بعد اكتمال التحميل كان يهدم نموذجَ تعديل الإضبارة المفتوح */
+    const dossierMetaEditColdAtMount = useColdAtMount(() => LazyDossierMetaEditSection.isPreloaded());
+
     const showTimelineEditModal = Boolean(timelineEditDraft);
     const showPartyEditModal = Boolean(editPartyTarget);
     const showHeirsQuickViewModal = Boolean(heirsQuickView);
@@ -263,7 +267,7 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showEditDossierMetaModal ? (
-            LazyDossierMetaEditSection.isPreloaded() ? (
+            !dossierMetaEditColdAtMount ? (
                 <LazyDossierMetaEditSection
                     showEditDossierMetaModal={showEditDossierMetaModal}
                     dossierMetaDraft={dossierMetaDraft}
