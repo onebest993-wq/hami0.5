@@ -74,6 +74,7 @@
     "icons:scan": "node scripts/scan-lucide-icons.mjs --write",
     "icons:migrate": "node scripts/migrate-lucide-imports.mjs",
     "law-data:generate": "node scripts/generate-static-law-data.mjs",
+    "audit:dead-mocks": "node scripts/audit-dead-mock-paths.mjs",
     "sounds:generate": "node scripts/generate-hami-notification-sound.mjs",
     "setup:notifications:android": "node scripts/setup-fcm-android.mjs",
     "setup:notifications:android:build": "node scripts/setup-fcm-android.mjs --build",
