@@ -5,7 +5,7 @@ import {
     isSameOriginApiBlocked,
     probeSameOriginApi,
     resetSameOriginApiProbeForTests,
-} from '../sameOriginApiProbe';
+} from '@/app/services/network/sameOriginApiProbe';
 
 vi.mock('@/app/services/auth/shellAuth', () => ({
     isShellAuthBypassed: vi.fn(() => false),
