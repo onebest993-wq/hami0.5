@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { shouldShowGuarantorRequestInSeizureTab } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import {
     canOpenSeizureRequestsTab,
     buildRestrictedFollowupTabIds,
@@ -57,24 +58,44 @@ describe('executionDashboardFollowupSeizureTabs', () => {
         ).toBe(false);
     });
 
-    it('keeps the kasib guarantor block on the seizure tab after the guarantor is approved', () => {
-        expect(
-            computeShowGuarantorInSeizureFollowupTab({
-                activeDebtorIsDeceased: false,
-                activeDebtorIsEmployee: false,
-                viewExecutionData: approvedGuarantorData as never,
-                followupSpecialization: {
-                    hideAllGuarantorPresence: false,
-                    isFinancialDebtCollection: true,
-                    showFinancialGuarantorRequestOnly: true,
-                },
-                remainingBalanceForSeizure: 4_000_000,
-                settlementGuarantorGate: {
-                    settlementBreachTriggeredAt: '2026-01-01',
-                    pendingSettlement: null,
-                },
-            }),
-        ).toBe(true);
+    /**
+     * **كان اسمه «keeps the kasib guarantor block on the seizure tab after the guarantor is approved»
+     * ويتوقّع `true` — ولم يعد صادقاً.** تلك الكتلةُ لا تُرسم منذ `f2fdef53`: بوّابتُها
+     * `shouldShowGuarantorRequestInSeizureTab` صارت `false` («مسار الكفيل أصبح شارة تسوية فقط»)، فكان
+     * التوكيدُ يصف تبويباً لا يراه المحامي، والقائمةُ المخفية تُخفي حجوزَ الكفيل بناءً عليه.
+     *
+     * **فالتوكيدُ الآن نسبيّ:** العلَمُ هو بوّابةُ التبويب نفسُها، أُطفئت أم فُتحت — ويسقط إن عادت
+     * هنا نسخةٌ مستقلّة. **وما كان يحرسه** (أن يبلغ الكاسبُ حجوزَ كفيله بعد الاعتماد) يحرسه
+     * `guarantorSeizureFollowupReachability.test.tsx` باللوحتين الحقيقيتين.
+     */
+    it('follows the seizure-tab guarantor gate for an approved kasib guarantor', () => {
+        const input = {
+            activeDebtorIsDeceased: false,
+            activeDebtorIsEmployee: false,
+            viewExecutionData: approvedGuarantorData as never,
+            followupSpecialization: {
+                hideAllGuarantorPresence: false,
+                isFinancialDebtCollection: true,
+                showFinancialGuarantorRequestOnly: true,
+            },
+            remainingBalanceForSeizure: 4_000_000,
+            settlementGuarantorGate: {
+                settlementBreachTriggeredAt: '2026-01-01',
+                pendingSettlement: null,
+            },
+        };
+        const seizureTabGate = shouldShowGuarantorRequestInSeizureTab(
+            input.followupSpecialization as Parameters<typeof shouldShowGuarantorRequestInSeizureTab>[0],
+            {
+                executionData: input.viewExecutionData,
+                financialCenterTotalIqd: input.remainingBalanceForSeizure,
+                settlementBreachTriggeredAt: input.settlementGuarantorGate.settlementBreachTriggeredAt,
+                ledgerPendingSettlement: input.settlementGuarantorGate.pendingSettlement,
+                activeDebtorIsDeceased: input.activeDebtorIsDeceased,
+                activeDebtorIsEmployee: input.activeDebtorIsEmployee,
+            },
+        );
+        expect(computeShowGuarantorInSeizureFollowupTab(input)).toBe(seizureTabGate);
     });
 
     it('does not show the amount-guarantor request for a financial kasib before settlement breach', () => {

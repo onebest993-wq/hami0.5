@@ -1,6 +1,4 @@
-import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
-import type { PendingSettlement } from '@/app/slices/financial/specialtyPublic';
-import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
+import { shouldShowGuarantorRequestInSeizureTab } from '@/app/domain/execution/followup/hiddenFollowupRequestsUtils';
 import type { ExecutionFile } from '@/app/types/execution';
 import type { FollowupSpecializationVisibility } from '@/app/utils/followupSpecializationVisibility';
 
@@ -21,6 +19,13 @@ export type SeizureMatrixSeizureTabSlice = {
     ruleId?: string;
 };
 
+/**
+ * هل تُعرَض حجوزُ الكفيل في تبويب «طلبات الحجز»؟ تقرؤه قائمةُ الطلبات المخفية
+ * (`shouldBuriedGuarantorSeizure`) فتُخفيها حين يكون صحيحاً — **فجوابُه من البوّابة التي
+ * يرسم بها التبويبُ كتلةَ الكفيل نفسِها** (`useSeizureRequestsTabModel`)، لا من نسخةٍ عنها.
+ * كانت هنا نسخةٌ طابقتها حرفاً، ثمّ أُطفئت البوّابةُ في `f2fdef53` وبقيت النسخةُ تقول «معروضة»
+ * للمدين غير الموظّف — فلم تُبلَغ حجوزُه من أيّ باب.
+ */
 export function computeShowGuarantorInSeizureFollowupTab(input: {
     activeDebtorIsDeceased: boolean;
     activeDebtorIsEmployee: boolean;
@@ -41,23 +46,21 @@ export function computeShowGuarantorInSeizureFollowupTab(input: {
         settlementGuarantorGate,
     } = input;
 
-    if (activeDebtorIsDeceased) return false;
-    if (followupSpecialization.hideAllGuarantorPresence) return false;
-    if (activeDebtorIsEmployee) return false;
-    if (hasActiveFinancialGuarantorFollowup(viewExecutionData)) return true;
-    if (
-        followupSpecialization.isFinancialDebtCollection &&
-        resolveAmountGuarantorRequestVisible({
-            isFinancialDebtCollectionClaim: true,
+    return shouldShowGuarantorRequestInSeizureTab(
+        {
+            hideAllGuarantorPresence: followupSpecialization.hideAllGuarantorPresence,
+            isFinancialDebtCollection: followupSpecialization.isFinancialDebtCollection,
+            showFinancialGuarantorRequestOnly: followupSpecialization.showFinancialGuarantorRequestOnly,
+        } as Parameters<typeof shouldShowGuarantorRequestInSeizureTab>[0],
+        {
+            executionData: viewExecutionData,
             financialCenterTotalIqd: remainingBalanceForSeizure,
             settlementBreachTriggeredAt: settlementGuarantorGate.settlementBreachTriggeredAt,
-            pendingSettlement: settlementGuarantorGate.pendingSettlement as PendingSettlement | null | undefined,
-            hideAllGuarantorPresence: false,
-        })
-    ) {
-        return followupSpecialization.showFinancialGuarantorRequestOnly;
-    }
-    return !followupSpecialization.isFinancialDebtCollection;
+            ledgerPendingSettlement: settlementGuarantorGate.pendingSettlement,
+            activeDebtorIsDeceased,
+            activeDebtorIsEmployee,
+        },
+    );
 }
 
 /** تبويبات مسموحة عند تقييد المحضر (كيان قانوني / وكيل مدين) — ديناميكي حسب أعلام التخصيص */
