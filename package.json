@@ -171,6 +171,7 @@
     "doctor:wife-redis": "node scripts/wife-redis-onboard.mjs",
     "doctor:wife-redis:template": "node scripts/wife-redis-onboard.mjs --write-template",
     "deploy:wife-edge": "node scripts/deploy-wife-edge-function.mjs",
+    "deploy:check": "node scripts/verify-deploy-ready.mjs",
     "gate:wife-prod-live": "node scripts/bootstrap-wife-prod-env.mjs && node scripts/load-env-and-gate.mjs --prod --live",
     "gate:wife-prod-live:only": "node scripts/load-env-and-gate.mjs --prod --live",
     "verify:wife-audit-chain": "node scripts/verify-wife-audit-chain.mjs",

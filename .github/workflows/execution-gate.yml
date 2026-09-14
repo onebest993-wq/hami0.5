@@ -110,6 +110,9 @@ concurrency:
 
 jobs:
   gate:
+    # اسمٌ لا يُشارك Quality Gate فحصَه: كلتا الوظيفتين `gate`، فكان على الالتزام الواحد فحصان باسم `gate` —
+    # نجاحٌ وسقوط (مقيس على ffb25b78) — وقاعدةُ حمايةٍ تشترط `gate` لا تُفرّق بينهما.
+    name: Execution Gate — E2E
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
