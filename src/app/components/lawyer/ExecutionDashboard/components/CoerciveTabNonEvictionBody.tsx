@@ -73,7 +73,7 @@ export function CoerciveTabNonEvictionBody({
             {followupEmployeeFinancialSalaryOnlyCoercive && !hideCoerciveFinancialBanners && (
                 <div className="bg-emerald-950/30 border border-emerald-500/35 rounded-2xl p-3 text-right">
                     <p className="text-emerald-200/95 text-[11px] leading-relaxed">
-                        تنفيذ مالي ومدين موظف: طلب حجز راتب (١/٥) أو عقار أو مال منقول يُعرَض على منفذ العدل. مسار الحجز المالي هنا؛ الإجراءات الشخصية وطلب الكفيل و«تحركات الطرف الآخر» من محضر المتابعة عند الحاجة.
+                        تنفيذ مالي ومدين موظف: طلب حجز راتب (١/٥) أو عقار أو مال منقول يُعرَض على منفذ العدل. مسار الحجز المالي هنا؛ الإجراءات الشخصية و«تحركات الطرف الآخر» من محضر المتابعة عند الحاجة.
                     </p>
                 </div>
             )}
